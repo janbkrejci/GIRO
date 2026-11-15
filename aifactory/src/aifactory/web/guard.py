@@ -83,6 +83,28 @@ STALE_MESSAGE = (
 )
 
 
+def _existing_terminal_io(scope: Scope) -> bool:
+    """Transport for an already validated shell, without opening another process.
+
+    The dashboard's process lease prevents migration while its shells exist.
+    Rewalking the retained backup per keystroke does not protect that running
+    process (which can already write without input), but adds seconds of latency.
+    Creation and one-shot exec still require the full migration check.
+    """
+    prefix = "/api/terminal/sessions/"
+    if not scope["path"].startswith(prefix):
+        return False
+    parts = scope["path"][len(prefix) :].split("/")
+    if not (
+        (scope["method"] == "POST" and len(parts) == 2 and parts[1] in {"input", "resize"})
+        or (scope["method"] == "DELETE" and len(parts) == 1)
+    ):
+        return False
+    state = getattr(scope.get("app"), "state", None)
+    session = getattr(state, "terminal_sessions", {}).get(parts[0])
+    return session is not None and not session.closed
+
+
 class StaleCodeMiddleware:
     """Reject writes under ``/api/`` while the dashboard runs code older than the package on disk.
 
@@ -115,7 +137,7 @@ class StaleCodeMiddleware:
                 return
             home = getattr(getattr(scope.get("app"), "state", None), "home", None)
             try:
-                if home is not None:
+                if home is not None and not _existing_terminal_io(scope):
                     await run_in_threadpool(check_home, home, writing=True)
             except UpgradeError as exc:
                 response = JSONResponse(envelope_fail(exc.code, exc.message), status_code=409)
