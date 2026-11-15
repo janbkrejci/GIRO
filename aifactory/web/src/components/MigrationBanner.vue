@@ -6,7 +6,7 @@ import Spinner from './ui/Spinner.vue'
 
 const updates = useUpdates({ migration: true })
 const state = updates.state
-const visible = computed(() => !state.value.current_version.startsWith('1.'))
+const visible = computed(() => state.value.current_version.startsWith('0.1.'))
 const busy = computed(() => ['checking', 'installing'].includes(state.value.status))
 </script>
 
