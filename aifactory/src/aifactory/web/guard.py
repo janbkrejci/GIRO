@@ -9,6 +9,7 @@ and ``Sec-Fetch-Site`` (CLI, curl) and a POST without a body pass; GET is not ch
 
 from __future__ import annotations
 
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -115,7 +116,7 @@ class StaleCodeMiddleware:
             home = getattr(getattr(scope.get("app"), "state", None), "home", None)
             try:
                 if home is not None:
-                    check_home(home, writing=True)
+                    await run_in_threadpool(check_home, home, writing=True)
             except UpgradeError as exc:
                 response = JSONResponse(envelope_fail(exc.code, exc.message), status_code=409)
                 await response(scope, receive, send)

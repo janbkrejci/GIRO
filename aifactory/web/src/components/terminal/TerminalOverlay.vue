@@ -23,7 +23,9 @@ let term: Terminal | undefined
 let fit: FitAddon | undefined
 let observer: ResizeObserver | undefined
 let subscription: { dispose(): void } | undefined
-let session: { id: string; controller: AbortController; queue: Promise<void> } | undefined
+type Operation = { kind: 'input'; data: string } | { kind: 'resize'; cols: number; rows: number }
+type Session = { id: string; controller: AbortController; pending: Operation[]; sending: boolean }
+let session: Session | undefined
 
 function removeSession() {
   const current = session
@@ -31,21 +33,37 @@ function removeSession() {
   current?.controller.abort()
   if (current) void deleteTerminalSession(current.id).catch(() => {})
 }
-function enqueue(operation: (id: string, signal: AbortSignal) => Promise<void>) {
+function enqueue(operation: Operation) {
   const current = session
   if (!current) return
-  // Preserve keystroke and resize order even over a slow connection.
-  current.queue = current.queue.then(async () => {
-    if (!current.controller.signal.aborted) await operation(current.id, current.controller.signal)
-  }).catch(err => {
-    if (!disposed && session === current) error.value = errorText(err)
-  })
+  const last = current.pending.at(-1)
+  // Batch adjacent waiting keystrokes without moving input across a resize.
+  if (operation.kind === 'input' && last?.kind === 'input') last.data += operation.data
+  else current.pending.push(operation)
+  void sendPending(current)
+}
+async function sendPending(current: Session) {
+  if (current.sending) return
+  current.sending = true
+  try {
+    while (!current.controller.signal.aborted && current.pending.length) {
+      const operation = current.pending.shift()!
+      try {
+        if (operation.kind === 'input') await inputTerminal(current.id, operation.data, current.controller.signal)
+        else await resizeTerminal(current.id, { cols: operation.cols, rows: operation.rows }, current.controller.signal)
+      } catch (err) {
+        if (!disposed && session === current) error.value = errorText(err)
+      }
+    }
+  } finally {
+    current.sending = false
+  }
 }
 function resize() {
   if (!term || !fit || disposed) return
   fit.fit()
   const size = { cols: term.cols, rows: term.rows }
-  enqueue((id, signal) => resizeTerminal(id, size, signal))
+  enqueue({ kind: 'resize', ...size })
 }
 async function start() {
   if (disposed || starting.value || session || !term) return
@@ -60,7 +78,7 @@ async function start() {
       await deleteTerminalSession(id).catch(() => {})
       return
     }
-    const current = { id, controller: new AbortController(), queue: Promise.resolve() }
+    const current: Session = { id, controller: new AbortController(), pending: [], sending: false }
     session = current
     // A resize may have happened while creation was in flight.
     resize()
@@ -116,7 +134,7 @@ onMounted(async () => {
     term.open(viewport.value!)
     subscription = term.onData(data => {
       if (ended.value && data === '\r') void start()
-      else enqueue((id, signal) => inputTerminal(id, data, signal))
+      else enqueue({ kind: 'input', data })
     })
     observer = new ResizeObserver(resize)
     observer.observe(viewport.value!)

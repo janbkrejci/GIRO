@@ -2,6 +2,7 @@
 id: HAIFA-S12-T05
 title: GIRO — připravit nové repo a pořadí obou vydání
 status: done
+archived: true
 depends_on: [HAIFA-S12-T03, HAIFA-S12-T04]
 writes: [docs/rebranding/, docs/decisions.md]
 ---

@@ -405,6 +405,8 @@ def test_committed_manifest_requires_consistent_recovery_records(
 ) -> None:
     source, target, bundle = legacy
     manifest = home_migration.migrate(source, target, bundle)
+    # A previous successful check must not hide subsequent backup damage.
+    migration_guard.check_home(target, writing=True)
     backup = Path(manifest["backup"])
     if damage == "missing_bundle":
         Path(manifest["haifa_bundle"]).unlink()
@@ -427,3 +429,22 @@ def test_committed_manifest_requires_consistent_recovery_records(
     with pytest.raises(UpgradeError):
         home_migration.migrate(source, target, bundle)
     assert {str(p): p.read_bytes() for p in source.parent.rglob("*") if p.is_file()} == before
+
+
+@pytest.mark.parametrize("copy", ["source", "plan"])
+@pytest.mark.parametrize("format_value", [True, 1.0])
+def test_matching_manifest_values_cannot_hide_wrong_types(
+    legacy: tuple[Path, Path, Path], copy: str, format_value: object
+) -> None:
+    source, target, bundle = legacy
+    manifest = home_migration.migrate(source, target, bundle)
+    migration_guard.check_home(target, writing=True)
+    path = (
+        source / migration_guard.MARKER
+        if copy == "source"
+        else Path(manifest["backup"]) / "plan.json"
+    )
+    manifest["format"] = format_value
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(UpgradeError):
+        migration_guard.check_home(target, writing=True)

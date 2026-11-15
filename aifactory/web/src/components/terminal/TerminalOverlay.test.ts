@@ -44,6 +44,38 @@ function api(info = { enabled: true, pty: true }) {
   return { fetchMock, cancel, output: () => output }
 }
 describe('TerminalOverlay', () => {
+  it.each([false, true])('batches input behind a slow request and respects resize and close (closed=%s)', async closed => {
+    const { fetchMock } = api()
+    let finish!: (response: Response) => void
+    const original = fetchMock.getMockImplementation()!
+    let first = true
+    fetchMock.mockImplementation((url, init) => {
+      if (url.endsWith('/input') && first) {
+        first = false
+        return new Promise<Response>(resolve => { finish = resolve })
+      }
+      return original(url, init)
+    })
+    const wrapper = mountOverlay()
+    await flushPromises()
+    fetchMock.mockClear()
+    const term = MockTerminal.instances[0]!
+    term.data('a')
+    await flushPromises()
+    term.data('b')
+    term.data('c')
+    resize()
+    term.data('d')
+    term.data('\u0003')
+    await flushPromises()
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/input'))).toHaveLength(1)
+    if (closed) wrapper.unmount()
+    finish(new Response(JSON.stringify({ ok: true, data: {} })))
+    await flushPromises()
+    const writes = fetchMock.mock.calls.filter(([url]) => url.endsWith('/input') || url.endsWith('/resize'))
+    expect(writes.map(([url]) => url.split('/').at(-1))).toEqual(closed ? ['input'] : ['input', 'input', 'resize', 'input'])
+    expect(writes.filter(([url]) => url.endsWith('/input')).map(([, init]) => JSON.parse(init!.body as string).data)).toEqual(closed ? ['a'] : ['a', 'bc', 'd\u0003'])
+  })
   it('creates a fitted PTY, focuses xterm, writes raw bytes, and forwards ordered input and resizing', async () => {
     const { fetchMock, output } = api()
     const wrapper = mountOverlay()
@@ -57,7 +89,7 @@ describe('TerminalOverlay', () => {
     expect(term.write).toHaveBeenCalledWith(bytes)
     for (const data of ['a', '\u0003', '\u001a', '\t', '\u001b[A', '\u001bOP']) term.data(data)
     await flushPromises()
-    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/input')).map(([, init]) => JSON.parse(init!.body as string).data)).toEqual(['a', '\u0003', '\u001a', '\t', '\u001b[A', '\u001bOP'])
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/input')).map(([, init]) => JSON.parse(init!.body as string).data).join('')).toBe('a\u0003\u001a\t\u001b[A\u001bOP')
     term.cols = 140
     term.rows = 50
     resize()

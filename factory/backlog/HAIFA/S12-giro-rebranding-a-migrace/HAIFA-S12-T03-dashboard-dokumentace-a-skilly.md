@@ -2,6 +2,7 @@
 id: HAIFA-S12-T03
 title: GIRO — dashboard, dokumentace, demo a skilly
 status: done
+archived: true
 depends_on: [HAIFA-S12-T02]
 writes: [aifactory/, giro/, README.md, AGENTS.md, CLAUDE.md, docs/, justfile]
 ---
