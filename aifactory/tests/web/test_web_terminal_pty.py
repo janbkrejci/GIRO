@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -17,7 +18,8 @@ from starlette.types import Message
 from test_web_terminal import _client
 
 from aifactory import oscompat
-from aifactory.web import terminal_pty
+from aifactory.upgrade import UpgradeError
+from aifactory.web import guard, terminal_pty
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX PTY sessions")
 BASE = "/api/terminal/sessions"
@@ -166,6 +168,78 @@ def test_disconnect_cleanup(tmp_path: Path, blocked_send: bool) -> None:
             await asyncio.to_thread(client.portal.call, run)
 
     asyncio.run(scenario())
+
+
+def test_existing_terminal_io_does_not_rescan_migration_backup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with _client(tmp_path) as client:
+        created = client.post(BASE, json={"cols": 80, "rows": 24})
+        assert created.status_code == 200
+        token = created.json()["data"]["id"]
+
+        def deny(home: Path, *, writing: bool = False) -> None:
+            raise UpgradeError("migration_pending", "Backup validation must not run per key")
+
+        monkeypatch.setattr(guard, "check_home", deny)
+        # A session already owns its validated shell. Input and sizing must not
+        # perform filesystem validation again, even for individual keystrokes.
+        for character in "echo":
+            response = client.post(f"{BASE}/{token}/input", json={"data": character})
+            assert response.status_code == 200, response.text
+        assert (
+            client.post(f"{BASE}/{token}/resize", json={"cols": 90, "rows": 30}).status_code == 200
+        )
+
+        app = cast(Starlette, client.app)
+        app.state.terminal_sessions["closed"] = SimpleNamespace(closed=True)
+        try:
+            # Only exact operations on a live session qualify. New shells,
+            # unknown/closed sessions and unrelated writes retain the full guard.
+            for path in (
+                BASE,
+                f"{BASE}/missing/input",
+                f"{BASE}/closed/input",
+                f"{BASE}/{token}",
+                f"{BASE}/{token}/input/extra",
+                "/api/terminal/exec",
+                "/api/backlog/commit",
+            ):
+                response = client.post(path, json={})
+                assert response.status_code == 409, path
+                assert response.json()["error"]["code"] == "migration_pending"
+        finally:
+            del app.state.terminal_sessions["closed"]
+        assert client.delete(f"{BASE}/{token}").status_code == 200
+        assert client.post(f"{BASE}/{token}/input", json={"data": "x"}).status_code == 409
+
+
+@pytest.mark.parametrize(
+    "reason", ["cross_origin", "terminal_disabled", "update_busy", "stale_code"]
+)
+def test_existing_terminal_io_retains_other_write_guards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reason: str
+) -> None:
+    with _client(tmp_path) as client:
+        token = client.post(BASE, json={"cols": 80, "rows": 24}).json()["data"]["id"]
+        app = cast(Starlette, client.app)
+        if reason == "terminal_disabled":
+            monkeypatch.setattr(terminal_pty, "_enabled", lambda request: False)
+        elif reason == "update_busy":
+            app.state.updates.installing = True
+        elif reason == "stale_code":
+            monkeypatch.setattr(app.state.code, "stale", lambda: True)
+        headers = {"Origin": "http://evil.example"} if reason == "cross_origin" else {}
+        for method, suffix, body in (
+            ("POST", "/input", {"data": "must not reach the shell"}),
+            ("POST", "/resize", {"cols": 90, "rows": 30}),
+            ("DELETE", "", None),
+        ):
+            response = client.request(method, f"{BASE}/{token}{suffix}", json=body, headers=headers)
+            assert response.status_code == (
+                403 if reason in {"cross_origin", "terminal_disabled"} else 409
+            )
+            assert response.json()["error"]["code"] == reason
 
 
 def test_limit_delete_and_shutdown(tmp_path: Path) -> None:
