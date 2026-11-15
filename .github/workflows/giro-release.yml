@@ -1,56 +1,71 @@
-name: T06 candidate installation
+name: T06 final HAIFA candidate installation
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  smoke:
+  build:
     if: github.repository == 'janbkrejci/GIRO' && github.ref == 'refs/heads/codex/t06-candidate-smoke'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: 4dd3ddf1ea18f672674123df94dc4643a4868f52
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: '3.12'
       - uses: oven-sh/setup-bun@v2
-      - name: Build frontend and candidate bundle without publication
+      - name: Build retained HAIFA source without publishing
         shell: bash
         run: |
+          test "$(git rev-parse HEAD)" = 4dd3ddf1ea18f672674123df94dc4643a4868f52
           cd aifactory/web
           bun install --frozen-lockfile
           bun run build
           cd ..
           uv sync --locked
-          uv run python -m bundle.release
+          uv run python -c 'from bundle.release import stamp; print(stamp(614, "janbkrejci/HAIFA"))'
           uv run python -m bundle.build
-      - name: Install candidate and check both entry points
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retained-haifa-candidate
+          path: aifactory/dist/haifa-0.1.614.zip
+          retention-days: 3
+  install:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: retained-haifa-candidate
+          path: candidate
+      - name: Install retained HAIFA candidate in isolation
         shell: python
         run: |
           import hashlib, os, pathlib, subprocess, zipfile
-          version = '1.0.' + os.environ['GITHUB_RUN_NUMBER']
-          name = 'giro-' + version
-          archive = pathlib.Path(os.environ['GITHUB_WORKSPACE']) / 'aifactory' / 'dist' / (name + '.zip')
-          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'candidate-smoke'
+          archive = pathlib.Path('candidate/haifa-0.1.614.zip')
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'haifa-candidate'
           root.mkdir()
           with zipfile.ZipFile(archive) as bundle:
               bundle.extractall(root)
           env = {k: v for k, v in os.environ.items() if not k.startswith(('HAIFA_', 'GIRO_')) and k not in ('GH_TOKEN', 'GITHUB_TOKEN')}
-          env.update(UV_TOOL_DIR=str(root / 'tools'), UV_TOOL_BIN_DIR=str(root / 'bin'), UV_PYTHON='3.12', GIRO_HOME=str(root / 'home'),
+          env.update(UV_TOOL_DIR=str(root / 'tools'), UV_TOOL_BIN_DIR=str(root / 'bin'), UV_PYTHON='3.12', HAIFA_HOME=str(root / 'home'),
                      GH_CONFIG_DIR=str(root / 'gh-empty'), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0')
           env['PATH'] = str(root / 'bin') + os.pathsep + env['PATH']
-          command = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(root / name / 'install.ps1')] if os.name == 'nt' else ['bash', str(root / name / 'install.sh')]
+          command = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(root / 'haifa-0.1.614/install.ps1')] if os.name == 'nt' else ['bash', str(root / 'haifa-0.1.614/install.sh')]
           subprocess.run(command, env=env, check=True)
-          for cli in ['giro', 'factory']:
-              executable = root / 'bin' / (cli + ('.exe' if os.name == 'nt' else ''))
-              output = subprocess.check_output([str(executable), '--version'], env=env, text=True).strip()
-              assert output == 'GIRO ' + version, output
-          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          executable = root / 'bin' / ('factory.exe' if os.name == 'nt' else 'factory')
+          output = subprocess.check_output([str(executable), '--version'], env=env, text=True).strip()
+          assert output == 'factory 0.1.614', output
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
-              summary.write(f'Candidate {version} installation passed on {os.environ["RUNNER_OS"]}.\n\nBundle SHA256: `{digest}`. Source: `{os.environ["GITHUB_SHA"]}`. Nothing published.\n')
+              summary.write(f'Retained HAIFA candidate installation passed on {os.environ["RUNNER_OS"]}. SHA256: {hashlib.sha256(archive.read_bytes()).hexdigest()}. No release published.\n')
