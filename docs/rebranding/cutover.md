@@ -26,7 +26,7 @@ Produkční publikaci stále blokuje `GIRO_RELEASE_ENABLED=false`. Default workf
 read-only bez oprávnění schvalovat PR. Main chrání ruleset proti smazání a force
 push. V obou repozitářích ruleset chrání v* a oba přechodové tagy před přepsáním
 a smazáním; vytvoření nového tagu zůstává povolené publikační identitě.
-`JanKrejciASOL` obdržel pozvánku s write; přijetí dosud není ověřené.
+`JanKrejciASOL` přijal pozvánku; GitHub API ověřilo roli write a žádnou čekající pozvánku.
 Inventura: žádné hooks, environments, repo secrets, deploy keys ani self-hosted
 runners. Pages endpoint 404; žádná změna DNS, registries nebo cizích balíčků.
 
@@ -49,8 +49,9 @@ Před publikací H se znovu ověří vyšší verze i dostupné stabilní GIRO 1
 
 G_SHA, verze, tagy, workflow runy, digesty, instalace, přechod kliknutím a návrat
 budou doplněny až podle skutečných výsledků. Žádné vydání ani živá migrace zde
-zatím nejsou prohlášeny za dokončené. macOS/Linux/Windows smoke: dosud neověřeno.
-Úplné `just check` a `just e2e`: čekají na výsledek. T07 zůstává zablokované T06.
+zatím nejsou prohlášeny za dokončené. Smoke zveřejněných bundlů na
+macOS/Linux/Windows čeká na vydání. `just check` i `just e2e` prošly.
+T07 zůstává zablokované T06.
 
 ## Izolovaná příprava na macOS
 
@@ -100,7 +101,7 @@ Zkouška používá místní odpovědi release API a kandidátní ZIPy, ale skut
 budoucího veřejného assetu ani o migraci provozních dat vlastníka.
 
 První přechod odhalil blokování event loopu: background monitoring synchronně
-ověřoval migrační manifest a kontrolní součty. Jedno čtení trvalo 2,7 s; souběh
+ověřoval migrační manifest a úplnost záložních souborů. Jedno čtení trvalo 2,7 s; souběh
 startup kontrol bránil odpovědi health ve dvousekundovém limitu. Kontrola nyní
 běží v threadpoolu, zápisy stále čekají na committed. Regrese pokrývá prepared
 i committed stav a před opravou oba případy selhaly. První neúspěšný pokus navíc
@@ -119,5 +120,25 @@ Banner se nyní zobrazuje pouze pro potvrzenou verzi HAIFA 0.1; test pokrývá
 selhalo. Při úplné první kontrole prošlo 4 397 backend testů a 1 892 frontend
 testů. Dva backend testy selhaly: délka příručky (text byl zkrácen) a ochrana
 stale_code kvůli souběžné editaci zdrojů operátorem. Následná cílená kontrola
-12 testů včetně obou těchto případů prošla. Závěrečné úplné brány poběží nad
-neměnným checkoutem; dosavadní výsledky je nenahrazují.
+12 testů včetně obou těchto případů prošla. Závěrečné úplné brány pak proběhly
+nad neměnným checkoutem; jejich výsledky jsou uvedeny níže.
+
+## Závěrečné kontroly kandidátů
+
+Opravený produktový strom `95205df0055dd82b6c916c9ce66a515d131dc0c3`
+prošel [třetím kandidátním během GIRO](https://github.com/janbkrejci/GIRO/actions/runs/43704685193)
+na všech třech platformách. Kandidátní commit
+`50c0b458c14b1075dc3e2695748f2350416598de` se od produktového stromu liší
+pouze ručním read-only workflow; tento workflow se neslučuje do main.
+
+Také [kandidát poslední HAIFA](https://github.com/janbkrejci/GIRO/actions/runs/43705457649)
+prošel instalací na Ubuntu, Windows a macOS. Build proběhl na Ubuntu z přesného
+uchovaného T04 SHA, místně stampovaný na 0.1.614, bez publikace release.
+Skutečná verze poslední HAIFA bude určena až jejím publikačním během.
+
+Neměnný checkout `95205df0` dokončil `just check`: 4 403 backend testů prošlo,
+40 bylo přeskočeno; 1 900 frontend testů ve 128 souborech prošlo. Mypy ověřilo
+560 souborů, lint a formátování prošly (595 souborů). Celá brána trvala 2 388 s.
+`just e2e` nad stejným checkoutem prošlo: všech 54 prohlížečových testů za 684 s,
+včetně migrační výzvy v obou jazycích. Ani jedna úplná brána nezměnila sledované
+soubory testovaného checkoutu. Následné doplnění tohoto záznamu nemění produktový kód.
