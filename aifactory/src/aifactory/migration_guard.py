@@ -82,11 +82,21 @@ def _validate_manifest(data: Any, *, complete: bool) -> dict[str, Any]:
             saved = backup / "data" / str(index)
             if not saved.exists():
                 raise ValueError("Missing retained data")
-            files.update(
-                str(path.relative_to(backup))
-                for path in ([saved] if saved.is_file() else saved.rglob("*"))
-                if path.is_file()
-            )
+            if saved.is_file():
+                files.add(str(saved.relative_to(backup)))
+                continue
+            # DirEntry retains file-type information from the directory listing;
+            # Path.is_file() would issue another stat for every retained file.
+            pending = [(str(saved), str(saved.relative_to(backup)))]
+            while pending:
+                directory, relative = pending.pop()
+                with os.scandir(directory) as entries:
+                    for entry in entries:
+                        name = os.path.join(relative, entry.name)
+                        if entry.is_dir(follow_symlinks=False):
+                            pending.append((entry.path, name))
+                        elif entry.is_file():
+                            files.add(name)
         if set(records) != files:
             raise ValueError("Incomplete retained data records")
     return data
@@ -100,20 +110,25 @@ def check_home(home: Path, *, writing: bool = False, expected_source: Path | Non
     if __version__.startswith("1."):
         try:
             data = _validate_manifest(json.loads((home / MARKER).read_text("utf-8")), complete=True)
-            retained = _validate_manifest(
-                json.loads((Path(data["backup"]) / "plan.json").read_text("utf-8")), complete=True
-            )
+            # Equal copies share the validation above. Recheck disk contents on
+            # every call, but do not walk the same backup three times per request.
+            retained = json.loads((Path(data["backup"]) / "plan.json").read_text("utf-8"))
             source = Path(data["source"])
-            pointer = _validate_manifest(
-                json.loads((source / MARKER).read_text("utf-8")),
-                complete=data["state"] == "committed",
-            )
-            pointer_matches = pointer == data or (
+            pointer = json.loads((source / MARKER).read_text("utf-8"))
+            # JSON comparison preserves types: Python considers True and 1.0
+            # equal to format 1, although neither is a valid manifest format.
+            encoded = json.dumps(data, sort_keys=True)
+            pointer_encoded = json.dumps(pointer, sort_keys=True)
+            pointer_matches = pointer_encoded == encoded or (
                 data["state"] == "prepared"
-                and pointer == {key: item for key, item in data.items() if key != "data_hashes"}
+                and pointer_encoded
+                == json.dumps(
+                    {key: item for key, item in data.items() if key != "data_hashes"},
+                    sort_keys=True,
+                )
             )
             if (
-                retained == data
+                json.dumps(retained, sort_keys=True) == encoded
                 and pointer_matches
                 and Path(data["target"]).resolve() == home.resolve()
                 and (expected_source is None or source.resolve() == expected_source.resolve())
