@@ -79,7 +79,12 @@ def stamp(run_number: int, repository: str, project: Path = PROJECT) -> str:
     target = f"{major}.{minor}.{run_number}"
     init = project / "src/aifactory/__init__.py"
     init.write_text(
-        re.sub(r"^__version__ = .*$", f'__version__ = "{target}"', init.read_text(), flags=re.M),
+        re.sub(
+            r"^__version__ = .*$",
+            f'__version__ = "{target}"',
+            init.read_text(encoding="utf-8"),
+            flags=re.M,
+        ),
         encoding="utf-8",
     )
     updates = project / "src/aifactory/web/updates.py"
@@ -87,7 +92,7 @@ def stamp(run_number: int, repository: str, project: Path = PROJECT) -> str:
         re.sub(
             r"^UPDATE_REPOSITORY = .*$",
             f'UPDATE_REPOSITORY = "{repository}"',
-            updates.read_text(),
+            updates.read_text(encoding="utf-8"),
             flags=re.M,
         ),
         encoding="utf-8",

@@ -24,3 +24,27 @@ def test_ci_rejects_invalid_release_inputs(tmp_path: Path) -> None:
         stamp(0, "example/haifa", tmp_path)
     with pytest.raises(ValueError):
         stamp(1, "bad repository", tmp_path)
+
+
+@pytest.mark.parametrize("relative", ["__init__.py", "web/updates.py"])
+def test_ci_stamp_preserves_utf8_with_an_ansi_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative: str
+) -> None:
+    package = tmp_path / "src/aifactory"
+    (package / "web").mkdir(parents=True)
+    sources = {
+        "__init__.py": '__version__ = "1.0.0"\n',
+        "web/updates.py": 'UPDATE_REPOSITORY = "old/repo"\n',
+    }
+    sources[relative] += "# čeština při přechodu\n"
+    for name, source in sources.items():
+        (package / name).write_text(source, encoding="utf-8")
+    read_text = Path.read_text
+
+    def read_ansi(path: Path, encoding: str | None = None, errors: str | None = None) -> str:
+        return read_text(path, encoding=encoding or "cp1252", errors=errors)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "read_text", read_ansi)
+        assert stamp(2, "janbkrejci/GIRO", tmp_path) == "1.0.2"
+    assert "# čeština při přechodu" in (package / relative).read_text(encoding="utf-8")
