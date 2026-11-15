@@ -4,7 +4,7 @@ GIRO je lokální dashboard a CLI `giro` pro agentní úkoly ve více Git repozi
 
 ## Instalace
 
-GIRO bundle `giro-<verze>.zip` získáš od správce týmu. Cílové repo `janbkrejci/GIRO` bude veřejným instalačním zdrojem až po ověřeném cutoveru T06; dosud aktivní [vydání HAIFA](https://github.com/janbkrejci/HAIFA/releases/latest) obsahují `haifa-<verze>.zip`. Ze starší HAIFA nejprve přejdi na poslední HAIFA s alertem „HAIFA se přejmenovává na GIRO“, pak použij jeho přechodovou akci. Instalaci, zálohy, návrat a odinstalaci popisuje [příručka](aifactory/src/aifactory/guide/02-instalace.md); je také v bundlu jako `INSTALL.md`.
+GIRO bundle `giro-<verze>.zip` se publikuje na stránce [vydání GIRO](https://github.com/janbkrejci/GIRO/releases/latest). Při přechodu ze starší instalace použij nejprve [poslední vydání HAIFA](https://github.com/janbkrejci/HAIFA/releases/latest) s balíčkem `haifa-<verze>.zip`. Stav prvního vydání a ověření přechodu zaznamenává [provozní záznam](docs/rebranding/cutover.md). Ze starší HAIFA nejprve přejdi na poslední HAIFA s alertem „HAIFA se přejmenovává na GIRO“, pak použij jeho přechodovou akci. Instalaci, zálohy, návrat a odinstalaci popisuje [příručka](aifactory/src/aifactory/guide/02-instalace.md); je také v bundlu jako `INSTALL.md`.
 
 `factory` a `HAIFA_*` zůstávají kompatibilní aliasy; `.factory/`, `factory/`, distribuce `aifactory` a HAIFA-LIBRARY zachovávají technickou identitu. [Kontrakt přechodu](docs/rebranding/giro.md) vysvětluje výjimky.
 

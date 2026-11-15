@@ -4,7 +4,7 @@ GIRO je lokální dashboard a CLI `giro`, které pouští kódovací agenty (Cla
 
 ## Instalace
 
-GIRO bundle získáš od správce týmu; cílové repo `janbkrejci/GIRO` se stane veřejným zdrojem až po cutoveru T06. Dosud aktivní HAIFA releases poskytují starý HAIFA bundle. Přechod vede přes poslední HAIFA s alertem, viz instalační příručka. `factory` a `HAIFA_*` jsou kompatibilní aliasy; technické cesty a distribuce `aifactory` zůstávají.
+GIRO bundle `giro-<verze>.zip` se publikuje na stránce [vydání GIRO](https://github.com/janbkrejci/GIRO/releases/latest). [Poslední vydání HAIFA](https://github.com/janbkrejci/HAIFA/releases/latest) zůstává dostupné pro přechod starších instalací. Stav prvního vydání zaznamenává [provozní záznam](../docs/rebranding/cutover.md). Přechod vede přes poslední HAIFA s alertem, viz instalační příručka. `factory` a `HAIFA_*` jsou kompatibilní aliasy; technické cesty a distribuce `aifactory` zůstávají.
 
 ```bash
 unzip giro-<verze>.zip

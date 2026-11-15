@@ -69,7 +69,7 @@ Complete sign-in when first running `claude`. Other harnesses: `codex login`, `p
 
 ## Installing the bundle <!-- section:instalace-balicku -->
 
-Obtain `giro-<version>.zip` from your team administrator. The target repository `janbkrejci/GIRO` becomes an installation source only after verified cutover T06. The currently active [HAIFA releases](https://github.com/janbkrejci/HAIFA/releases/latest) contain `haifa-H.zip` (H is the last HAIFA 0.1 version). Extract it and run the installer:
+The `giro-<version>.zip` bundle is published on the [GIRO releases page](https://github.com/janbkrejci/GIRO/releases/latest). Existing installations transition through the [last HAIFA release](https://github.com/janbkrejci/HAIFA/releases/latest), whose bundle is `haifa-H.zip` (H is the last HAIFA 0.1 version). For a fresh installation, extract the GIRO bundle and run the installer:
 
 ```bash
 unzip giro-<version>.zip
