@@ -2,6 +2,7 @@
 id: HAIFA-S12-T06
 title: Vydat GIRO v novém repo a potom poslední HAIFA s alertem
 status: done
+archived: true
 assignee: human
 workflow: null
 auto_continue: false
