@@ -18,6 +18,24 @@ const labels = {
 }
 
 describe.each(['en', 'cs'] as const)('MigrationBanner (%s)', language => {
+  it.each(['0.1.999', '1.0.1', '2.0.0'])('waits for the installed version before offering migration (%s)', async version => {
+    setLocale(language)
+    let finish!: (value: Response) => void
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { finish = resolve })))
+    const wrapper = mount(MigrationBanner)
+    expect(wrapper.find('[data-test="migration-banner"]').exists()).toBe(false)
+    finish(envelope({ status: 'current', current_version: version }))
+    await flushPromises()
+    expect(wrapper.find('[data-test="migration-banner"]').exists()).toBe(version.startsWith('0.1.'))
+  })
+
+  it('does not offer migration when the installed version cannot be read', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    const wrapper = mount(MigrationBanner)
+    await flushPromises()
+    expect(wrapper.find('[data-test="migration-banner"]').exists()).toBe(false)
+  })
+
   it.each(['runs_active', 'update_busy', 'update_unavailable'] as const)('keeps %s actionable, localized and retryable', async code => {
     setLocale(language)
     let attempts = 0

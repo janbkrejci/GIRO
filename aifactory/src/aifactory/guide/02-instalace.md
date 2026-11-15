@@ -65,7 +65,7 @@ Při prvním spuštění `claude` dokonči přihlášení. Ostatní harnessy: `c
 
 ## Instalace balíčku
 
-`giro-<verze>.zip` získáš od správce. Cílové repo `janbkrejci/GIRO` bude instalačním zdrojem až po ověřeném cutoveru T06. Dosud aktivní [vydání HAIFA](https://github.com/janbkrejci/HAIFA/releases/latest) obsahují `haifa-H.zip` (H: poslední HAIFA 0.1). Rozbal ho a spusť instalační skript:
+Balíček `giro-<verze>.zip` najdeš mezi [vydáními GIRO](https://github.com/janbkrejci/GIRO/releases/latest). Starší instalaci nejprve aktualizuj na [poslední HAIFA](https://github.com/janbkrejci/HAIFA/releases/latest) (`haifa-H.zip`, řada 0.1). Pro čistou instalaci rozbal GIRO a spusť instalátor:
 
 ```bash
 unzip giro-<verze>.zip

@@ -1,0 +1,73 @@
+name: Published bundle smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        type: choice
+        options: [GIRO, HAIFA]
+        required: true
+        default: GIRO
+      tag:
+        description: Published version tag, for example v1.0.1
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    if: github.repository == 'janbkrejci/GIRO'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: '3.12'
+      - name: Verify the published bundle and install into isolated directories
+        shell: python
+        env:
+          PRODUCT: ${{ inputs.product }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          import hashlib, json, os, pathlib, re, subprocess, urllib.request, zipfile
+
+          product, tag = os.environ['PRODUCT'], os.environ['RELEASE_TAG']
+          assert product in ('GIRO', 'HAIFA')
+          assert re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag)
+          repo = 'janbkrejci/' + product
+          with urllib.request.urlopen(f'https://api.github.com/repos/{repo}/releases/tags/{tag}') as response:
+              release = json.load(response)
+          assert not release['draft'] and not release['prerelease']
+          name = f'{product.lower()}-{tag[1:]}'
+          assets = [a for a in release['assets'] if a['name'] == name + '.zip']
+          assert len(assets) == 1
+          asset = assets[0]
+          assert asset['browser_download_url'] == f'https://github.com/{repo}/releases/download/{tag}/{name}.zip'
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'bundle-smoke'
+          root.mkdir()
+          archive = root / (name + '.zip')
+          urllib.request.urlretrieve(asset['browser_download_url'], archive)
+          digest = 'sha256:' + hashlib.sha256(archive.read_bytes()).hexdigest()
+          assert digest == asset['digest']
+          with zipfile.ZipFile(archive) as bundle:
+              assert all(pathlib.PurePosixPath(n).parts[0] == name and '..' not in pathlib.PurePosixPath(n).parts for n in bundle.namelist())
+              bundle.extractall(root)
+          env = {k: v for k, v in os.environ.items() if not k.startswith(('HAIFA_', 'GIRO_')) and k not in ('GH_TOKEN', 'GITHUB_TOKEN')}
+          env.update(UV_TOOL_DIR=str(root / 'tools'), UV_TOOL_BIN_DIR=str(root / 'bin'), UV_PYTHON='3.12',
+                     GH_CONFIG_DIR=str(root / 'gh-empty'), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0')
+          env[product + '_HOME'] = str(root / 'home')
+          env['PATH'] = str(root / 'bin') + os.pathsep + env['PATH']
+          command = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(root / name / 'install.ps1')] if os.name == 'nt' else ['bash', str(root / name / 'install.sh')]
+          subprocess.run(command, env=env, check=True)
+          for cli in (['giro', 'factory'] if product == 'GIRO' else ['factory']):
+              executable = root / 'bin' / (cli + ('.exe' if os.name == 'nt' else ''))
+              output = subprocess.check_output([str(executable), '--version'], env=env, text=True).strip()
+              assert output == f'{"GIRO" if product == "GIRO" else "factory"} {tag[1:]}', output
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write(f'Fresh {product} {tag} installation passed on {os.environ["RUNNER_OS"]}.\n\nBundle digest: `{digest}`.\n')
