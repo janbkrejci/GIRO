@@ -63,3 +63,8 @@ Starý instalátor při seedování testovacího klonu automaticky založil
 HAIFA-LIBRARY PR #37. Operátor jej uzavřel bez sloučení a odstranil pouze tuto
 novou testovací větev po ověření SHA. Main knihovny zůstal nezměněný. Další
 zkoušky mají knihovní klon bez remote a prázdné GitHub přihlašovací prostředí.
+
+Po publikaci každého bundlu lze spustit `release-smoke.yml` v GIRO s přesným
+produktem a tagem. Tento ruční workflow ověřuje veřejný asset digest, ZIP kořen,
+instalátor a CLI v izolaci na Ubuntu, Windows a macOS. Nepublikuje releasy,
+nepoužívá přihlášení vlastníka a nenahrazuje zkoušku přechodu ani T07.
