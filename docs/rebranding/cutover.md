@@ -92,3 +92,32 @@ příkazový alias a nezobrazoval migrační alert. Před existencí GIRO releas
 kliknutí v testovací HAIFA `update_unavailable` (HTTP 409); HAIFA i data zůstaly
 beze změny. Pro skutečný přechod je připraven izolovaný registrovaný repozitář,
 SQLite databáze, necommitnutá knihovna a obyčejné soubory s příponami -wal/-shm.
+
+## Skutečný instalátor a návrat v izolaci
+
+Zkouška používá místní odpovědi release API a kandidátní ZIPy, ale skutečný
+`uv tool install`, proces dashboardu, zálohy a restart. Nejde o důkaz dostupnosti
+budoucího veřejného assetu ani o migraci provozních dat vlastníka.
+
+První přechod odhalil blokování event loopu: background monitoring synchronně
+ověřoval migrační manifest a kontrolní součty. Jedno čtení trvalo 2,7 s; souběh
+startup kontrol bránil odpovědi health ve dvousekundovém limitu. Kontrola nyní
+běží v threadpoolu, zápisy stále čekají na committed. Regrese pokrývá prepared
+i committed stav a před opravou oba případy selhaly. První neúspěšný pokus navíc
+vyčerpal timeout ukončení dítěte; operátor zachoval zálohu a podle ověřených
+hashů obnovil pouze testovací HAIFA. Uchovaný T04 zdroj se neměnil.
+
+Opakovaný přechod skutečně dokončil committed do GIRO; shodují se kontrolní
+součty souborů včetně necommitnuté knihovny, kontrolní SQLite řádek a ID, názvy
+i cesty registrovaných repozitářů. Další izolovaný pokus úmyslně ukončil GIRO
+při startu: koordinátor automaticky obnovil HAIFA 0.1.614 na původním portu,
+zachoval kontrolní součty a diagnostiku a odstranil rozpracovaný marker.
+
+Prohlížeč odhalil také krátké zobrazení výzvy v GIRO před načtením verze.
+Banner se nyní zobrazuje pouze pro potvrzenou verzi HAIFA 0.1; test pokrývá
+čekající a neúspěšný dotaz i GIRO 1.x a 2.x. Osm nových případů před opravou
+selhalo. Při úplné první kontrole prošlo 4 397 backend testů a 1 892 frontend
+testů. Dva backend testy selhaly: délka příručky (text byl zkrácen) a ochrana
+stale_code kvůli souběžné editaci zdrojů operátorem. Následná cílená kontrola
+12 testů včetně obou těchto případů prošla. Závěrečné úplné brány poběží nad
+neměnným checkoutem; dosavadní výsledky je nenahrazují.

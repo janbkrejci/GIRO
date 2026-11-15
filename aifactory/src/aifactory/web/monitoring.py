@@ -20,7 +20,7 @@ async def _migration_ready() -> None:
     # refresh mutable state before the coordinator commits the transaction.
     while True:
         try:
-            check_home(haifa_home(), writing=True)
+            await run_in_threadpool(lambda: check_home(haifa_home(), writing=True))
             return
         except UpgradeError:
             await asyncio.sleep(0.2)
