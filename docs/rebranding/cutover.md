@@ -1,6 +1,6 @@
 # T06: provozní přechod HAIFA → GIRO
 
-Stav: probíhá; T06 ani následné T07 nejsou uzavřeny. Datum: 2026-11-15.
+Stav: T06 dokončeno; T07 zůstává otevřené. Datum: 2026-11-15.
 Vlastník `janbkrejci` výslovně potvrdil název GIRO a veřejné cílové repo po
 upozornění na existující AI-agent nástroj a příkaz giro na PyPI. Distribuce
 zůstává aifactory; ochrana cizího příkazu při instalaci zůstává aktivní.
@@ -22,7 +22,9 @@ První HTTP přenos selhal před vytvořením refů. Opakování s HTTP/1.1 a bu
 50 MiB přeneslo celý snapshot; nebyl použit force push ani přepis historie.
 
 GIRO je public, default main, stejné merge volby jako HAIFA. Actions byly při importu vypnuté; poté povolené pro kandidátní kontroly.
-Produkční publikaci stále blokuje `GIRO_RELEASE_ENABLED=false`. Default workflow token je
+Publikaci při importu a ověřování blokovalo `GIRO_RELEASE_ENABLED=false`;
+pro první vydání byl gate výslovně zapnutý. Běžné vydávání GIRO používá pouze main.
+Default workflow token je
 read-only bez oprávnění schvalovat PR. Main chrání ruleset proti smazání a force
 push. V obou repozitářích ruleset chrání v* a oba přechodové tagy před přepsáním
 a smazáním; vytvoření nového tagu zůstává povolené publikační identitě.
@@ -35,7 +37,7 @@ runners. Pages endpoint 404; žádná změna DNS, registries nebo cizích balí�
 Checkout zůstává `/Users/jbk/Documents/HAIFA`. `origin` míří na GIRO;
 `haifa-history` zachovává původní HAIFA. Upstreamy zachovaných vývojových větví
 míří na GIRO. Registry ID, provozní data, `.factory/`, task ID a historie zůstávají.
-Automatické pokračování a slučování jsou po dobu cutoveru pozastavené.
+Po dobu cutoveru bylo automatické pokračování a slučování pozastavené.
 Další stroje zatím nebyly přepnuty ani ověřeny; jejich vlastník použije oddíl 6
 [provozního postupu](repository-migration.md). HAIFA-LIBRARY zůstává na původní
 adrese jako dokumentovaná kompatibilní výjimka; její data se nepřepisují.
@@ -44,19 +46,70 @@ adrese jako dokumentovaná kompatibilní výjimka; její data se nepřepisují.
 
 Uchovaný zdroj poslední HAIFA H je výhradně
 `4dd3ddf1ea18f672674123df94dc4643a4868f52` (T04), nikoli rebrandingový main.
-Dosavadní latest HAIFA je `v0.1.613`; poslední úspěšný run ci.yml má číslo 613.
-Před publikací H se znovu ověří vyšší verze i dostupné stabilní GIRO 1.x.
+Předchozí latest HAIFA bylo `v0.1.613`; nové H má vyšší verzi 0.1.614.
+Nejprve bylo vydáno a ověřeno stabilní GIRO, teprve potom poslední HAIFA.
 
-G_SHA, verze, tagy, workflow runy, digesty, instalace, přechod kliknutím a návrat
-budou doplněny až podle skutečných výsledků. Žádné vydání ani živá migrace zde
-zatím nejsou prohlášeny za dokončené. Smoke zveřejněných bundlů na
-macOS/Linux/Windows čeká na vydání. `just check` i `just e2e` prošly.
-T07 zůstává zablokované T06.
+| Vydání | Zdrojový commit | Publikační běh |
+| --- | --- | --- |
+| [GIRO 1.0.6](https://github.com/janbkrejci/GIRO/releases/tag/v1.0.6) | `307955985576bbd4eb8fd6aa10a2c07f05ad285e` | [43708933267](https://github.com/janbkrejci/GIRO/actions/runs/43708933267), číslo 6, attempt 1 |
+| [HAIFA 0.1.614](https://github.com/janbkrejci/HAIFA/releases/tag/v0.1.614) | `4dd3ddf1ea18f672674123df94dc4643a4868f52` | [43709244609](https://github.com/janbkrejci/HAIFA/actions/runs/43709244609), číslo 614, attempt 1 |
+
+Oba release tagy odpovídají uvedeným SHA. GIRO main se během vydání nezměnil.
+Produktový kód GIRO odpovídá úplně otestovanému stromu `95205df0`; další
+commity před vydáním doplnily pouze tento provozní záznam.
+
+- `giro-1.0.6.zip`: SHA256 `8907f35edba2700476f140171f492aec2ac837965c88e1fdc7839cf89321fed3`.
+- `haifa-0.1.614.zip`: SHA256 `e8198642f485ad4ed722fd46136d785b784a422b2132d8ab87c1cb0bc50247d3`.
+
+Stažené kanonické assety se shodují s GitHub digesty; prošly také vnitřní
+`SHA256SUMS`. Veřejné instalátory ověřily samostatné běhy
+[GIRO](https://github.com/janbkrejci/GIRO/actions/runs/43709081913) a
+[HAIFA](https://github.com/janbkrejci/GIRO/actions/runs/43709366142):
+
+| Platforma | Veřejný GIRO instalátor | Veřejný HAIFA instalátor | Celá cesta 0.1.613 → H → G |
+| --- | --- | --- | --- |
+| Ubuntu latest | prošel | prošel | dosud neověřeno; T07 |
+| Windows latest | prošel | prošel | dosud neověřeno; T07 |
+| macOS latest (GitHub runner) | prošel | prošel | dosud neověřeno; T07 |
+| Intel macOS 12.7.6 | prošel; také dashboard přes `factory obs` | prošel upgrade 0.1.613 → 0.1.614 | prošla v izolaci přes skutečné veřejné API a assety |
+
+Na místním Macu běžný updater HAIFA 0.1.613 našel a nainstaloval H. Kliknutí
+na jeho alert nainstalovalo GIRO 1.0.6, zachovalo adresu dashboardu a dokončilo
+committed manifest. Výzva zmizela. Shodují se kontrolní součty souborů včetně
+necommitnuté knihovny a obyčejného `-wal` souboru, kontrolní SQLite řádek i ID,
+názvy a cesty registrací. Oba příkazy vracejí `GIRO 1.0.6`. Následný čerstvý
+update dotaz vrátil `current`, verzi 1.0.6 a kanonický GIRO bundle z nového repo.
+Tato závěrečná zkouška nepoužívala falešné odpovědi hostingu.
+
+`just check` i všech 54 testů `just e2e` prošly; podrobnosti jsou níže.
+T06 odblokovává T07, ale tato evidence sama neuzavírá celou platformní matici T07.
+
+## Ukončení vydávání z HAIFA a provozní omezení
+
+`HAIFA_TRANSITION_PUBLISHED=true`. Oba přechodové tagy i `v0.1.614` ukazují na
+uchovaný T04 SHA. Oba workflow ve starém repo jsou `disabled_manually`, repo
+Actions mají `enabled=false`; počet queued i in-progress běhů je nula.
+README, popis a homepage HAIFA odkazují na GIRO; změna README je commit
+`896134b55a27e9ea12e3ba0be68038249bb0f865`. Repo zůstává veřejné a nearchivované,
+se všemi původními PR, issues a vydáními; poslední H zůstává latest.
+
+Provozní instalace vlastníka nebyla nahrazena a při uzavření zkoušek stále
+hlásila HAIFA 0.1.613. Ověření proběhlo v oddělených home, tool adresářích,
+repozitáři a portu. Další stroje ani skutečné provozní home se zde nevydávají
+za migrované. Před vlastním přechodem je nutné ukončit procesy starší než H
+podle [release protokolu](release.md); instalační alias `factory` zůstává zachovaný.
+
+Soukromé logy, manifesty, Git bundle, kandidátní instalace a jejich zálohy byly
+po ukončení zkoušek přesunuty mimo registrovanou `.factory/`, aby se nestaly
+součástí provozní migrační zálohy. Git bundle byl po přesunu znovu ověřen.
+Dočasné testovací worktrees byly odstraněny po ověření čistoty; původní tři
+worktrees a pouze místní větve zůstaly zachované. Žádné provozní databáze,
+přihlašovací údaje ani přepisy agentů nejsou commitnuté.
 
 ## Izolovaná příprava na macOS
 
-Z přesného H zdroje byl místně sestaven kandidát 0.1.614; nejde o zveřejněné
-vydání. Instalace do samostatného UV_TOOL_DIR, UV_TOOL_BIN_DIR a HAIFA_HOME
+Před publikací byl z přesného H zdroje místně sestaven kandidát 0.1.614.
+Instalace do samostatného UV_TOOL_DIR, UV_TOOL_BIN_DIR a HAIFA_HOME
 prošla a `factory --version` vrací `factory 0.1.614`. Testovací dashboard má
 vlastní port, provozní instalace vlastníka zůstává beze změny.
 
@@ -85,7 +138,7 @@ windows-latest a macos-latest. Každý job sestavil kandidát 1.0.2 a ověřil j
 instalátor i `giro --version` a `factory --version`. Samostatná větev
 `codex/t06-candidate-smoke` má read-only workflow bez publikace; její workflow
 se neslučuje do main. Číslo kandidáta není číslo budoucího veřejného vydání.
-Skutečně zveřejněný ZIP ještě projde samostatnou kontrolou digestu a instalace.
+Následné kontroly skutečně zveřejněných ZIPů jsou uvedeny výše.
 
 Na místním Intel macOS 12.7.6 prošla čistá kandidátní instalace GIRO 1.0.1.
 Dashboard spuštěný příkazem `factory obs` hlásil `giro-dashboard`, zachoval

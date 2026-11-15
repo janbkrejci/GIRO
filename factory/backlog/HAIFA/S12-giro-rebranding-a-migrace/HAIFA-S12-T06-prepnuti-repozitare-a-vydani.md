@@ -1,7 +1,7 @@
 ---
 id: HAIFA-S12-T06
 title: Vydat GIRO v novém repo a potom poslední HAIFA s alertem
-status: todo
+status: done
 assignee: human
 workflow: null
 auto_continue: false
@@ -41,3 +41,4 @@ postup, připravené příkazy ani přejmenovaný adresář jeho dokončení nen
 
 ## Běhy
 <!-- ruční provedení a důkazy doplní vlastník -->
+- 2026-11-15 · hotovo ručně: GIRO 1.0.6 vydáno a ověřeno před poslední HAIFA 0.1.614; veřejný přechod 0.1.613 → 0.1.614 → 1.0.6 zachoval data. Evidence, SHA, digesty, platformní výsledky a zbývající rozsah T07: `docs/rebranding/cutover.md`.
