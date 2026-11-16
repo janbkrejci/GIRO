@@ -6,11 +6,12 @@ from pathlib import Path
 
 import pytest
 import yaml
-from test_library_install_commit import git, home, make_repo
+from test_library_install_commit import home, make_repo
 
 from aifactory.library.install import GITIGNORE_LINES
 from aifactory.library.install_commit import commit_init, plan_init
 from aifactory.library.uninstall import plan_uninstall, uninstall
+from gitutil import git, write
 
 __all__ = ["home"]
 
@@ -26,12 +27,6 @@ def commit_push(root: Path, message: str) -> str:
 
 def tree(root: Path, ref: str = "HEAD") -> set[str]:
     return set(git(root, "ls-tree", "-r", "--name-only", ref).splitlines())
-
-
-def write(root: Path, rel: str, text: str) -> None:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def config(root: Path, ref: str = "HEAD") -> dict[str, object]:

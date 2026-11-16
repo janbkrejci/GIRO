@@ -24,24 +24,21 @@ from validation.sandbox import AIFACTORY_DIR, TEMPLATE_DIR
 from aifactory.engine import data_types as dt
 from aifactory.engine.gates import verdict_consistent
 from cli_json import run_json
+from gitutil import git
 from validation import fake_scripts, hidden, sandbox
 
 Capsys = pytest.CaptureFixture[str]
 RULE_TAG = "giro-validate"
 
 
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-
-
 @pytest.fixture(scope="module")
 def repo(tmp_path_factory: pytest.TempPathFactory) -> Path:
     path = tmp_path_factory.mktemp("sandbox") / "repo"
     path.mkdir()
-    _git(path, "init", "-q", "-b", "main")
-    _git(path, "config", "user.name", "Test")
-    _git(path, "config", "user.email", "test@example.com")
-    _git(path, "config", "commit.gpgsign", "false")
+    git(path, "init", "-q", "-b", "main")
+    git(path, "config", "user.name", "Test")
+    git(path, "config", "user.email", "test@example.com")
+    git(path, "config", "commit.gpgsign", "false")
     sandbox.materialize(path, "main", "local")
     sandbox.commit_all(path, "sandbox")
     return path

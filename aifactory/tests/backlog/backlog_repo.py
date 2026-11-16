@@ -5,6 +5,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from gitutil import write as write
+
 FIXTURE = Path(__file__).parent / "fixtures" / "sample"
 M01_S01 = "backlog/M01-core/S01-model"
 M01_S02 = "backlog/M01-core/S02-api"
@@ -28,13 +30,6 @@ def rewrite(path: Path, old: str, new: str) -> None:
     text = path.read_text(encoding="utf-8")
     assert old in text, f"{old!r} not in {path}"
     path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
-
-
-def write(root: Path, rel: str, text: str) -> Path:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
-    return path
 
 
 def task_md(task_id: str, status: str = "todo", extra: str = "") -> str:

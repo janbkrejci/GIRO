@@ -2,20 +2,13 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from aifactory.workflow import EngineCodeRunner, conflict_markers, rebase_onto, unmerged_files
-
-
-def git(repo: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
+from gitutil import git
 
 
 def commit(repo: Path, rel: str, text: str, message: str) -> str:

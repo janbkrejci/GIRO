@@ -17,6 +17,7 @@ import pytest
 
 import repo_templates
 from cli_json import run_json
+from gitutil import git
 from validation import f2_backlog, fake, fake_scripts, sandbox
 
 Capsys = pytest.CaptureFixture[str]
@@ -54,10 +55,6 @@ def test_auto_chain_sets_local_policy_and_cleans_up_on_failure(enable_ok: bool) 
     assert calls[0] == ("config", "local", "set", "--auto-continue", "on")
 
 
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-
-
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     path = tmp_path / "repo"
@@ -67,10 +64,10 @@ def repo(tmp_path: Path) -> Path:
 
 def _build_sandbox(path: Path) -> None:
     path.mkdir()
-    _git(path, "init", "-q", "-b", "main")
-    _git(path, "config", "user.name", "Test")
-    _git(path, "config", "user.email", "test@example.com")
-    _git(path, "config", "commit.gpgsign", "false")
+    git(path, "init", "-q", "-b", "main")
+    git(path, "config", "user.name", "Test")
+    git(path, "config", "user.email", "test@example.com")
+    git(path, "config", "commit.gpgsign", "false")
     sandbox.materialize(path, "main", "local")
     sandbox.commit_all(path, "sandbox")
 

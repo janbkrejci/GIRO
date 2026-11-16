@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import signal
-import subprocess
 import sys
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -20,6 +19,7 @@ from aifactory.engine import data_types as dt
 from aifactory.engine.role_registry import load_roles
 from aifactory.harness.config import SSSFConfig, load_config
 from aifactory.workflow import CodeStep, RebuildOutput, Workflow, parse_workflow
+from gitutil import git as git
 
 AGENTS = ("planner", "builder", "tester", "reviewer", "documenter", "scout")
 HARNESS_NAMES = ("claude", "codex", "pi")
@@ -221,10 +221,6 @@ class EngineEnv:
     script: Script
     fakes: dict[str, FakeHarness]
     repo: Path
-
-
-def git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
 
 
 def build_engine_repo(repo: Path) -> None:

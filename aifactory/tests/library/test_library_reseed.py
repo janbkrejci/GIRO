@@ -5,7 +5,6 @@ The packaged seed is replaced by a seed in a temporary folder; no model and no n
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -17,15 +16,9 @@ from aifactory.library import store
 from aifactory.library.reseed import seed_library
 from aifactory.skill import render_skill
 from cli_json import run_json
+from gitutil import git
 
 Capsys = pytest.CaptureFixture[str]
-
-
-def _git(cwd: Path, *args: str) -> str:
-    out = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True, encoding="utf-8"
-    )
-    return out.stdout.strip()
 
 
 class Env:
@@ -87,7 +80,7 @@ def _setup(env: Env, capsys: Capsys) -> None:
     env.seed({"planner": b"plan v1\n", "builder": b"build v1\n"}, {"plan": WORKFLOW})
     _ok(capsys, ["library", "init", "--json"])
     put(env.lib, "agents/builder/system.md", b"build by the team\n")
-    _git(env.lib, "commit", "--quiet", "-am", "team: builder")
+    git(env.lib, "commit", "--quiet", "-am", "team: builder")
     env.seed(
         {"planner": b"plan v2\n", "builder": b"build v2\n"},
         {"plan": WORKFLOW, "build": PLAN2.replace(b"name: plan", b"name: build")},
@@ -108,11 +101,11 @@ def test_status_reports_seed_update(env: Env, capsys: Capsys) -> None:
 
 def test_seed_adds_replaces_and_keeps_team_change(env: Env, capsys: Capsys) -> None:
     _setup(env, capsys)
-    head = _git(env.lib, "rev-parse", "HEAD")
+    head = git(env.lib, "rev-parse", "HEAD")
 
     plan = _ok(capsys, [*SEED, "--dry-run"])
     assert plan["dry_run"] is True and plan["committed"] is False
-    assert _git(env.lib, "rev-parse", "HEAD") == head
+    assert git(env.lib, "rev-parse", "HEAD") == head
     assert _actions(plan) == {
         "agent/builder": "kept",
         "agent/planner": "update",
@@ -125,8 +118,8 @@ def test_seed_adds_replaces_and_keeps_team_change(env: Env, capsys: Capsys) -> N
 
     done = _ok(capsys, SEED)
     assert done["committed"] is True and done["digest"] == plan["digest"]
-    assert _git(env.lib, "rev-parse", "HEAD") == done["commit"]
-    assert _git(env.lib, "status", "--porcelain") == ""
+    assert git(env.lib, "rev-parse", "HEAD") == done["commit"]
+    assert git(env.lib, "status", "--porcelain") == ""
     assert env.file("agents/planner/system.md") == b"plan v2\n"
     assert env.file("agents/builder/system.md") == b"build by the team\n"
     assert (env.lib / "workflows/build.yaml").is_file()
@@ -137,7 +130,7 @@ def test_seed_adds_replaces_and_keeps_team_change(env: Env, capsys: Capsys) -> N
     again = _ok(capsys, SEED)
     assert again["committed"] is False and again["files"] == []
     assert _actions(again)["agent/builder"] == "kept"
-    assert _git(env.lib, "rev-parse", "HEAD") == done["commit"]
+    assert git(env.lib, "rev-parse", "HEAD") == done["commit"]
 
 
 def test_take_replaces_team_change(env: Env, capsys: Capsys) -> None:
@@ -166,8 +159,8 @@ TEAM_WORKFLOW = WORKFLOW.replace(b"name: plan", b"name: team")
 def _team_item(env: Env) -> None:
     """A library item the seed does not have (a team import)."""
     put(env.lib, "workflows/team.yaml", TEAM_WORKFLOW)
-    _git(env.lib, "add", "workflows/team.yaml")
-    _git(env.lib, "commit", "--quiet", "-m", "team: workflow")
+    git(env.lib, "add", "workflows/team.yaml")
+    git(env.lib, "commit", "--quiet", "-m", "team: workflow")
 
 
 def test_take_all_replaces_every_team_change(env: Env, capsys: Capsys) -> None:
@@ -204,27 +197,27 @@ def test_cli_seed_all(env: Env, capsys: Capsys) -> None:
 
 def test_all_with_take_is_usage_error(env: Env, capsys: Capsys) -> None:
     _setup(env, capsys)
-    head = _git(env.lib, "rev-parse", "HEAD")
+    head = git(env.lib, "rev-parse", "HEAD")
     rc, obj = run_json(capsys, [*SEED, "--all", "--take", "agent/builder"])
     assert rc == 2 and obj["error"]["code"] == "usage_error"
-    assert _git(env.lib, "rev-parse", "HEAD") == head
+    assert git(env.lib, "rev-parse", "HEAD") == head
 
 
 def test_seed_all_leaves_repo_copies_alone(env: Env, capsys: Capsys) -> None:
     _setup(env, capsys)
     repo = env.tmp / "repo"
     repo.mkdir()
-    _git(repo, "init", "--quiet", "-b", "main")
+    git(repo, "init", "--quiet", "-b", "main")
     put(repo, ".factory/prompts/builder/system.md", b"build by the repo\n")
     put(repo, ".factory/workflows/plan.yaml", WORKFLOW)
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "--quiet", "-m", "repo copy")
-    head = _git(repo, "rev-parse", "HEAD")
+    git(repo, "add", "-A")
+    git(repo, "commit", "--quiet", "-m", "repo copy")
+    head = git(repo, "rev-parse", "HEAD")
     before = {p: p.read_bytes() for p in sorted((repo / ".factory").rglob("*")) if p.is_file()}
 
     assert _ok(capsys, [*SEED, "--all"])["committed"] is True
-    assert _git(repo, "rev-parse", "HEAD") == head
-    assert _git(repo, "status", "--porcelain") == ""
+    assert git(repo, "rev-parse", "HEAD") == head
+    assert git(repo, "status", "--porcelain") == ""
     after = {p: p.read_bytes() for p in sorted((repo / ".factory").rglob("*")) if p.is_file()}
     assert after == before
 
@@ -234,13 +227,13 @@ def test_seed_all_restores_the_factory_skill(env: Env, capsys: Capsys) -> None:
     skill = "skills/factory/SKILL.md"
     assert env.file(skill) == render_skill().encode("utf-8")
     put(env.lib, skill, env.file(skill) + b"\nteam note\n")
-    _git(env.lib, "commit", "--quiet", "-am", "team: factory skill")
+    git(env.lib, "commit", "--quiet", "-am", "team: factory skill")
     kept = _ok(capsys, [*SEED, "--dry-run"])
     assert _actions(kept)["skill/factory"] == "kept"
     done = _ok(capsys, [*SEED, "--all"])
     assert _actions(done)["skill/factory"] == "take"
     assert env.file(skill) == render_skill().encode("utf-8")
-    assert _git(env.lib, "show", f"HEAD:{skill}") == render_skill().strip()
+    assert git(env.lib, "show", f"HEAD:{skill}") == render_skill().strip()
 
 
 def test_giro_seed_preserves_customized_factory_skill(env: Env, capsys: Capsys) -> None:
@@ -249,7 +242,7 @@ def test_giro_seed_preserves_customized_factory_skill(env: Env, capsys: Capsys) 
     assert b"# GIRO skill" in env.file(skill)
     customized = env.file(skill) + b"\nteam note\n"
     put(env.lib, skill, customized)
-    _git(env.lib, "commit", "--quiet", "-am", "team skill")
+    git(env.lib, "commit", "--quiet", "-am", "team skill")
     done = _ok(capsys, SEED)
     assert _actions(done)["skill/factory"] == "kept"
     assert env.file(skill) == customized

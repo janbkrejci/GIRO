@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import repo_templates
+from gitutil import git as git
 
 
 def isolate_git(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -22,18 +23,6 @@ def isolate_git(monkeypatch: pytest.MonkeyPatch) -> None:
         "GIT_COMMITTER_EMAIL": "t@example.com",
     }.items():
         monkeypatch.setenv(key, value)
-
-
-def git(repo: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", "-c", "commit.gpgsign=false", *args],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return proc.stdout.strip()
 
 
 def _build_repo(repo: Path) -> None:

@@ -7,7 +7,6 @@ machine only through ``FakeMachine``.
 from __future__ import annotations
 
 import os
-import subprocess
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +15,12 @@ import repo_templates
 from aifactory.check import Probe
 from aifactory.harness import CLI_BINARIES
 from aifactory.harness.check import HarnessStatus
+from gitutil import commit_all as commit_all
+from gitutil import git_raw
+from gitutil import write as write
+
+git = git_raw
+
 
 AGENTS_YAML = """\
 defaults:
@@ -50,44 +55,6 @@ FILES = {
         f"---\nid: {TASK}\ntitle: Schema\nstatus: todo\n---\n\n## Zadání\nSchéma.\n"
     ),
 }
-
-
-def git(repo: Path, *args: str) -> str:
-    env = dict(os.environ)
-    env["GIT_CONFIG_NOSYSTEM"] = "1"
-    env["GIT_OPTIONAL_LOCKS"] = "0"
-    proc = subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@example.com",
-            "-c",
-            "commit.gpgsign=false",
-            *args,
-        ],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
-        env=env,
-        encoding="utf-8",
-    )
-    return proc.stdout
-
-
-def write(repo: Path, rel: str, text: str) -> Path:
-    path = repo / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
-    return path
-
-
-def commit_all(repo: Path, message: str) -> str:
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", message)
-    return git(repo, "rev-parse", "HEAD").strip()
 
 
 def init_repo(path: Path) -> Path:
