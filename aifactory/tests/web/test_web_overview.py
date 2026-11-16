@@ -35,8 +35,10 @@ from aifactory.run.store import SyncPrRow, TaskPrRow, TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web import create_multi_app, overview
 from aifactory.web.backlog import BOARD_STATES
-from aifactory.web.overview import CONFIG_TTL, PROCESS_ENDED, TASKS_TTL, Overview
+from aifactory.web.overview import PROCESS_ENDED, TASKS_TTL, Overview
 from aifactory.web.registry import Registry, RepoEntry
+from aifactory.web.repostate import RepoSnapshot
+from gitcount import count_git
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 
@@ -470,44 +472,62 @@ def test_broken_repo_gives_an_error_and_the_others_answer(
 def test_config_and_task_caches_per_repo(
     repo_a: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    counts = {"config": 0, "tasks": 0, "layout": 0}
-    real_layout = getattr(overview, "repo_layout")  # noqa: B009
-    real_state = getattr(overview, "repo_state")  # noqa: B009
+    counts = {"tasks": 0}
     real_load = getattr(overview, "load_for_edit")  # noqa: B009
-
-    def count_state(*args: Any, **kwargs: Any) -> Any:
-        counts["config"] += 1
-        return real_state(*args, **kwargs)
 
     def count_load(*args: Any, **kwargs: Any) -> Any:
         counts["tasks"] += 1
         return real_load(*args, **kwargs)
 
-    def count_layout(*args: Any, **kwargs: Any) -> Any:
-        counts["layout"] += 1
-        return real_layout(*args, **kwargs)
-
-    monkeypatch.setattr(overview, "repo_layout", count_layout)
-    monkeypatch.setattr(overview, "repo_state", count_state)
     monkeypatch.setattr(overview, "load_for_edit", count_load)
     now = [1000.0]
     ov = Overview(Registry(tmp_path / "home"), clock=lambda: now[0])
     entry = RepoEntry(id="alpha", name="alpha", path=str(repo_a), added_at="2026-01-01")
 
+    first = ov.repo(entry)
+    with count_git(monkeypatch, tmp_path / "git-trace.json") as count:
+        now[0] += TASKS_TTL - 1
+        assert ov.repo(entry) == first
+    assert count.total == 0, count.commands  # a poll without a change starts no git
+    assert counts == {"tasks": 1}
+    now[0] += 2  # 61 s after the first
     ov.repo(entry)
-    now[0] += CONFIG_TTL - 1
-    ov.repo(entry)
-    assert counts == {"config": 1, "tasks": 1, "layout": 1}
-    now[0] += 2  # 16 s after the first
-    ov.repo(entry)
-    assert counts == {"config": 2, "tasks": 1, "layout": 2}
-    now[0] += TASKS_TTL - 16 + 1  # 61 s after the first
-    ov.repo(entry)
-    assert counts == {"config": 3, "tasks": 2, "layout": 3}
+    assert counts == {"tasks": 2}
 
-    (repo_a / ".git" / "HEAD").write_text("ref: refs/heads/other\n", encoding="utf-8")
-    ov.repo(entry)
-    assert counts["layout"] == 4  # Metadata changes invalidate the layout before the TTL.
+
+def test_poll_refreshes_after_backlog_change_commit_and_branch_switch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = make_installed_repo(tmp_path / "fresh")
+    ov = Overview(Registry(tmp_path / "home"))
+    entry = RepoEntry(id="fresh", name="fresh", path=str(root), added_at="2026-01-01")
+    trace = tmp_path / "git-trace.json"
+    task = "backlog/M01-core/S01-model/M01-S01-T01-runner.md"
+    assert ov.repo(entry)["backlog"]["state"] == "clean"
+
+    with (root / task).open("a", encoding="utf-8") as stream:
+        stream.write("\nChanged\n")
+    with count_git(monkeypatch, trace) as count:
+        assert ov.repo(entry)["backlog"] == {"state": "dirty", "count": 1, "error": None}
+    # one git status replaces diff-index, ls-files and hash-object; the repository
+    # identity of the local settings (rev-parse) is read once per new snapshot
+    assert count.commands == {"status": 1, "rev-parse": 1}
+
+    commit_all(root, "backlog change")
+    item = ov.repo(entry)
+    assert item["backlog"]["state"] == "clean"
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    assert item["config"]["commit"] == head
+
+    # A branch switch: HEAD leaves base, the comparison with base still holds.
+    subprocess.run(["git", "checkout", "-q", "-b", "side"], cwd=root, check=True)
+    write(root, "backlog/side.md", "Side\n")
+    commit_all(root, "side only")
+    assert ov.repo(entry)["backlog"] == {"state": "dirty", "count": 1, "error": None}
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=root, check=True)
+    assert ov.repo(entry)["backlog"]["state"] == "clean"
 
 
 def test_invalid_config_in_base_and_uncommitted_config(tmp_path: Path) -> None:
@@ -1597,9 +1617,7 @@ def test_backlog_changes_refresh_after_commit(tmp_path: Path, change: str) -> No
     if change == "mixed":
         with (root / path).open("a", encoding="utf-8") as stream:
             stream.write("More unstaged changes to the same file\n")
-    # The short cache is preserved; the next ordinary poll reads the change.
-    assert ov.repo(entry)["backlog"] == clean
-    now[0] += overview.BACKLOG_TTL
+    # The next ordinary poll reads the change.
     index = root / ".git/index"
     before = (index.read_bytes(), index.stat().st_mtime_ns)
     item = ov.repo(entry)
@@ -1607,7 +1625,6 @@ def test_backlog_changes_refresh_after_commit(tmp_path: Path, change: str) -> No
     assert item["backlog"] == {"state": "dirty", "count": 1, "error": None}
     assert item["config"]["clean"] is True
     commit_all(root, "backlog change")
-    now[0] += overview.BACKLOG_TTL
     assert ov.repo(entry)["backlog"] == clean
 
 
@@ -1634,7 +1651,6 @@ def test_backlog_status_isolated_and_outside_changes_ignored(
         return real(root)
 
     monkeypatch.setattr(overview, "backlog_status", broken)
-    now[0] += overview.BACKLOG_TTL
     repos = _by_id(_get(client))
     assert repos["alpha"]["backlog"] == {
         "state": "error",
@@ -1643,7 +1659,6 @@ def test_backlog_status_isolated_and_outside_changes_ignored(
     }
     assert repos["beta"]["backlog"]["state"] == "clean"
     monkeypatch.setattr(overview, "backlog_status", real)
-    now[0] += overview.BACKLOG_TTL
     assert _by_id(_get(client))["alpha"]["backlog"]["state"] == "dirty"
 
 
@@ -1696,7 +1711,7 @@ def test_configuration_warning_is_locale_neutral_and_keeps_diagnostic(
     def unavailable(*args: object) -> Any:
         raise error
 
-    monkeypatch.setattr(overview, "config_changes", unavailable)
+    monkeypatch.setattr(RepoSnapshot, "config_status", unavailable)
     with _client(home, tmp_path) as client:
         english = client.get("/api/overview", headers={"Accept-Language": "en"}).json()["data"]
         czech = client.get("/api/overview", headers={"Accept-Language": "cs"}).json()["data"]
