@@ -43,11 +43,7 @@ from aifactory.backlog import (
 )
 from aifactory.backlog.derived import ancestors
 from aifactory.backlog.snapshot import load_backlog_at
-from aifactory.config import (
-    ConfigError,
-    RunConfig,
-    load_run_config,
-)
+from aifactory.config import ConfigError, ProjectSettings, RunConfig, load_run_config
 from aifactory.config.runtime import (
     TRACE_DB_SUFFIXES,
     apply_agents_override,
@@ -340,149 +336,36 @@ def run_task(
     rc = _load(main)
     settings = rc.config.settings
     if started_by == STARTED_AUTO_CONTINUE and branch is None and workflow_name is None:
-        previous = task_runs_for(main, task_id)
-        if (
-            previous
-            and previous[0].state == FAILED
-            and previous[0].workflow not in INTERNAL_WORKFLOWS
-        ):
-            from aifactory.run.retry import retry_run
-
-            return retry_run(
-                main,
-                task_id,
-                run_id=previous[0].run_id,
-                note=note,
-                code=code,
-                provider=provider,
-                agents_override=agents_override,
-                automatic=True,
-            )
+        resumed = _resume_failed(
+            main, task_id, note=note, code=code, provider=provider, agents_override=agents_override
+        )
+        if resumed is not None:
+            return resumed
     store = TaskRunStore(rc.local.trace_db_path(main))
     try:
         if provider is None:
-            try:
-                provider = get_provider(settings, main)
-            except ProviderError as exc:
-                raise TaskRunError(exc.code, exc.message) from exc
-        fork_sha = rc.commit
-        before: str | None = None
-        if resolve_onto is not None and branch is None:
-            raise TaskRunError("unknown_branch", "a resolve run needs the branch of the PR")
-        if workflow_name is not None and branch is None:
-            raise TaskRunError(
-                "unknown_branch", f"a {workflow_name} run needs the branch of the PR"
-            )
-        if branch is not None:
-            before = provider_git.rev_parse(main, f"refs/heads/{branch}")
-            if before is None:
-                raise TaskRunError("unknown_branch", f"branch {branch} does not exist")
-            existing_pr = store.pr_for_branch(branch)
-            if existing_pr is not None:
-                fork_sha = existing_pr.base_sha
-        fork_base = fork_sha
-        if resolve_onto is not None:
-            fork_sha = resolve_onto
-        try:
-            backlog = load_backlog_at(main, rc.commit, settings)
-        except (OSError, RuntimeError) as exc:
-            raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
-        task = _find_task(backlog, task_id)
-        if task is None:
-            raise _missing_task(main, rc, backlog, task_id)
-        from aifactory.harness.settings import effective_override
-
-        try:
-            binding = effective_override({}, agents_override, repo=main)
-            rc = apply_agents_override(rc, binding)
-        except ValueError as exc:
-            raise TaskRunError("invalid_override", str(exc)) from exc
-        primary = binding.get("harness") or rc.config.agents.defaults.harness
-        if not primary and rc.config.agents.agents:
-            primary = rc.config.agents.agents[0].harness
-        chain_start: _ChainStart | None = None
-        if agents_override is None and resolve_onto is None and workflow_name is None:
-            chain_start = _chain_start(store, rc, task, binding, repo=main)
-            if chain_start is not None and chain_start.rc is not None:
-                rc, binding = chain_start.rc, chain_start.binding
-        if primary and (binding.get("harness") or chain_start is not None):
-            note = f"{note or ''} [primární harness: {primary}]".strip()
-        if binding:
-            from aifactory.harness.settings import read as read_harness_settings
-            from aifactory.repo_settings import RepositorySettings
-
-            local = RepositorySettings(main).read()
-            machine = read_harness_settings()
-            if chain_start and chain_start.record:
-                source = "quota"
-            elif agents_override:
-                source = "explicit"
-            elif local.harness:
-                source = "repository"
-            elif machine and machine.default_harness:
-                source = "machine"
-            else:
-                source = "roster"
-            note = f"{note or ''} [zdroj harnessu: {source}]".strip()
-        note = override_note(note, binding)
-        busy = store.running(task_id)
-        if busy is not None:
-            raise already_running(busy)
-        if resolve_onto is None and is_human(task):
-            raise TaskRunError(
-                "human_task", f"task {task.id} is for a person (assignee: human), not a run"
-            )
-        if resolve_onto is None and workflow_name is None and not has_workflow(task):
-            raise no_workflow_error(task)
-        stacked: str | None = None
-        if not force:
-            blocked = _unmet_error(backlog, task, rc.base)
-            stack = (
-                stack_point(main, backlog, task, store)
-                if blocked is not None and settings.stacked_prs and branch is None
-                else None
-            )
-            if stack is not None:
-                # the dependencies wait in open PRs: fork from the newest of them
-                point, prs = stack
-                fork_sha, stacked = point.sha, point.branch
-                note = f"{note}\n\n{point.note(prs)}" if note else point.note(prs)
-            elif blocked is not None:
-                raise blocked
-        outputs = output_paths(task, settings)
-        workdir = project_workdir(settings)
-        validate_base_dirs(
+            provider = _provider(settings, main)
+        fork = _fork_point(main, store, rc, branch, resolve_onto, workflow_name)
+        backlog, task = _base_task(main, rc, task_id)
+        start = _harness_start(
             main,
-            fork_sha,
-            (workdir, str(Path(outputs.spec).parent), str(Path(outputs.doc).parent)),
-            workdir,
+            store,
+            rc,
+            task,
+            note,
+            agents_override,
+            quota_chain=resolve_onto is None and workflow_name is None,
         )
-        scope = task_scope(task, outputs)
-        if not scope.writes and resolve_onto is None:
-            raise TaskRunError(
-                "no_writes",
-                f"task {task_id} has no writes, neither its own nor inherited from index.md",
+        rc, note, chain_start = start.rc, start.note, start.chain_start
+        _check_startable(store, task, resolve_onto, workflow_name)
+        fork_sha, stacked = fork.sha, None
+        if not force:
+            fork_sha, stacked, note = _stack_or_block(
+                main, store, rc, backlog, task, fork.sha, note, branch
             )
+        outputs, workdir, scope = _task_scope(main, rc, task, fork_sha, resolve_onto)
         test_timeout = resolve_test_timeout(task, settings)
-        if resolve_onto is None and workflow_name is not None:
-            workflow = named_workflow(workflow_name, rc.config, task_id)
-        elif resolve_onto is None:
-            workflow = resolve_workflow(task, rc.config)
-        else:
-            workflow = named_workflow(resolve_with, rc.config, task_id)
-            if not any(
-                isinstance(s, CodeStep) and s.action == "rebase" for s in walk(workflow.steps)
-            ):
-                raise TaskRunError(
-                    "invalid_workflow", f"workflow {resolve_with} needs a rebase step"
-                )
-        with tempfile.TemporaryDirectory(prefix="factory-prompts-") as prompts_tmp:
-            probe = prepare_cfg(main, rc, Path(prompts_tmp))
-            try:
-                preflight(workflow, probe)
-            except WorkflowError as exc:
-                raise TaskRunError("invalid_workflow", str(exc)) from exc
-
+        workflow = _workflow(main, rc, task, resolve_onto, resolve_with, workflow_name)
         run_id = str(new_id(8))
         new_branch = branch is None
         if branch is None:
@@ -490,53 +373,15 @@ def run_task(
         worktree = (main / settings.worktrees_dir / run_id).resolve()
         resolve: ResolveSpec | None = None
         if resolve_onto is not None:
-            assert before is not None
-            generated = tuple(
-                Generated(path=g.path, argv=g.command, timeout=g.timeout)
-                for g in settings.generated
-            )
-            upstream = (
-                fork_base
-                if fork_base and not provider_git.is_ancestor(main, fork_base, resolve_onto)
-                else None
-            )
-            resolve = ResolveSpec(
-                onto=resolve_onto,
-                before=before,
-                base=rc.base,
-                repair_scope=scope,
-                generated=generated,
-                upstream=upstream,
-            )
-            prompt = resolve_prompt(
-                task,
-                worktree,
-                rc.base,
-                resolve_onto,
-                tuple(g.path for g in generated),
-                repair_paths=scope.paths,
+            assert fork.before is not None
+            resolve, prompt = _resolve_prompt(
+                main, rc, task, scope, worktree, resolve_onto, fork.before, fork.base
             )
         else:
-            followed = followed_task(
-                backlog, task, settings, main=main, commit=rc.commit, store=store
+            prompt = _task_run_prompt(
+                main, store, rc, backlog, task, scope, outputs, worktree, workdir, note
             )
-            prompt = task_prompt(task, scope, outputs, worktree, note, followed)
-            if workdir != ".":
-                prompt += (
-                    f"\nAgent working directory: {worktree / workdir}. "
-                    f"Repository root: {worktree}. spec, docs, writes and artifact paths "
-                    "are relative to the repository root, "
-                    "including when running from this subdirectory.\n"
-                )
-        if any(isinstance(s, CodeStep) and s.action == "test" for s in walk(workflow.steps)):
-            prompt += (
-                "\n## Workflow verification\n"
-                "This workflow has a separate test step. The builder implements and updates "
-                "regression tests; the tester selects checks and the test runner executes them. "
-                "The builder should run only a single targeted diagnostic test when needed "
-                "to resolve an implementation question, then hand verification to the tester.\n"
-            )
-        prompt += followups.dependency_prompt(backlog, task)
+        prompt += _verification_prompt(workflow) + followups.dependency_prompt(backlog, task)
         row = TaskRunRow(
             run_id=run_id,
             task_id=task_id,
@@ -559,12 +404,7 @@ def run_task(
                 else None
             ),
         )
-        from aifactory.run.policy import acceptance
-
-        with acceptance(main, started_by == STARTED_AUTO_CONTINUE):
-            store.claim(row)
-        if chain_start is not None:
-            chain_start.commit(store)
+        _claim(main, store, row, chain_start)
         result = _execute(
             main,
             rc,
@@ -587,7 +427,7 @@ def run_task(
         )
         if chain_start is not None and chain_start.warnings:
             result.warnings = (*chain_start.warnings, *result.warnings)
-        clear_quota_on_success(store, result, binding, rc)
+        clear_quota_on_success(store, result, start.binding, rc)
     finally:
         store.close()
     if resolve_onto is not None or workflow_name is not None:
@@ -598,6 +438,327 @@ def run_task(
     return continue_on_fallback(
         main, result, code=code, provider=provider, enabled=auto_heal_enabled(task), task=task
     )
+
+
+def _resume_failed(
+    main: Path,
+    task_id: str,
+    *,
+    note: str | None,
+    code: CodeRunner | None,
+    provider: GitProvider | None,
+    agents_override: dict[str, str] | None,
+) -> TaskRunResult | None:
+    """Auto-continue resumes the task's newest failed ordinary run (``retry_run``)."""
+    previous = task_runs_for(main, task_id)
+    if not previous or previous[0].state != FAILED or previous[0].workflow in INTERNAL_WORKFLOWS:
+        return None
+    from aifactory.run.retry import retry_run
+
+    return retry_run(
+        main,
+        task_id,
+        run_id=previous[0].run_id,
+        note=note,
+        code=code,
+        provider=provider,
+        agents_override=agents_override,
+        automatic=True,
+    )
+
+
+def _provider(settings: ProjectSettings, main: Path) -> GitProvider:
+    try:
+        return get_provider(settings, main)
+    except ProviderError as exc:
+        raise TaskRunError(exc.code, exc.message) from exc
+
+
+@dataclass(frozen=True)
+class _Fork:
+    """Where the run's branch forks: ``sha``; for an existing PR branch also ``before``."""
+
+    sha: str
+    base: str  # the fork before a resolve moves it onto ``resolve_onto``
+    before: str | None = None  # the PR branch's tip
+
+
+def _fork_point(
+    main: Path,
+    store: TaskRunStore,
+    rc: RunConfig,
+    branch: str | None,
+    resolve_onto: str | None,
+    workflow_name: str | None,
+) -> _Fork:
+    fork_sha = rc.commit
+    before: str | None = None
+    if resolve_onto is not None and branch is None:
+        raise TaskRunError("unknown_branch", "a resolve run needs the branch of the PR")
+    if workflow_name is not None and branch is None:
+        raise TaskRunError("unknown_branch", f"a {workflow_name} run needs the branch of the PR")
+    if branch is not None:
+        before = provider_git.rev_parse(main, f"refs/heads/{branch}")
+        if before is None:
+            raise TaskRunError("unknown_branch", f"branch {branch} does not exist")
+        existing_pr = store.pr_for_branch(branch)
+        if existing_pr is not None:
+            fork_sha = existing_pr.base_sha
+    return _Fork(resolve_onto if resolve_onto is not None else fork_sha, fork_sha, before)
+
+
+def _base_task(main: Path, rc: RunConfig, task_id: str) -> tuple[Backlog, Task]:
+    """The backlog of ``base`` and the task in it."""
+    try:
+        backlog = load_backlog_at(main, rc.commit, rc.config.settings)
+    except (OSError, RuntimeError) as exc:
+        raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
+    task = _find_task(backlog, task_id)
+    if task is None:
+        raise _missing_task(main, rc, backlog, task_id)
+    return backlog, task
+
+
+@dataclass
+class _HarnessStart:
+    """The roster a run starts with, its override binding, the note and the quota chain."""
+
+    rc: RunConfig
+    binding: dict[str, str]
+    note: str | None
+    chain_start: _ChainStart | None
+
+
+def _harness_start(
+    main: Path,
+    store: TaskRunStore,
+    rc: RunConfig,
+    task: Task,
+    note: str | None,
+    agents_override: dict[str, str] | None,
+    *,
+    quota_chain: bool,
+) -> _HarnessStart:
+    """Apply the harness override and the project's quota chain; note where it came from."""
+    from aifactory.harness.settings import effective_override
+
+    try:
+        binding = effective_override({}, agents_override, repo=main)
+        rc = apply_agents_override(rc, binding)
+    except ValueError as exc:
+        raise TaskRunError("invalid_override", str(exc)) from exc
+    primary = binding.get("harness") or rc.config.agents.defaults.harness
+    if not primary and rc.config.agents.agents:
+        primary = rc.config.agents.agents[0].harness
+    chain_start: _ChainStart | None = None
+    if agents_override is None and quota_chain:
+        chain_start = _chain_start(store, rc, task, binding, repo=main)
+        if chain_start is not None and chain_start.rc is not None:
+            rc, binding = chain_start.rc, chain_start.binding
+    if primary and (binding.get("harness") or chain_start is not None):
+        note = f"{note or ''} [primární harness: {primary}]".strip()
+    if binding:
+        source = _harness_source(main, chain_start, agents_override)
+        note = f"{note or ''} [zdroj harnessu: {source}]".strip()
+    return _HarnessStart(rc, binding, override_note(note, binding), chain_start)
+
+
+def _harness_source(
+    main: Path, chain_start: _ChainStart | None, agents_override: dict[str, str] | None
+) -> str:
+    from aifactory.harness.settings import read as read_harness_settings
+    from aifactory.repo_settings import RepositorySettings
+
+    local = RepositorySettings(main).read()
+    machine = read_harness_settings()
+    if chain_start and chain_start.record:
+        return "quota"
+    if agents_override:
+        return "explicit"
+    if local.harness:
+        return "repository"
+    if machine and machine.default_harness:
+        return "machine"
+    return "roster"
+
+
+def _check_startable(
+    store: TaskRunStore, task: Task, resolve_onto: str | None, workflow_name: str | None
+) -> None:
+    busy = store.running(task.id)
+    if busy is not None:
+        raise already_running(busy)
+    if resolve_onto is None and is_human(task):
+        raise TaskRunError(
+            "human_task", f"task {task.id} is for a person (assignee: human), not a run"
+        )
+    if resolve_onto is None and workflow_name is None and not has_workflow(task):
+        raise no_workflow_error(task)
+
+
+def _stack_or_block(
+    main: Path,
+    store: TaskRunStore,
+    rc: RunConfig,
+    backlog: Backlog,
+    task: Task,
+    fork_sha: str,
+    note: str | None,
+    branch: str | None,
+) -> tuple[str, str | None, str | None]:
+    """Unmet dependencies: fork from the newest open PR they wait in, else refuse.
+
+    Returns the fork, the branch stacked on and the note.
+    """
+    blocked = _unmet_error(backlog, task, rc.base)
+    stack = (
+        stack_point(main, backlog, task, store)
+        if blocked is not None and rc.config.settings.stacked_prs and branch is None
+        else None
+    )
+    if stack is not None:
+        # the dependencies wait in open PRs: fork from the newest of them
+        point, prs = stack
+        note = f"{note}\n\n{point.note(prs)}" if note else point.note(prs)
+        return point.sha, point.branch, note
+    if blocked is not None:
+        raise blocked
+    return fork_sha, None, note
+
+
+def _task_scope(
+    main: Path, rc: RunConfig, task: Task, fork_sha: str, resolve_onto: str | None
+) -> tuple[OutputPaths, str, TaskScope]:
+    """The task's output paths, agent working directory and write scope."""
+    settings = rc.config.settings
+    outputs = output_paths(task, settings)
+    workdir = project_workdir(settings)
+    validate_base_dirs(
+        main,
+        fork_sha,
+        (workdir, str(Path(outputs.spec).parent), str(Path(outputs.doc).parent)),
+        workdir,
+    )
+    scope = task_scope(task, outputs)
+    if not scope.writes and resolve_onto is None:
+        raise TaskRunError(
+            "no_writes",
+            f"task {task.id} has no writes, neither its own nor inherited from index.md",
+        )
+    return outputs, workdir, scope
+
+
+def _workflow(
+    main: Path,
+    rc: RunConfig,
+    task: Task,
+    resolve_onto: str | None,
+    resolve_with: str,
+    workflow_name: str | None,
+) -> Workflow:
+    """The workflow of the run (the task's, ``workflow_name`` or the resolve), preflighted."""
+    if resolve_onto is None and workflow_name is not None:
+        workflow = named_workflow(workflow_name, rc.config, task.id)
+    elif resolve_onto is None:
+        workflow = resolve_workflow(task, rc.config)
+    else:
+        workflow = named_workflow(resolve_with, rc.config, task.id)
+        if not any(isinstance(s, CodeStep) and s.action == "rebase" for s in walk(workflow.steps)):
+            raise TaskRunError("invalid_workflow", f"workflow {resolve_with} needs a rebase step")
+    with tempfile.TemporaryDirectory(prefix="factory-prompts-") as prompts_tmp:
+        probe = prepare_cfg(main, rc, Path(prompts_tmp))
+        try:
+            preflight(workflow, probe)
+        except WorkflowError as exc:
+            raise TaskRunError("invalid_workflow", str(exc)) from exc
+    return workflow
+
+
+def _resolve_prompt(
+    main: Path,
+    rc: RunConfig,
+    task: Task,
+    scope: TaskScope,
+    worktree: Path,
+    onto: str,
+    before: str,
+    fork_base: str,
+) -> tuple[ResolveSpec, str]:
+    """What a resolve run rebases and repairs, and its prompt."""
+    settings = rc.config.settings
+    generated = tuple(
+        Generated(path=g.path, argv=g.command, timeout=g.timeout) for g in settings.generated
+    )
+    upstream = (
+        fork_base if fork_base and not provider_git.is_ancestor(main, fork_base, onto) else None
+    )
+    resolve = ResolveSpec(
+        onto=onto,
+        before=before,
+        base=rc.base,
+        repair_scope=scope,
+        generated=generated,
+        upstream=upstream,
+    )
+    prompt = resolve_prompt(
+        task,
+        worktree,
+        rc.base,
+        onto,
+        tuple(g.path for g in generated),
+        repair_paths=scope.paths,
+    )
+    return resolve, prompt
+
+
+def _task_run_prompt(
+    main: Path,
+    store: TaskRunStore,
+    rc: RunConfig,
+    backlog: Backlog,
+    task: Task,
+    scope: TaskScope,
+    outputs: OutputPaths,
+    worktree: Path,
+    workdir: str,
+    note: str | None,
+) -> str:
+    followed = followed_task(
+        backlog, task, rc.config.settings, main=main, commit=rc.commit, store=store
+    )
+    prompt = task_prompt(task, scope, outputs, worktree, note, followed)
+    if workdir != ".":
+        prompt += (
+            f"\nAgent working directory: {worktree / workdir}. "
+            f"Repository root: {worktree}. spec, docs, writes and artifact paths "
+            "are relative to the repository root, "
+            "including when running from this subdirectory.\n"
+        )
+    return prompt
+
+
+def _verification_prompt(workflow: Workflow) -> str:
+    if not any(isinstance(s, CodeStep) and s.action == "test" for s in walk(workflow.steps)):
+        return ""
+    return (
+        "\n## Workflow verification\n"
+        "This workflow has a separate test step. The builder implements and updates "
+        "regression tests; the tester selects checks and the test runner executes them. "
+        "The builder should run only a single targeted diagnostic test when needed "
+        "to resolve an implementation question, then hand verification to the tester.\n"
+    )
+
+
+def _claim(
+    main: Path, store: TaskRunStore, row: TaskRunRow, chain_start: _ChainStart | None
+) -> None:
+    """Claim the run's row (under the auto-continue acceptance) and its quota position."""
+    from aifactory.run.policy import acceptance
+
+    with acceptance(main, row.started_by == STARTED_AUTO_CONTINUE):
+        store.claim(row)
+    if chain_start is not None:
+        chain_start.commit(store)
 
 
 @dataclass
@@ -761,7 +922,50 @@ def _execute_job(
     code: CodeRunner | None,
     provider: GitProvider,
 ) -> TaskRunResult:
-    workflow, prompt, scope, outputs = job.workflow, job.prompt, job.scope, job.outputs
+    worktree = Path(row.worktree)
+    session_dir, cfg, ignored = _prepare_worktree(main, rc, store, row, job, provider)
+    guard = _write_guard(main, worktree, row, job, ignored)
+    outcome = _run_in_worktree(main, rc, store, row, job, code, cfg, guard, ignored, session_dir)
+    _judge(main, store, row, job, outcome)
+    state = SUCCEEDED if outcome.error is None else FAILED
+    store.finish(
+        row.run_id,
+        state,
+        gitops.head(worktree),
+        outcome.error,
+        outcome.failure_kind,
+        outcome.failure_detail,
+    )
+    final = store.get(row.run_id)
+    assert final is not None
+    result = TaskRunResult(
+        run=final,
+        workflow_run=outcome.wf,
+        warnings=tuple(rc.warnings) + tuple(outcome.follow_warnings),
+        trace_db=store.db_path,
+        follow_ups=outcome.follow,
+    )
+    if (
+        state == SUCCEEDED
+        and job.resolve is None
+        and store.pr_for_branch(final.branch) is None
+        and _nothing_new(final, outcome.wf, job.outputs)
+    ):
+        return _finish_without_pr(main, store, final, outcome.wf, result)
+    if state == SUCCEEDED:
+        _publish_run(main, rc, store, final, job, outcome, provider, result)
+    return result
+
+
+def _prepare_worktree(
+    main: Path,
+    rc: RunConfig,
+    store: TaskRunStore,
+    row: TaskRunRow,
+    job: _Job,
+    provider: GitProvider,
+) -> tuple[Path, SSSFConfig, tuple[str, ...]]:
+    """The session directory, roster and run worktree: ``(session_dir, cfg, ignored)``."""
     worktree = Path(row.worktree)
     settings = rc.config.settings
     session_dir = data_dir(main, rc) / "sessions" / row.run_id
@@ -806,36 +1010,61 @@ def _execute_job(
             row.run_id, FAILED, None, str(exc)[:2000], failures.OTHER, {"cause": "worktree"}
         )
         raise TaskRunError("worktree_failed", str(exc)) from exc
+    return session_dir, cfg, ignored
 
+
+def _write_guard(
+    main: Path, worktree: Path, row: TaskRunRow, job: _Job, ignored: tuple[str, ...]
+) -> TaskWriteGuard:
     resolve = job.resolve
-    guard: TaskWriteGuard
     if resolve is not None:
-        guard = ConflictWriteGuard(
-            main, worktree, row.task_id, ignored, resolve.generated, repair_scope=scope
+        return ConflictWriteGuard(
+            main, worktree, row.task_id, ignored, resolve.generated, repair_scope=job.scope
         )
-    else:
-        guard = TaskWriteGuard(main, worktree, scope, ignored)
+    return TaskWriteGuard(main, worktree, job.scope, ignored)
+
+
+@dataclass
+class _Outcome:
+    """What the workflow run left: its run, the error and failure, and the follow-ups."""
+
+    wf: WorkflowRun | None = None
+    error: str | None = None
+    failure_kind: str | None = None  # decided where the failure arose (aifactory.failure)
+    failure_detail: dict[str, Any] = field(default_factory=dict)
+    follow: FollowUpOutcome | None = None
+    follow_warnings: list[str] = field(default_factory=list)
+
+
+def _prompt_variables(row: TaskRunRow, job: _Job, worktree: Path) -> dict[str, str]:
     variables = {
         "task_id": row.task_id,
-        "spec_path": outputs.spec,
-        "doc_path": outputs.doc,
+        "spec_path": job.outputs.spec,
+        "doc_path": job.outputs.doc,
         "workdir": str(worktree / job.workdir),
     }
-    if resolve is not None:
-        variables["rebase_onto"] = resolve.onto
-        if resolve.upstream:
-            variables["rebase_upstream"] = resolve.upstream
-    retry = job.retry
-    journal: Journal | None = None
-    if retry is not None:
-        journal = retry.journal
-    elif resolve is None:
-        journal = Journal(session_dir / JOURNAL_FILE)
-    run_kwargs: dict[str, Any] = {
+    if job.resolve is not None:
+        variables["rebase_onto"] = job.resolve.onto
+        if job.resolve.upstream:
+            variables["rebase_upstream"] = job.resolve.upstream
+    return variables
+
+
+def _run_kwargs(
+    main: Path,
+    rc: RunConfig,
+    store: TaskRunStore,
+    row: TaskRunRow,
+    job: _Job,
+    code: CodeRunner | None,
+    cfg: SSSFConfig,
+) -> dict[str, Any]:
+    settings = rc.config.settings
+    return {
         "cfg": cfg,
         "code": code,
         "adw_id": row.run_id,
-        "repo_root": worktree,
+        "repo_root": Path(row.worktree),
         "label": row.task_id,
         "test_timeout": job.test_timeout,
         "test_profile": ProfileCache(
@@ -847,13 +1076,35 @@ def _execute_job(
         ),
         "phase_gate": PauseGate(store, row.run_id),
     }
-    wf: WorkflowRun | None = None
-    error: str | None = None
-    failure_kind: str | None = None  # decided where the failure arose (aifactory.failure)
-    failure_detail: dict[str, Any] = {}
+
+
+def _run_in_worktree(
+    main: Path,
+    rc: RunConfig,
+    store: TaskRunStore,
+    row: TaskRunRow,
+    job: _Job,
+    code: CodeRunner | None,
+    cfg: SSSFConfig,
+    guard: TaskWriteGuard,
+    ignored: tuple[str, ...],
+    session_dir: Path,
+) -> _Outcome:
+    """Run the workflow in the worktree (a retry rebases and replays first).
+
+    An interruption (``BaseException``) finishes the run failed and propagates.
+    """
+    worktree = Path(row.worktree)
+    resolve, retry = job.resolve, job.retry
+    journal: Journal | None = None
+    if retry is not None:
+        journal = retry.journal
+    elif resolve is None:
+        journal = Journal(session_dir / JOURNAL_FILE)
+    run_kwargs = _run_kwargs(main, rc, store, row, job, code, cfg)
+    outcome = _Outcome()
     prev = Path.cwd()
     saved_run_env = {"GIRO_RUN_ID": os.environ.get("GIRO_RUN_ID")}
-
     try:
         try:
             os.chdir(worktree)
@@ -861,28 +1112,20 @@ def _execute_job(
             with _signals_restored(), agent_workdir(job.workdir):
                 baseline = retry.baseline if retry is not None else None
                 if retry is not None and retry.onto is not None:
-                    error = _retry_rebase(main, rc, row, job, retry.onto, ignored, run_kwargs)
-                    if error is None:
+                    outcome.error = _retry_rebase(
+                        main, rc, row, job, retry.onto, ignored, run_kwargs
+                    )
+                    if outcome.error is None:
                         store.set_base_sha(row.run_id, retry.onto)
                         baseline = retry.onto
-                if retry is not None and error is None:
-                    from aifactory.run.retry import refresh_write_scope_sessions
-
-                    refresh_write_scope_sessions(session_dir, cfg, guard)
-                    handoff = session_dir / "context_handoff"
-                    handoff.mkdir(parents=True, exist_ok=True)
-                    (handoff / f"retry_attempt_{row.attempt - 1}.json").write_text(
-                        json.dumps(retry.journal.to_json(), indent=2),
-                        encoding="utf-8",
-                        newline="\n",
-                    )
-                    retry.journal.start_replay(retry.limit)
-                if error is None:
-                    wf = run_workflow(
-                        workflow,
-                        prompt,
+                if retry is not None and outcome.error is None:
+                    _prepare_replay(session_dir, cfg, guard, row, retry)
+                if outcome.error is None:
+                    outcome.wf = run_workflow(
+                        job.workflow,
+                        job.prompt,
                         write_guard=guard,
-                        prompt_variables=variables,
+                        prompt_variables=_prompt_variables(row, job, worktree),
                         generated=resolve.generated if resolve is not None else (),
                         journal=journal,
                         baseline=baseline,
@@ -899,9 +1142,9 @@ def _execute_job(
     except Exception as exc:
         if resolve is not None or retry is not None:
             command = f"factory task {'resolve' if resolve is not None else 'retry'} {row.task_id}"
-            exc = explain_allowed_repair_request(exc, scope, command)
-        error = str(exc)[:2000] or type(exc).__name__
-        failure_kind, failure_detail = failures.classify(exc)
+            exc = explain_allowed_repair_request(exc, job.scope, command)
+        outcome.error = str(exc)[:2000] or type(exc).__name__
+        outcome.failure_kind, outcome.failure_detail = failures.classify(exc)
     except BaseException as exc:
         if resolve is not None:
             with contextlib.suppress(Exception):
@@ -916,92 +1159,118 @@ def _execute_job(
             detail,
         )
         raise
-    if error is None and wf is not None and not (wf.accepted and wf.exit_code == 0):
-        failure_kind = failures.ACCEPT_NOT_MET
-        error, failure_detail = accept_failure(workflow, wf)
+    return outcome
+
+
+def _prepare_replay(
+    session_dir: Path, cfg: SSSFConfig, guard: TaskWriteGuard, row: TaskRunRow, retry: RetrySpec
+) -> None:
+    """A retry's sessions get the current write scope and the journal it replays."""
+    from aifactory.run.retry import refresh_write_scope_sessions
+
+    refresh_write_scope_sessions(session_dir, cfg, guard)
+    handoff = session_dir / "context_handoff"
+    handoff.mkdir(parents=True, exist_ok=True)
+    (handoff / f"retry_attempt_{row.attempt - 1}.json").write_text(
+        json.dumps(retry.journal.to_json(), indent=2),
+        encoding="utf-8",
+        newline="\n",
+    )
+    retry.journal.start_replay(retry.limit)
+
+
+def _judge(main: Path, store: TaskRunStore, row: TaskRunRow, job: _Job, outcome: _Outcome) -> None:
+    """Apply ``accept``, finish a resolve and record follow-ups (a blocked task fails)."""
+    wf, resolve = outcome.wf, job.resolve
+    if outcome.error is None and wf is not None and not (wf.accepted and wf.exit_code == 0):
+        outcome.failure_kind = failures.ACCEPT_NOT_MET
+        outcome.error, outcome.failure_detail = accept_failure(job.workflow, wf)
     if resolve is not None:
-        before_resolve = error
-        error = _finish_resolve(worktree, wf, row.task_id, resolve, error)
-        if before_resolve is None and error is not None:
-            failure_kind, failure_detail = failures.OTHER, {"cause": "resolve"}
-    follow: FollowUpOutcome | None = None
-    follow_warnings: list[str] = []
+        before_resolve = outcome.error
+        outcome.error = _finish_resolve(Path(row.worktree), wf, row.task_id, resolve, outcome.error)
+        if before_resolve is None and outcome.error is not None:
+            outcome.failure_kind, outcome.failure_detail = failures.OTHER, {"cause": "resolve"}
     if wf is not None and followups.reported_any(wf):
         # a resolve run files follow-ups too (e.g. a test its review found missing),
         # but never blocks: its task is built already
-        follow, follow_warnings, blockers = _record_follow_ups(
+        outcome.follow, outcome.follow_warnings, blockers = _record_follow_ups(
             main, store, row, wf, blocking=resolve is None
         )
         if blockers:
             # a blocked task is neither published nor done: the run fails
             reason = blocked_reason(row.task_id, blockers)
-            if error is None:
-                failure_kind = failures.BLOCKED
-                failure_detail = {"blockers": list(blockers)}
-            error = reason if error is None else f"{reason}; {error}"[:2000]
-    state = SUCCEEDED if error is None else FAILED
-    store.finish(row.run_id, state, gitops.head(worktree), error, failure_kind, failure_detail)
-    final = store.get(row.run_id)
-    assert final is not None
-    result = TaskRunResult(
-        run=final,
-        workflow_run=wf,
-        warnings=tuple(rc.warnings) + tuple(follow_warnings),
-        trace_db=store.db_path,
-        follow_ups=follow,
-    )
-    if (
-        state == SUCCEEDED
-        and resolve is None
-        and store.pr_for_branch(final.branch) is None
-        and (
-            unchanged(final)
-            or (
-                wf is not None
-                and wf.already_done is not None
-                and only_spec_changes(final, outputs.spec)
-            )
-        )
-    ):
-        evidence = wf.already_done.evidence if wf is not None and wf.already_done else ()
-        reason = wf.already_done.reason if wf is not None and wf.already_done else ""
-        failure, notes = finish_unchanged(main, store, final, evidence, reason)
-        result.warnings += tuple(notes)
-        if failure is not None:
-            result.pr_error = failure
-            store.set_pr_error(final.run_id, failure)
-            result.run = store.get(final.run_id) or final
-        else:
-            result.done_without_pr = True
-        return result
-    if state == SUCCEEDED:
-        # Local import: aifactory.review imports aifactory.run.
-        from aifactory.review.publish import publish, run_pr_body
+            if outcome.error is None:
+                outcome.failure_kind = failures.BLOCKED
+                outcome.failure_detail = {"blockers": list(blockers)}
+            outcome.error = reason if outcome.error is None else f"{reason}; {outcome.error}"[:2000]
 
-        body = run_pr_body(
-            store, final, job.task, wf, follow_ups=follow.created if follow is not None else ()
-        )
-        try:
-            result.pr = publish(
-                main,
-                rc.config.settings,
-                store,
-                final,
-                job.task,
-                wf,
-                provider,
-                lease=resolve.before if resolve is not None else retry.lease if retry else None,
-                body=body,
-            )
-        except ProviderError as exc:
-            result.pr_error = f"{exc.code}: {exc.message}"
-            result.pr = store.pr_for_branch(final.branch)
-            # kept for `factory task publish` and the dashboard
-            store.set_pr_error(final.run_id, result.pr_error, body)
-            kept = store.get(final.run_id)
-            if kept is not None:
-                result.run = kept
+
+def _nothing_new(final: TaskRunRow, wf: WorkflowRun | None, outputs: OutputPaths) -> bool:
+    """The run changed nothing, or only its spec while the agent found the task done."""
+    return unchanged(final) or (
+        wf is not None and wf.already_done is not None and only_spec_changes(final, outputs.spec)
+    )
+
+
+def _finish_without_pr(
+    main: Path,
+    store: TaskRunStore,
+    final: TaskRunRow,
+    wf: WorkflowRun | None,
+    result: TaskRunResult,
+) -> TaskRunResult:
+    evidence = wf.already_done.evidence if wf is not None and wf.already_done else ()
+    reason = wf.already_done.reason if wf is not None and wf.already_done else ""
+    failure, notes = finish_unchanged(main, store, final, evidence, reason)
+    result.warnings += tuple(notes)
+    if failure is not None:
+        result.pr_error = failure
+        store.set_pr_error(final.run_id, failure)
+        result.run = store.get(final.run_id) or final
+    else:
+        result.done_without_pr = True
     return result
+
+
+def _publish_run(
+    main: Path,
+    rc: RunConfig,
+    store: TaskRunStore,
+    final: TaskRunRow,
+    job: _Job,
+    outcome: _Outcome,
+    provider: GitProvider,
+    result: TaskRunResult,
+) -> None:
+    """Push the succeeded run's branch and open its PR; a failure is kept on the run."""
+    # Local import: aifactory.review imports aifactory.run.
+    from aifactory.review.publish import publish, run_pr_body
+
+    resolve, retry, wf = job.resolve, job.retry, outcome.wf
+    follow = outcome.follow
+    body = run_pr_body(
+        store, final, job.task, wf, follow_ups=follow.created if follow is not None else ()
+    )
+    try:
+        result.pr = publish(
+            main,
+            rc.config.settings,
+            store,
+            final,
+            job.task,
+            wf,
+            provider,
+            lease=resolve.before if resolve is not None else retry.lease if retry else None,
+            body=body,
+        )
+    except ProviderError as exc:
+        result.pr_error = f"{exc.code}: {exc.message}"
+        result.pr = store.pr_for_branch(final.branch)
+        # kept for `factory task publish` and the dashboard
+        store.set_pr_error(final.run_id, result.pr_error, body)
+        kept = store.get(final.run_id)
+        if kept is not None:
+            result.run = kept
 
 
 BLOCKED_PREFIX = failures.BLOCKED_PREFIX
