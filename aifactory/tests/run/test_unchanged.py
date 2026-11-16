@@ -22,7 +22,6 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.run import (
     STOP_EXHAUSTED,
     STOP_FAILED,
-    TaskRunStore,
     run_chain,
     run_task,
 )
@@ -30,6 +29,7 @@ from aifactory.run import unchanged as unchanged_mod
 from aifactory.run.retry import retry_run
 from aifactory.run.unchanged import finish_nothing_to_do
 from aifactory.runstore.rows import FAILED, SUCCEEDED
+from aifactory.runstore.store import TaskRunStore
 from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"

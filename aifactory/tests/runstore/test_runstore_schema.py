@@ -65,3 +65,19 @@ def test_an_older_trace_db_gets_its_columns(tmp_path: Path) -> None:
     finally:
         conn.close()
     assert {"merged_by", "auto_merge_error", "approved_at"} <= columns
+
+
+def test_a_column_dropped_after_the_first_open_comes_back(tmp_path: Path) -> None:
+    db = tmp_path / "trace.db"
+    _open(db)
+    conn = sqlite3.connect(db)
+    conn.execute("ALTER TABLE task_prs DROP COLUMN approved_at")
+    conn.commit()
+    conn.close()
+    _open(db)
+    conn = sqlite3.connect(db)
+    try:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(task_prs)")}
+    finally:
+        conn.close()
+    assert "approved_at" in columns

@@ -294,12 +294,29 @@ _READY_LOCK = threading.Lock()
 _TABLES = (*re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", _SCHEMA), "trace_changes")
 
 
-def _tables_present(conn: sqlite3.Connection) -> bool:
+_QUEUE_ADDED_COLUMNS = {"archived": "INTEGER NOT NULL DEFAULT 0"}
+_ADDED = {
+    "task_prs": _PR_ADDED_COLUMNS,
+    "task_runs": _RUN_ADDED_COLUMNS,
+    "task_chains": _CHAIN_ADDED_COLUMNS,
+    "task_queue": _QUEUE_ADDED_COLUMNS,
+}
+
+
+def _schema_current(conn: sqlite3.Connection) -> bool:
+    """Every table exists and has the added columns, read from ``sqlite_master`` at once."""
     marks = ", ".join("?" for _ in _TABLES)
-    row = conn.execute(
-        f"SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ({marks})", _TABLES
-    ).fetchone()
-    return row is not None and row[0] == len(_TABLES)
+    rows = conn.execute(
+        f"SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name IN ({marks})", _TABLES
+    ).fetchall()
+    sql = {str(name): str(text or "") for name, text in rows}
+    if len(sql) != len(_TABLES):
+        return False
+    return all(
+        re.search(rf"\b{column}\b", sql[table])
+        for table, columns in _ADDED.items()
+        for column in columns
+    )
 
 
 def _key(db_path: Path) -> tuple[str, int, int]:
@@ -313,20 +330,20 @@ def _key(db_path: Path) -> tuple[str, int, int]:
 def ensure(conn: sqlite3.Connection, db_path: Path) -> None:
     """Create the tables and add the columns older trace DBs lack, once per process and file.
 
-    Later opens of the same file (same path, device and inode) only check, with one query,
-    that every table exists, so a file created again or a dropped table gets the schema
-    again.
+    Later opens of the same file (same path, device and inode) only check, with one query
+    of ``sqlite_master``, that every table exists with the added columns, so a file created
+    again or a table changed meanwhile gets the schema again.
     """
     key = _key(db_path)
     with _READY_LOCK:
         ready = key in _READY
-    if ready and _tables_present(conn):
+    if ready and _schema_current(conn):
         return
     conn.executescript(_SCHEMA)
     _add_columns(conn, "task_prs", _PR_ADDED_COLUMNS)
     _add_columns(conn, "task_runs", _RUN_ADDED_COLUMNS)
     _add_columns(conn, "task_chains", _CHAIN_ADDED_COLUMNS)
-    _add_columns(conn, "task_queue", {"archived": "INTEGER NOT NULL DEFAULT 0"})
+    _add_columns(conn, "task_queue", _QUEUE_ADDED_COLUMNS)
     # Older databases acquire archived above, before this index is created.
     conn.execute("CREATE INDEX IF NOT EXISTS task_runs_page ON task_runs(archived, started_at)")
     install_changes(conn)
