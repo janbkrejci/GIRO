@@ -300,7 +300,7 @@ ERROR_CLASSES = {
     "RepoError",
     "UpgradeError",
 }
-EMITTERS = {"_emit_fail", "envelope_fail"}
+EMITTERS = {"emit_fail", "envelope_fail"}
 ISSUE_BUILDERS = {"Issue", "add", "issue"}  # Issue(...) and the loaders' add/issue helpers
 
 
@@ -339,7 +339,7 @@ def test_error_codes_complete() -> None:
             continue
         for call in _calls(path):
             name = _name(call)
-            if name in ERROR_CLASSES or (name in EMITTERS and path.name == "cli.py"):
+            if name in ERROR_CLASSES or (name in EMITTERS and path.parent.name == "cli"):
                 code = _literal_code(call)
                 if code is not None:
                     found[code] = str(path.relative_to(ROOT))

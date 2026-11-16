@@ -15,8 +15,9 @@ from typing import Any
 
 import pytest
 
-from aifactory import __version__, cli, upgrade
+from aifactory import __version__, upgrade
 from aifactory.cli import main
+from aifactory.cli import upgrade as cli_upgrade
 from aifactory.library import remote as library_remote
 from aifactory.library.remote import library_min_factory_version
 from aifactory.skill import ERROR_CODES, envelope_problems, render_skill
@@ -97,7 +98,7 @@ def _no_handoff(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test starts the real handoff script or sees a dashboard of the machine."""
     monkeypatch.setattr(upgrade, "spawn_detached", _refuse_spawn)
     monkeypatch.setattr(upgrade, "needs_handoff", lambda: False)
-    monkeypatch.setattr(cli, "_dashboard_running", lambda: False)
+    monkeypatch.setattr(cli_upgrade, "_dashboard_running", lambda: False)
 
 
 def _refuse_spawn(argv: Sequence[str], env: Mapping[str, str]) -> None:
@@ -452,7 +453,7 @@ def test_cli_on_windows_refuses_while_the_dashboard_runs(
     tmp_path: Path, uv_log: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(upgrade, "needs_handoff", lambda: True)
-    monkeypatch.setattr(cli, "_dashboard_running", lambda: True)
+    monkeypatch.setattr(cli_upgrade, "_dashboard_running", lambda: True)
     code, obj = _run(capsys, str(make_bundle(tmp_path / "dist")))
     assert code == 2 and obj["error"]["code"] == "dashboard_running"
 

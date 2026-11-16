@@ -960,7 +960,7 @@ def _member(
     import contextlib
 
     import aifactory.run as run_pkg
-    from aifactory.cli import _member_run
+    from aifactory.cli.task import _member_run
     from aifactory.review import flow as review_flow
 
     result = _conflicting_run(repo, script)
