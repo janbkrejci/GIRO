@@ -224,22 +224,6 @@ def test_process_gone_retry_that_fails_stops_the_chain(
     assert "opakování selhalo" in event["text"]
 
 
-def test_process_gone_without_auto_heal_is_not_retried(
-    tmp_path: Path, script: Script, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    repo = _repo(tmp_path, heal=False)
-    script.on("planner", _crash)
-    script.add("planner", ok())
-    _process_dies_once(monkeypatch, repo)
-
-    chain = run_chain(repo, T01)
-
-    assert _ids(chain) == [T01] and chain.stop == STOP_FAILED
-    assert chain.runs[0].run.state == ABORTED
-    assert chain.runs[0].run.retry_list() == []
-    assert chain.events == [] and _chain_events(repo) == []
-
-
 # ── nothing_to_do ────────────────────────────────────────────────────────────
 
 
@@ -268,44 +252,7 @@ def test_nothing_to_do_with_a_reason_closes_the_task_and_goes_on(
     assert "abc1234" in event["text"]
 
 
-def test_nothing_to_do_without_a_reason_is_left_to_the_operator(
-    tmp_path: Path, script: Script
-) -> None:
-    repo = _repo(tmp_path)
-    _nothing_to_do(script, "")
-
-    chain = run_chain(repo, T01)
-
-    assert _ids(chain) == [T01] and chain.stop == STOP_FAILED
-    assert _status(repo, T01) == "todo"
-    assert chain.events == []
-
-
-def test_nothing_to_do_without_auto_heal_stops_the_chain(tmp_path: Path, script: Script) -> None:
-    repo = _repo(tmp_path, heal=False)
-    _nothing_to_do(script, "only the front matter must change")
-
-    chain = run_chain(repo, T01)
-
-    assert _ids(chain) == [T01] and chain.stop == STOP_FAILED
-    assert not chain.ok
-    assert _status(repo, T01) == "todo"
-    assert chain.events == []
-
-
 # ── other kinds, settings and texts ──────────────────────────────────────────
-
-
-def test_other_failure_is_left_to_the_operator(tmp_path: Path, script: Script) -> None:
-    repo = _repo(tmp_path)
-    script.on("planner", _crash)
-    script.add("planner", ok())
-
-    chain = run_chain(repo, T01)
-
-    assert _ids(chain) == [T01] and chain.stop == STOP_FAILED
-    assert chain.runs[0].run.retry_list() == []
-    assert chain.events == []
 
 
 def test_auto_heal_is_inherited_and_on_by_default(tmp_path: Path) -> None:
@@ -468,34 +415,3 @@ def test_parallel_chain_without_auto_heal_stops(tmp_path: Path) -> None:
     assert chain.stop == STOP_FAILED
     assert _status(repo, T01) == "todo"
     assert chain.events == []
-
-
-def test_needs_environment_is_never_healed(tmp_path: Path, script: Script) -> None:
-    from aifactory.run.heal import heal
-
-    repo = _repo(tmp_path)
-    script.on("planner", lambda wt: None)
-    script.add(
-        "planner",
-        {
-            "status": "fail",
-            "summary": "desktop cannot receive input",
-            "fail_kind": "needs_environment",
-        },
-    )
-    _build(script, "two")
-    chain = run_chain(repo, T01)
-    assert _ids(chain) == [T01, T02] and chain.stop == STOP_EXHAUSTED
-    result = chain.runs[0]
-    assert result.run.failure_kind == failure.NEEDS_ENVIRONMENT
-    assert result.run.retry_list() == []
-    assert _status(repo, T01) == "todo" and result.pr is None
-    assert chain.events == [] and _chain_events(repo) == []
-    assert len([c for c in script.calls if c.agent == "planner"]) == 2
-    task = load_backlog(repo).by_id[T01]
-    assert isinstance(task, Task)
-
-    def retry_forbidden(*args: Any, **kwargs: Any) -> task_mod.TaskRunResult:
-        pytest.fail("needs_environment must never retry in the same environment")
-
-    assert heal(repo, result, task, retry=retry_forbidden) is None

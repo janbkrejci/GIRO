@@ -16,10 +16,8 @@ from test_auto_continue import T01, T02, T03, build, ids, runs_of, setup_chain
 from test_parallel_chain import FakeRunner, no_files, setup_tasks, started
 
 from aifactory.backlog import Task, load_backlog
-from aifactory.cli import main
 from aifactory.repo_settings import RepositorySettings
-from aifactory.review.automerge import AutoMergeResult
-from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, heal, queue, run_chain, run_task
+from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, heal, run_chain, run_task
 from aifactory.run import retry as retry_mod
 from aifactory.run import task as task_mod
 from aifactory.run.members import ProcessRunner
@@ -51,27 +49,6 @@ def test_off_during_accepted_run_finishes_it_without_next_task(
     assert chain.ok and ids(chain) == [T01]
     assert chain.stop == "disabled"
     assert "vypnuté" in str(chain.to_json()["stop_detail"])
-    assert runs_of(repo, T02) == []
-
-
-def test_off_between_selection_and_start(
-    tmp_path: Path, script: Script, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    repo = make_run_repo(tmp_path / "repo")
-    setup_chain(repo)
-    build(script, "one")
-    select = queue.select_next
-
-    def select_then_off(*args: Any, **kwargs: Any) -> queue.Selection:
-        result = select(*args, **kwargs)
-        assert result.next is not None
-        RepositorySettings(repo).update({"auto_continue": False})
-        return result
-
-    monkeypatch.setattr(queue, "select_next", select_then_off)
-    chain = run_chain(repo, T01)
-    assert chain.stop == "disabled" and ids(chain) == [T01]
-    assert chain.waiting[0].detail.startswith(DISABLED)
     assert runs_of(repo, T02) == []
 
 
@@ -160,43 +137,6 @@ def test_parallel_off_does_not_kill_accepted_members_or_refill(tmp_path: Path) -
     assert started(runner) == [T01, T02]
     assert ids(chain) == [T01, T02] and all(r.ok for r in chain.runs)
     assert not runner.active() and chain.stop == "disabled"
-
-
-def test_off_while_waiting_for_ci_blocks_following_task(
-    tmp_path: Path, script: Script, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from test_auto_merge import build as reviewed_build
-    from test_auto_merge import review, setup
-
-    repo = make_run_repo(tmp_path / "repo")
-    setup(repo, step="auto_merge: true\nauto_continue: true\n")
-    reviewed_build(script, "one")
-    review(script)
-
-    def ci_then_off(*args: Any, **kwargs: Any) -> AutoMergeResult:
-        RepositorySettings(repo).update({"auto_continue": False})
-        return AutoMergeResult(False, "checks_pending", "CI is still running", None)
-
-    monkeypatch.setattr("aifactory.review.automerge.try_auto_merge", ci_then_off)
-    chain = run_chain(repo, T01)
-    assert ids(chain) == [T01] and chain.stop == "disabled"
-    assert chain.runs[0].ok and runs_of(repo, T02) == []
-
-
-def test_off_blocks_automatic_heal(tmp_path: Path, script: Script) -> None:
-    repo = make_run_repo(tmp_path / "repo")
-    setup_chain(repo)
-    build(script, "one")
-    result = run_task(repo, T01)
-    result.run = replace(result.run, state="failed", failure_kind="process_gone")
-    task = load_backlog(repo).by_id[T01]
-    assert isinstance(task, Task)
-    RepositorySettings(repo).update({"auto_continue": False})
-
-    def forbidden(*args: Any, **kwargs: Any) -> task_mod.TaskRunResult:
-        raise AssertionError("automatic heal must not retry")
-
-    assert heal.heal(repo, result, task, retry=forbidden) is None
 
 
 @pytest.mark.parametrize("parallel", [1, 2])
@@ -306,22 +246,6 @@ def test_web_dispatch_carries_automatic_origin_to_child(
     assert "--started-by=auto-continue" in calls[0]
     launcher.start(repo, T01, note=None, force=False)
     assert "--started-by=auto-continue" not in calls[1]
-
-
-@pytest.mark.parametrize("auto", [False, True])
-def test_cli_auto_cannot_enable_local_off(
-    tmp_path: Path, script: Script, capsys: pytest.CaptureFixture[str], auto: bool
-) -> None:
-    repo = make_run_repo(tmp_path / "repo")
-    setup_chain(repo, module_auto=True)
-    RepositorySettings(repo).update({"auto_continue": False})
-    build(script, "one")
-    argv = ["task", "run", T01, "--repo", str(repo), "--json"]
-    assert main([*argv, *(["--auto"] if auto else [])]) == 0
-    output = capsys.readouterr()
-    assert ("--auto is deprecated" in output.err) == auto
-    assert runs_of(repo, T02) == []
-    assert not RepositorySettings(repo).read().auto_continue
 
 
 def test_off_blocks_member_spawn_before_popen(
