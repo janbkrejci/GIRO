@@ -69,12 +69,12 @@ def github_repo(url: str | None) -> tuple[str, str] | None:
     return (match["owner"], match["repo"]) if match else None
 
 
-def fork_url(url: str, login: str) -> str:
-    """`url` of the library repo with the owner replaced by `login` (the fork)."""
+def fork_url(url: str, full_name: str) -> str:
+    """The actual fork owner/name using the upstream URL's transport."""
     match = _GITHUB.match(url)
     if match is None:
         raise ValueError(f"not a GitHub URL: {url}")
-    return url[: match.start("owner")] + login + url[match.end("owner") :]
+    return url[: match.start("owner")] + full_name + url[match.end("repo") :]
 
 
 # ── the record of sent changes ────────────────────────────────────────────────
@@ -294,8 +294,28 @@ def propose(
             login = str(_gh_call(gh.run, "api", "user", "--jq", ".login")).strip()
             if not login:
                 raise LibraryStoreError("pr_failed", "gh api user returned no login")
-            proposal.head_repo = f"{login}/{repo}"
-            target = fork_url(url, login)
+            # Renaming the upstream does not rename an existing user's fork.
+            forks = _gh_call(
+                gh.run,
+                "api",
+                f"repos/{proposal.repo}/forks?per_page=100",
+                "--paginate",
+                "--jq",
+                ".[].full_name",
+            )
+            proposal.head_repo = next(
+                (
+                    name
+                    for name in str(forks).splitlines()
+                    if name.partition("/")[0].casefold() == login.casefold()
+                ),
+                None,
+            )
+            if proposal.head_repo is None:
+                raise LibraryStoreError(
+                    "pr_failed", f"No fork of {proposal.repo} found for {login}"
+                )
+            target = fork_url(url, proposal.head_repo)
             for attempt in range(FORK_PUSH_ATTEMPTS):
                 try:
                     push_branch(root, target, sha, branch)
