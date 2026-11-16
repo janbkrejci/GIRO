@@ -413,6 +413,7 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
     from concurrent.futures import ThreadPoolExecutor
 
     from aifactory.backlog import edit as edits
+    from aifactory.backlog.edit.common import BacklogFiles
     from aifactory.database import backlog as shared
 
     a, b = repos
@@ -423,23 +424,27 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
         threading.Event(),
         threading.Event(),
     )
-    write = edits._write_checked
+    write = edits.common._write_checked
     synchronize = shared._synchronize
 
     def delayed(
-        backlog: Backlog, baseline: list[Issue], changes: dict[str, str], command: str
+        files: BacklogFiles,
+        backlog: Backlog,
+        baseline: list[Issue],
+        changes: dict[str, str],
+        command: str,
     ) -> bool:
         if backlog.root == a:
             loaded_edit.set()
             assert release_edit.wait(10)
-        return write(backlog, baseline, changes, command)
+        return write(files, backlog, baseline, changes, command)
 
     def observed(root: Path, settings: ProjectSettings) -> None:
         if root == a and threading.current_thread().name.startswith("sync"):
             entered_sync.set()
         return synchronize(root, settings)
 
-    monkeypatch.setattr(edits, "_write_checked", delayed)
+    monkeypatch.setattr(edits.task, "_write_checked", delayed)
     monkeypatch.setattr(shared, "_synchronize", observed)
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="edit") as editor:
         with ThreadPoolExecutor(max_workers=1, thread_name_prefix="sync") as syncer:

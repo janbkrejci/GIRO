@@ -25,7 +25,7 @@ from aifactory.engine.data_types import FollowUp, PlanOutput
 from aifactory.errors import TaskRunError
 from aifactory.review import ReviewError, approve_task
 from aifactory.run import run_task
-from aifactory.run.followups import collect, record
+from aifactory.run.followups import FollowUpOutcome, collect, record
 from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import StepRecord, WorkflowRun
 
@@ -578,12 +578,29 @@ def test_approve_refuses_a_blocked_task(repo: Path, script: Script) -> None:
     assert git(repo, "log", "-1", "--format=%s", result.run.branch) != f"{T01}: status done"
 
 
-def test_record_reads_the_backlog_without_archive_and_constant_git(
+def test_record_keeps_the_backlog_in_memory_with_constant_git(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """No archive, no backlog copy in a temporary directory, git calls independent of size."""
+    import tempfile
+
     from aifactory import gitquery
     from aifactory.backlog import add_task
+    from aifactory.run import followups
     from gitcount import count_git
+
+    def no_copy(*args: object, **kwargs: object) -> None:
+        pytest.fail("recording follow-ups must not copy the backlog to a temporary directory")
+
+    original = followups._record
+
+    def in_memory(*args: Any, **kwargs: Any) -> FollowUpOutcome:
+        # Publication may still back up the checkout; the backlog edits must not stage.
+        with monkeypatch.context() as mp:
+            mp.setattr(tempfile, "TemporaryDirectory", no_copy)
+            return original(*args, **kwargs)
+
+    monkeypatch.setattr(followups, "_record", in_memory)
 
     totals = []
     for n in (0, 8):

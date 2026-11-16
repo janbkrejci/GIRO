@@ -13,12 +13,14 @@ from run_repo import SPEC, T01, T02, Script, commit_all, fake_env, git, make_run
 from test_followups import follow_up, workflow_run
 
 from aifactory.backlog import Task, check_backlog, link_task, load_backlog
+from aifactory.backlog.edit.common import MemoryBacklog
 from aifactory.backlog.followup_ids import (
     advance_pr,
     follow_up_marker,
     publication_lock,
     reconcile_ids,
 )
+from aifactory.backlog.snapshot import read_snapshot
 from aifactory.config import ProjectSettings, load_run_config
 from aifactory.providers import CHECKS_NONE, ChecksStatus, ProviderError, PullRequest, publish
 from aifactory.providers import git as pgit
@@ -27,7 +29,7 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.review import ReviewError, approve_task
 from aifactory.review.automerge import _hosting_and_merge
 from aifactory.run import run_task
-from aifactory.run.followups import _contents, _record, _snapshot, record
+from aifactory.run.followups import _contents, _record, record
 from aifactory.runstore.store import TaskRunStore
 
 
@@ -45,21 +47,18 @@ def candidate(
     repo: Path, source: str, title: str, *, linked: bool = False, blocking: bool = True
 ) -> tuple[publish.PublishPlan, str]:
     rc = load_run_config(repo)
-    with _snapshot(repo, rc.commit, rc.config.settings) as stage:
-        config = stage / ".factory/config.yaml"
-        config.parent.mkdir()
-        config.write_bytes((repo / ".factory/config.yaml").read_bytes())
-        outcome = _record(
-            stage,
-            source,
-            title,
-            workflow_run(follow_ups=[follow_up(title, blocks=blocking)]),
-        )
-        new_id = outcome.created[0].id
-        if linked:
-            second = _record(stage, new_id, "child", workflow_run(follow_ups=[follow_up("Child")]))
-            link_task(stage, second.created[0].id, depends_on=[new_id])
-        files = publish.plan_contents(repo, rc.commit, _contents(stage))
+    stage = MemoryBacklog(read_snapshot(repo, rc.commit, rc.config.settings))
+    outcome = _record(
+        stage,
+        source,
+        title,
+        workflow_run(follow_ups=[follow_up(title, blocks=blocking)]),
+    )
+    new_id = outcome.created[0].id
+    if linked:
+        second = _record(stage, new_id, "child", workflow_run(follow_ups=[follow_up("Child")]))
+        link_task(stage, second.created[0].id, depends_on=[new_id])
+    files = publish.plan_contents(repo, rc.commit, _contents(stage))
     return publish.PublishPlan("main", rc.commit, "pr", tuple(files), (), "test"), new_id
 
 
@@ -156,7 +155,7 @@ def test_concurrent_prs_renumber_and_rewrite_only_branch_references(
     def no_archive(*args: object, **kwargs: object) -> None:
         pytest.fail("read-only ID reconciliation must not extract a backlog")
 
-    monkeypatch.setattr("aifactory.run.followups._snapshot", no_archive)
+    monkeypatch.setattr("aifactory.run.followups.read_snapshot", no_archive)
     assert finish(repo, provider, settings, first_plan, first).merged
     repaired = finish(repo, provider, settings, second_plan, second)
 

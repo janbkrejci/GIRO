@@ -16,7 +16,7 @@ from pathlib import Path
 
 from aifactory import gitquery
 from aifactory.backlog import Task, check_backlog, is_human, iter_tasks
-from aifactory.backlog.edit import _next_id
+from aifactory.backlog.edit.common import _next_id
 from aifactory.backlog.roots import owning_root
 from aifactory.backlog.snapshot import read_snapshot
 from aifactory.config import ProjectSettings, load_local
