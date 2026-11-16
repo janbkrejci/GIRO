@@ -261,3 +261,12 @@ UUID knihovny, `skill/factory`, metadata návrhů a historické záznamy zůstá
 Lokální knihovny bez remote ani vlastní vzdálené knihovny se nepřepojují.
 Při přesunu checkoutu se opraví Git worktrees, cesta a zobrazovaný název v
 registraci dashboardu a klíč lokálních nastavení; ID registrace `haifa` zůstává.
+
+## 2026-11-16: Engine je vlastní kód GIRO (OPT-S05-T12)
+
+`aifactory/src/aifactory/engine/` vznikl portem modulů `adw_modules` ze sssf
+(github.com/disler/super-simple-software-factory). Poslední známý upstream je
+commit `aa8b55c` repozitáře sssf (vendorováno 2026-09-26 do `vendor/sssf`, kopie
+smazána v `81121dc2`). Protože upstream kopie v repu už není, pravidlo
+o diffovatelnosti se sssf a značky `# aifactory N:` se ruší. Engine podléhá
+stejnému ruff a striktnímu mypy jako zbytek balíčku a mění se jako běžný kód.
