@@ -370,11 +370,26 @@ def current_target(root: Path, base: str, settings: ProjectSettings) -> str:
 
 @contextlib.contextmanager
 def _snapshot(root: Path, sha: str, settings: ProjectSettings) -> Iterator[Path]:
-    from aifactory.run.gitops import extract_backlog
+    """A temporary directory holding the backlog roots as committed at `sha`.
 
+    The tree is read in memory (``read_snapshot``: one ``ls-tree`` and one
+    ``cat-file --batch``, whatever the number of files) and written out, because the
+    backlog edit commands that record follow-ups work on files.
+    """
+    import os
+
+    snapshot = read_snapshot(root, sha, settings, create_missing=False)
     with tempfile.TemporaryDirectory(prefix="factory-followups-") as tmp:
         stage = Path(tmp)
-        extract_backlog(root, sha, settings.backlog_patterns, stage)
+        for rel in sorted(snapshot.directories):
+            (stage / rel).mkdir(parents=True, exist_ok=True)
+        for rel, data in snapshot.files.items():
+            target = stage / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if rel in snapshot.links:
+                os.symlink(snapshot.links[rel], target)
+            else:
+                target.write_bytes(data)
         yield stage
 
 
@@ -440,10 +455,13 @@ def reconcile_ids(
 
     changes: list[git.TreeChange] = []
     if renamed:
+        from aifactory import gitquery
+
         pattern = re.compile(
             r"(?<![\w.-])(" + "|".join(re.escape(k) for k in renamed) + r")(?![\w.-])"
         )
         before = old.markdown_files()
+        rewrites: list[tuple[str, bytes]] = []
         for path, content in ours.markdown_files().items():
             if before.get(path) == content:
                 continue
@@ -452,7 +470,13 @@ def reconcile_ids(
             if destination != path:
                 changes.append((path, None, None))
             if destination != path or rewritten.encode("utf-8") != content:
-                changes.append((destination, "100644", git.hash_blob(root, rewritten.encode())))
+                rewrites.append((destination, rewritten.encode()))
+        # Every rewritten file is stored by one git process.
+        blobs = gitquery.write_blobs(root, [data for _, data in rewrites])
+        changes += [
+            (destination, "100644", blob)
+            for (destination, _), blob in zip(rewrites, blobs, strict=True)
+        ]
     fixed = (
         git.commit_tree_with(root, head, changes, "Renumber colliding follow-up IDs")
         if changes

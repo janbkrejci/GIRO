@@ -228,10 +228,12 @@ def test_run_check_reports_uncommitted_config(client: TestClient, repo: Path) ->
 def test_run_check_reads_committed_dependencies_without_extracting_files(
     client: TestClient, repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def no_archive(*args: object, **kwargs: object) -> None:
-        pytest.fail("run-check must read the committed backlog in memory")
+    from gitspy import GitCall, spy_git
 
-    monkeypatch.setattr("aifactory.run.gitops.extract_backlog", no_archive)
+    def no_archive(call: GitCall) -> None:
+        assert "archive" not in call.argv, "run-check must read the committed backlog in memory"
+
+    spy_git(monkeypatch, no_archive)
     path = repo / "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
     path.write_text(
         path.read_text(encoding="utf-8").replace("status: todo", "status: done"), encoding="utf-8"

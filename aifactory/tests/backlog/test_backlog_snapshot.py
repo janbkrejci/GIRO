@@ -12,7 +12,21 @@ from aifactory.backlog import backlog_to_json, check_backlog, load_backlog, load
 from aifactory.backlog.snapshot import load_backlog_at, read_snapshot
 from aifactory.config import ProjectSettings
 from aifactory.config.source import git
-from aifactory.run.gitops import extract_backlog
+
+
+def extract_backlog(root: Path, sha: str, dest: Path) -> None:
+    """The reference: the committed backlog roots written out by ``git archive``."""
+    import io
+    import tarfile
+
+    data = subprocess.run(
+        ["git", "archive", "--format=tar", sha, "--", "backlog"],
+        cwd=root,
+        capture_output=True,
+        check=True,
+    ).stdout
+    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+        tar.extractall(dest, filter="data")
 
 
 def commit(root: Path) -> str:
@@ -40,7 +54,8 @@ def test_snapshot_matches_archive_and_ignores_checkout(tmp_path: Path, malformed
     settings = load_settings(root)
     dest = tmp_path / "archive"
     dest.mkdir()
-    extract_backlog(root, sha, settings.backlog_patterns, dest)
+    assert list(settings.backlog_patterns) == ["backlog"]
+    extract_backlog(root, sha, dest)
     expected = load_backlog(dest, settings)
     write(root, T02, task_md("UNCOMMITTED", "done"))
     write(root, "backlog/M02-ui/S01-list/new.md", task_md("NEW"))
