@@ -244,7 +244,7 @@ def test_retry_refuses_writes_missing_from_base(
     run_id = _failed_run(repo, script, "README.md", "docs/extra.md")
     calls = len(script.calls)
 
-    def incomplete_commit(root: Path, message: str) -> BacklogCommit:
+    def incomplete_commit(root: Path, message: str, **_: object) -> BacklogCommit:
         if result_kind == "partial":
             edit_task(root, T01, writes=["src/app/", "README.md"])
             return commit_backlog(root, message)
@@ -293,7 +293,7 @@ def test_all_commit_results_verify_effective_writes_in_base(
     module = import_module("aifactory.run.allow_writes")
     _failed_run(repo, script, "docs/extra.md")
 
-    def commit_inherited_writes(root: Path, message: str) -> BacklogCommit:
+    def commit_inherited_writes(root: Path, message: str, **_: object) -> BacklogCommit:
         # The path is covered through an inherited directory, not an own literal path.
         edit_container(root, "M01-S01", values={"writes": ["src/app/", "docs/"]})
         edit_task(root, T01, clear_writes=True)
@@ -387,7 +387,7 @@ def test_failed_allow_writes_restores_file_and_index(
         original_edit(root, task_id, writes=writes)
         raise RuntimeError("edit failed")
 
-    def fail_commit(root: Path, message: str) -> None:
+    def fail_commit(root: Path, message: str, **_: object) -> None:
         git(root, "add", TASK_FILE)
         raise RuntimeError("commit failed")
 
@@ -428,3 +428,24 @@ def test_behind_base_with_dirty_checkout_fails_before_edit(
     assert (repo / TASK_FILE).read_bytes() == before
     assert git(repo, "rev-parse", "HEAD") == head
     assert git(repo, "status", "--porcelain") == status
+
+
+def test_allow_writes_loads_the_run_config_once(
+    repo: Path, script: Script, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from aifactory.config import loader
+
+    _failed_run(repo, script, "docs/extra.md")
+    real = loader.load_config
+    loads: list[object] = []
+
+    def counting(*args: object, **kwargs: object) -> object:
+        loads.append(args[0])
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr("aifactory.config.run.load_config", counting)
+    plan_allow_writes(repo, T01)
+    assert len(loads) == 1
+    loads.clear()
+    allow_writes(repo, T01)
+    assert len(loads) == 1

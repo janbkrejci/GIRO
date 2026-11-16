@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Any
 
@@ -20,12 +21,33 @@ DEFAULT_BASE = "main"
 
 @dataclass(frozen=True)
 class RunConfig:
+    """A loaded run configuration.
+
+    ``changes`` (uncommitted shared-config changes, several git processes) and the
+    ``warnings`` built from them are computed on first access only: most callers need
+    neither.
+    """
+
     base: str
     commit: str
     config: FactoryConfig
     local: LocalSettings
-    changes: tuple[ConfigChange, ...]
-    warnings: tuple[str, ...]
+    root: Path = field(repr=False)
+    local_warnings: tuple[str, ...] = ()
+
+    @cached_property
+    def changes(self) -> tuple[ConfigChange, ...]:
+        return tuple(config_changes(self.root, self.commit))
+
+    @cached_property
+    def warnings(self) -> tuple[str, ...]:
+        warnings = change_warnings(list(self.changes), self.base, self.commit)
+        warnings.extend(self.local_warnings)
+        if self.config.settings.base != self.base:
+            warnings.append(
+                f"committed base is '{self.config.settings.base}' but the run uses '{self.base}'"
+            )
+        return tuple(warnings)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -71,7 +93,7 @@ def load_run_config(root: Path, base: str | None = None) -> RunConfig:
 
     Two runs started from the same commit get the same configuration, however
     the working tree changes in between. Uncommitted shared-config changes are
-    returned as ``warnings``.
+    reported as ``warnings`` (computed when first read).
     """
     root = repo_root(root)
     name = base.strip() if base else worktree_base(root)
@@ -80,16 +102,11 @@ def load_run_config(root: Path, base: str | None = None) -> RunConfig:
     sha = resolve_commit(root, name)
     config = load_config(CommitSource(root, name, sha))
     local, local_warnings = load_local_checked(root)
-    changes = config_changes(root, sha)
-    warnings = change_warnings(changes, name, sha)
-    warnings.extend(local_warnings)
-    if config.settings.base != name:
-        warnings.append(f"committed base is '{config.settings.base}' but the run uses '{name}'")
     return RunConfig(
         base=name,
         commit=sha,
         config=config,
         local=local,
-        changes=tuple(changes),
-        warnings=tuple(warnings),
+        root=root,
+        local_warnings=tuple(local_warnings),
     )
