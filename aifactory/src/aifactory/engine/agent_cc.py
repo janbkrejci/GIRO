@@ -34,7 +34,7 @@ tokens of tool definitions enter the prompt; the same turn without them is
 ~$0.02. Set `CLAUDE_MCP_CONFIG` to a config file when an agent genuinely needs
 MCP tools.
 
-aifactory: an agent runs as if claude had been started from the CLI in the repo.
+an agent runs as if claude had been started from the CLI in the repo.
 `--setting-sources project,local` loads the repo's `.claude/settings*.json`,
 CLAUDE.md and `.claude/skills/`, and nothing from the operator's `~/.claude`
 (no user hooks, plugins, skills, agents or CLAUDE.md). The agent's role still
@@ -49,10 +49,11 @@ import os
 import subprocess
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any
 
-from aifactory.failure import QuotaExhausted  # aifactory 3.4
+from aifactory.failure import QuotaExhausted
 
 from .data_types import AgentRequest, AgentResult
 from .utils import env_flag, now_iso, operator_env, prompt_file, read_stderr, send_stdin
@@ -73,15 +74,21 @@ MCP_CONFIG = os.environ.get("CLAUDE_MCP_CONFIG", "")
 # `bypassPermissions`, so the agent cannot run them at all.
 SUPPORTS_DISALLOWED_COMMANDS = True
 
-# aifactory 3.4: how claude says the account's quota or credit is used up. The error
+# How claude says the account's quota or credit is used up. The error
 # field of an assistant event is typed; the texts cover a turn that only says so.
 QUOTA_ERRORS = ("billing_error", "rate_limit")
-QUOTA_MARKERS = ("usage limit", "hit your limit", "credit balance is too low",
-                 "out of extra usage", "quota exceeded", "exceeded your current quota")
+QUOTA_MARKERS = (
+    "usage limit",
+    "hit your limit",
+    "credit balance is too low",
+    "out of extra usage",
+    "quota exceeded",
+    "exceeded your current quota",
+)
 
 
 def quota_exhausted(text: str) -> bool:
-    """aifactory 3.4: True when claude's error text reports an exhausted quota or credit."""
+    """True when claude's error text reports an exhausted quota or credit."""
     lowered = text.lower()
     return any(marker in lowered for marker in QUOTA_MARKERS)
 
@@ -91,7 +98,7 @@ def quota_exhausted(text: str) -> bool:
 # run fired the operator's SessionStart hooks and carried 116 slash commands
 # into the prompt — a hook that tells Claude how to talk is a hook that can
 # corrupt an envelope.
-# aifactory: the default is repo-native loading — `--setting-sources
+# The default is repo-native loading — `--setting-sources
 # project,local` reads the repo's settings, CLAUDE.md and .claude/skills and
 # never ~/.claude. CLAUDE_SAFE_MODE=1 brings back --safe-mode (no CLAUDE.md,
 # hooks, plugins, skills or custom agents at all). Read at call time.
@@ -99,13 +106,13 @@ SETTING_SOURCES = "project,local"
 
 
 def safe_mode() -> bool:
-    """aifactory: True when CLAUDE_SAFE_MODE asks for full isolation."""
+    """True when CLAUDE_SAFE_MODE asks for full isolation."""
     return env_flag("CLAUDE_SAFE_MODE")
 
 
-RESULT_SNIPPET_CHARS = 20_000   # tool output rides along whole; clip only guards pathological cases
-ARG_VALUE_CHARS = 20_000        # args too — the UI scrolls, it must not be handed cut-off data
-LABEL_CHARS = 80                # "Bash: <command>" shown as the event name
+RESULT_SNIPPET_CHARS = 20_000  # tool output rides along whole; clip only guards pathological cases
+ARG_VALUE_CHARS = 20_000  # args too — the UI scrolls, it must not be handed cut-off data
+LABEL_CHARS = 80  # "Bash: <command>" shown as the event name
 
 PRIMARY_ARGS = ("command", "path", "file_path", "pattern", "query", "url", "prompt")
 
@@ -119,15 +126,20 @@ TOOL_MAP = {
     "write": "Write",
     "grep": "Grep",
     "find": "Glob",
-    "ls": "Glob",          # claude has no LS tool; Glob is the listing primitive
+    "ls": "Glob",  # claude has no LS tool; Glob is the listing primitive
 }
 
 # pi's thinking levels map onto claude's --effort. claude has no "off": the
 # floor is `low`, so disabling thinking is expressed as the cheapest setting
 # rather than silently dropped.
 EFFORT_MAP = {
-    "off": "low", "minimal": "low", "low": "low",
-    "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max",
+    "off": "low",
+    "minimal": "low",
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "xhigh": "xhigh",
+    "max": "max",
 }
 
 # Aliases claude resolves to the current model of that family.
@@ -155,13 +167,17 @@ def resolve_model(pattern: str) -> tuple[str, str]:
     """
     candidate = pattern.split("/", 1)[1] if pattern.startswith("anthropic/") else pattern
     if "/" in candidate:
-        raise ValueError(f"model {pattern!r} is not a Claude Code model — use an alias "
-                         f"({', '.join(MODEL_ALIASES)}), a full id (claude-opus-5), or "
-                         "anthropic/<id>")
+        raise ValueError(
+            f"model {pattern!r} is not a Claude Code model — use an alias "
+            f"({', '.join(MODEL_ALIASES)}), a full id (claude-opus-5), or "
+            "anthropic/<id>"
+        )
     if candidate in MODEL_ALIASES or candidate.startswith("claude-"):
         return "anthropic", candidate
-    raise ValueError(f"model {pattern!r} is not a Claude Code model — use an alias "
-                     f"({', '.join(MODEL_ALIASES)}) or a claude-* id")
+    raise ValueError(
+        f"model {pattern!r} is not a Claude Code model — use an alias "
+        f"({', '.join(MODEL_ALIASES)}) or a claude-* id"
+    )
 
 
 def context_window(provider: str, model_id: str) -> int:
@@ -184,48 +200,58 @@ def session_uuid(session_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"sssf://claude-code/{session_id}"))
 
 
-def _text_of(message: dict) -> str:
+def _text_of(message: dict[str, Any]) -> str:
     """Join the text blocks of an anthropic message."""
-    return "".join(block.get("text", "") for block in message.get("content", []) or []
-                   if isinstance(block, dict) and block.get("type") == "text")
+    return "".join(
+        block.get("text", "")
+        for block in message.get("content", []) or []
+        if isinstance(block, dict) and block.get("type") == "text"
+    )
 
 
 def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
 
-def _label(tool: str, args: dict) -> str:
+def _label(tool: str, args: dict[str, Any]) -> str:
     """One-line human name for a tool call: `Bash: ls -la src`."""
-    value = next((args[key] for key in PRIMARY_ARGS
-                  if isinstance(args.get(key), str) and args[key].strip()), "")
+    value = next(
+        (args[key] for key in PRIMARY_ARGS if isinstance(args.get(key), str) and args[key].strip()),
+        "",
+    )
     if not value:
         value = next((v for v in args.values() if isinstance(v, str) and v.strip()), "")
     value = " ".join(str(value).split())
     return f"{tool}: {_clip(value, LABEL_CHARS)}" if value else tool
 
 
-def _result_text(block: dict) -> str:
+def _result_text(block: dict[str, Any]) -> str:
     """Tool results arrive as a string or as anthropic content blocks."""
     content = block.get("content")
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        return "".join(part.get("text", "") for part in content
-                       if isinstance(part, dict) and part.get("type") == "text")
+        return "".join(
+            part.get("text", "")
+            for part in content
+            if isinstance(part, dict) and part.get("type") == "text"
+        )
     return ""
 
 
-def _occupancy(usage: dict) -> int:
+def _occupancy(usage: dict[str, Any]) -> int:
     """Tokens occupying the window after a turn.
 
     Everything the model was sent plus what it produced: fresh input, the
     cached prefix it read, the prefix it wrote to cache, and its own output.
     Cache reads count — a cached prompt is still prompt.
     """
-    return int((usage.get("input_tokens") or 0)
-               + (usage.get("cache_read_input_tokens") or 0)
-               + (usage.get("cache_creation_input_tokens") or 0)
-               + (usage.get("output_tokens") or 0))
+    return int(
+        (usage.get("input_tokens") or 0)
+        + (usage.get("cache_read_input_tokens") or 0)
+        + (usage.get("cache_creation_input_tokens") or 0)
+        + (usage.get("output_tokens") or 0)
+    )
 
 
 class ToolCallTracker:
@@ -239,11 +265,11 @@ class ToolCallTracker:
     """
 
     def __init__(self) -> None:
-        self._open: dict[str, dict] = {}
-        # aifactory 3.7: calls announced since the last `started()`, for a live tool_start.
+        self._open: dict[str, dict[str, Any]] = {}
+        # Calls announced since the last `started()`, for a live tool_start.
         self._started: list[str] = []
 
-    def observe(self, event: dict) -> Optional[dict]:
+    def observe(self, event: dict[str, Any]) -> dict[str, Any] | None:
         """Returns the record for a finished tool call, else None."""
         etype = event.get("type", "")
         message = event.get("message", {}) or {}
@@ -265,8 +291,10 @@ class ToolCallTracker:
             record = {
                 "tool": tool,
                 "tool_call_id": call_id,
-                "args": {key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
-                         for key, value in args.items()},
+                "args": {
+                    key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
+                    for key, value in args.items()
+                },
                 "ok": not block.get("is_error", False),
                 "label": _label(tool, args),
             }
@@ -278,11 +306,11 @@ class ToolCallTracker:
                 record["duration_ms"] = int((time.monotonic() - opened["clock"]) * 1000)
             if opened.get("started_at"):
                 record["started_at"] = opened["started_at"]
-            return record           # one result per user message in practice
+            return record  # one result per user message in practice
         return None
 
-    # aifactory 3.7: one record per call the moment it is announced, before its result.
-    def started(self) -> list[dict]:
+    # One record per call the moment it is announced, before its result.
+    def started(self) -> list[dict[str, Any]]:
         """The calls announced since the last call that are still running, oldest first."""
         records = []
         for call_id in self._started:
@@ -291,18 +319,22 @@ class ToolCallTracker:
                 continue
             tool = str(opened.get("tool") or "tool")
             args = opened.get("args") or {}
-            records.append({
-                "tool": tool,
-                "tool_call_id": call_id,
-                "args": {key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
-                         for key, value in args.items()},
-                "label": _label(tool, args),
-                "started_at": opened.get("started_at"),
-            })
+            records.append(
+                {
+                    "tool": tool,
+                    "tool_call_id": call_id,
+                    "args": {
+                        key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
+                        for key, value in args.items()
+                    },
+                    "label": _label(tool, args),
+                    "started_at": opened.get("started_at"),
+                }
+            )
         self._started = []
         return records
 
-    def _announce(self, call_id, tool, args) -> None:
+    def _announce(self, call_id: Any, tool: Any, args: Any) -> None:
         """First sighting starts the clock; a later sighting only fills gaps."""
         if not call_id:
             return
@@ -312,8 +344,8 @@ class ToolCallTracker:
         self._open[str(call_id)] = {
             "tool": tool or known.get("tool", ""),
             "args": args or known.get("args", {}),
-            "started_at": known.get("started_at") or now_iso(),   # wall clock, for the row
-            "clock": known.get("clock") or time.monotonic(),      # monotonic, for duration
+            "started_at": known.get("started_at") or now_iso(),  # wall clock, for the row
+            "clock": known.get("clock") or time.monotonic(),  # monotonic, for duration
         }
 
 
@@ -336,22 +368,22 @@ class _SessionState:
     def started(self) -> bool:
         return bool(self.data.get("started"))
 
-    def totals(self) -> dict:
+    def totals(self) -> dict[str, Any]:
         return self.data.get("totals") or {}
 
-    def save(self, totals: dict) -> None:
+    def save(self, totals: dict[str, Any]) -> None:
         self.data.update({"started": True, "totals": totals, "updated_at": now_iso()})
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8", newline="\n")
 
 
-def _tools_for(tools: Optional[list[str]]) -> list[str]:
+def _tools_for(tools: list[str] | None) -> list[str]:
     """Translate the roster's tool list into claude's built-in tool names."""
     if not tools:
         return []
     named, seen = [], set()
     for tool in tools:
-        mapped = TOOL_MAP.get(tool, tool)      # unknown names pass through as-is
+        mapped = TOOL_MAP.get(tool, tool)  # unknown names pass through as-is
         if mapped not in seen:
             seen.add(mapped)
             named.append(mapped)
@@ -377,32 +409,47 @@ def disallowed_tools(commands: list[str]) -> list[str]:
     return rules
 
 
-def _delta(current: dict, previous: dict) -> dict:
+def _delta(current: dict[str, Any], previous: dict[str, Any]) -> dict[str, Any]:
     """This turn's usage: the session's running totals minus the last reading."""
-    return {key: max(0, int(current.get(key) or 0) - int(previous.get(key) or 0))
-            for key in ("inputTokens", "outputTokens", "cacheReadInputTokens",
-                        "cacheCreationInputTokens", "thinkingTokens")}
+    return {
+        key: max(0, int(current.get(key) or 0) - int(previous.get(key) or 0))
+        for key in (
+            "inputTokens",
+            "outputTokens",
+            "cacheReadInputTokens",
+            "cacheCreationInputTokens",
+            "thinkingTokens",
+        )
+    }
 
 
-def _model_totals(result_event: dict) -> tuple[dict, int]:
+def _model_totals(result_event: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Fold claude's per-model usage map into one totals dict plus the window."""
-    totals = {"inputTokens": 0, "outputTokens": 0, "cacheReadInputTokens": 0,
-              "cacheCreationInputTokens": 0, "thinkingTokens": 0, "costUSD": 0.0}
+    totals = {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "thinkingTokens": 0,
+        "costUSD": 0.0,
+    }
     window = 0
     for model in (result_event.get("modelUsage") or {}).values():
         for key in totals:
             totals[key] += model.get(key) or 0
         window = max(window, int(model.get("contextWindow") or 0))
-    totals["costUSD"] = float(result_event.get("total_cost_usd")
-                              or totals["costUSD"] or 0.0)
+    totals["costUSD"] = float(result_event.get("total_cost_usd") or totals["costUSD"] or 0.0)
     return totals, window
 
 
-def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None,
-        on_spawn: Optional[Callable[[int], None]] = None,
-        on_exit: Optional[Callable[[int], None]] = None,
-        on_wait: Optional[Callable[[int, int, str], None]] = None,
-        _rejoined: bool = False) -> AgentResult:
+def run(
+    request: AgentRequest,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+    on_spawn: Callable[[int], None] | None = None,
+    on_exit: Callable[[int], None] | None = None,
+    on_wait: Callable[[int, int, str], None] | None = None,
+    _rejoined: bool = False,
+) -> AgentResult:
     """Run one non-interactive Claude Code turn.
 
     `on_spawn(pid)` and `on_exit(pid)` bracket the child process so the caller
@@ -418,16 +465,23 @@ def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None
     state = _SessionState(Path(request.session_dir) / f"{conversation}.state.json")
 
     cmd = [
-        CLAUDE_PATH, "-p", "--output-format", "stream-json", "--verbose",
-        "--model", model_id,
-        "--effort", EFFORT_MAP.get(request.thinking, "medium"),
-        # aifactory 3.5: a read-only agent runs only its allowed commands, nothing else.
-        "--permission-mode", "dontAsk" if request.allowed_commands else PERMISSION_MODE,
-        "--permission-prompts", "none",   # nobody is at the keyboard; never wait for one
-        # aifactory 3.1: both prompts stay off the command line (WinError 206).
-        "--system-prompt-file", prompt_file(request.session_dir,
-                                            f"{conversation}.system.md",
-                                            request.system_prompt),
+        CLAUDE_PATH,
+        "-p",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--model",
+        model_id,
+        "--effort",
+        EFFORT_MAP.get(request.thinking, "medium"),
+        # A read-only agent runs only its allowed commands, nothing else.
+        "--permission-mode",
+        "dontAsk" if request.allowed_commands else PERMISSION_MODE,
+        "--permission-prompts",
+        "none",  # nobody is at the keyboard; never wait for one
+        # Both prompts stay off the command line (WinError 206).
+        "--system-prompt-file",
+        prompt_file(request.session_dir, f"{conversation}.system.md", request.system_prompt),
     ]
     # Create the conversation once, rejoin it every time after — the whole
     # reason a gate correction keeps the agent's context instead of restarting.
@@ -436,7 +490,7 @@ def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None
     if tools:
         cmd += ["--tools", ",".join(tools)]
     if request.allowed_commands:
-        # aifactory 3.5: allow rules for exactly these commands; dontAsk denies the rest.
+        # Allow rules for exactly these commands; dontAsk denies the rest.
         cmd += ["--allowedTools", *disallowed_tools(request.allowed_commands)]
     denied = disallowed_tools(request.disallowed_commands)
     if denied:
@@ -448,34 +502,43 @@ def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None
         # what safe mode removes — so the two are mutually exclusive by design.
         cmd += ["--mcp-config", MCP_CONFIG, "--strict-mcp-config"]
     else:
-        cmd.append("--strict-mcp-config")     # no MCP roster in the prompt, by default
-    if safe_mode():                            # aifactory: read per call, default off
+        cmd.append("--strict-mcp-config")  # no MCP roster in the prompt, by default
+    if safe_mode():  # read per call, default off
         if not MCP_CONFIG:
             cmd.append("--safe-mode")
     else:
-        # aifactory: repo settings, CLAUDE.md and .claude/skills; never ~/.claude.
+        # Repo settings, CLAUDE.md and .claude/skills; never ~/.claude.
         cmd += ["--setting-sources", SETTING_SOURCES]
-    # aifactory 3.1: the user prompt goes through stdin, not argv.
+    # The user prompt goes through stdin, not argv.
 
     raw_path = Path(request.raw_output_path)
     raw_path.parent.mkdir(parents=True, exist_ok=True)
 
-    result = AgentResult(session_id=request.session_id,
-                         context_window=context_window(provider, model_id))
-    totals, window, turn_cost = {}, 0, 0.0
+    result = AgentResult(
+        session_id=request.session_id, context_window=context_window(provider, model_id)
+    )
+    totals: dict[str, Any] = {}
+    window, turn_cost = 0, 0.0
     # Only a conversation claude actually opened may be resumed: marking a
     # failed spawn as started would make every later turn `--resume` an id
     # that does not exist.
     created = False
-    api_error, error_text, failed = "", "", False   # aifactory 3.4: what a failed turn said
-    # aifactory 3.1: stdin is a pipe that carries the prompt and is then closed,
+    api_error, error_text, failed = "", "", False  # what a failed turn said
+    # Stdin is a pipe that carries the prompt and is then closed,
     # so the child sees EOF; an inherited stdin would let it wait forever for
     # input that is never coming.
-    process = subprocess.Popen(cmd, stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               text=True, bufsize=1, cwd=request.cwd,
-                               env=operator_env(), encoding="utf-8")
-    stderr_read = read_stderr(process)  # aifactory 3.6: keep both output pipes draining
+    process = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        cwd=request.cwd,
+        env=operator_env(),
+        encoding="utf-8",
+    )
+    stderr_read = read_stderr(process)  # keep both output pipes draining
     send_stdin(process, request.prompt)
     if on_spawn:
         on_spawn(process.pid)
@@ -483,7 +546,7 @@ def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None
         assert process.stdout is not None
         for line in process.stdout:
             raw.write(line)
-            raw.flush()                      # events land on disk as they happen
+            raw.flush()  # events land on disk as they happen
             line = line.strip()
             if not line:
                 continue
@@ -495,15 +558,15 @@ def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None
             if etype == "system" and event.get("subtype") == "init":
                 created = True
                 if not state.started:
-                    # aifactory 3.1: record the conversation as soon as claude opens it;
+                    # Record the conversation as soon as claude opens it;
                     # a turn killed mid-way (stop, crash, full disk) must still resume it.
                     state.save(state.totals())
             elif etype == "assistant":
                 message = event.get("message", {}) or {}
                 text = _text_of(message)
                 if text:
-                    result.text = text       # last assistant message wins
-                if event.get("error"):       # aifactory 3.4: an API error, typed
+                    result.text = text  # last assistant message wins
+                if event.get("error"):  # an API error, typed
                     api_error, error_text = str(event["error"]), text or error_text
                 occupancy = _occupancy(message.get("usage", {}) or {})
                 if occupancy:
@@ -512,7 +575,7 @@ def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None
                 totals, window = _model_totals(event)
                 if event.get("is_error"):
                     result.text = result.text or str(event.get("result") or "")
-                    failed = True            # aifactory 3.4
+                    failed = True
                     error_text = str(event.get("result") or "") or error_text
                 elif event.get("result"):
                     result.text = str(event.get("result"))
@@ -527,39 +590,60 @@ def run(request: AgentRequest, on_event: Optional[Callable[[dict], None]] = None
     if totals:
         previous = state.totals()
         turn = _delta(totals, previous)
-        turn_cost = max(0.0, float(totals.get("costUSD") or 0.0)
-                        - float(previous.get("costUSD") or 0.0))
+        turn_cost = max(
+            0.0, float(totals.get("costUSD") or 0.0) - float(previous.get("costUSD") or 0.0)
+        )
         state.save(totals)
         # Re-shaped into pi's usage vocabulary so UsageBreakdown.add_turn stays
         # the one place token accounting lives. claude prices a turn as a
         # single number, so only the total cost is claimed — inventing a
         # per-component split would make the trace look more precise than it is.
-        spent = {"input": turn["inputTokens"], "output": turn["outputTokens"],
-                 "cacheRead": turn["cacheReadInputTokens"],
-                 "cacheWrite": turn["cacheCreationInputTokens"],
-                 "reasoning": turn["thinkingTokens"],
-                 "cost": {"total": turn_cost}}
-        billed = sum(turn[key] for key in ("inputTokens", "outputTokens",
-                                           "cacheReadInputTokens",
-                                           "cacheCreationInputTokens"))
+        spent = {
+            "input": turn["inputTokens"],
+            "output": turn["outputTokens"],
+            "cacheRead": turn["cacheReadInputTokens"],
+            "cacheWrite": turn["cacheCreationInputTokens"],
+            "reasoning": turn["thinkingTokens"],
+            "cost": {"total": turn_cost},
+        }
+        billed = sum(
+            turn[key]
+            for key in (
+                "inputTokens",
+                "outputTokens",
+                "cacheReadInputTokens",
+                "cacheCreationInputTokens",
+            )
+        )
         result.tokens += billed
         result.usage.add_turn(spent, billed)
         result.cost += turn_cost
     elif created:
-        state.save(state.totals())           # a turn that errored still opened the session
+        state.save(state.totals())  # a turn that errored still opened the session
     if window:
-        result.context_window = window       # what the model actually reported
+        result.context_window = window  # what the model actually reported
 
-    if (result.returncode != 0 and not state.started
-            and "is already in use" in stderr and not _rejoined):
-        # aifactory 3.1: the conversation exists but was never recorded (the turn that
+    if (
+        result.returncode != 0
+        and not state.started
+        and "is already in use" in stderr
+        and not _rejoined
+    ):
+        # The conversation exists but was never recorded (the turn that
         # opened it died before the state file was written): rejoin it once.
         state.save(state.totals())
-        return run(request, on_event=on_event, on_spawn=on_spawn, on_exit=on_exit,
-                   on_wait=on_wait, _rejoined=True)
-    # aifactory 3.4: an exhausted quota is a fact of the harness, not invalid JSON
+        return run(
+            request,
+            on_event=on_event,
+            on_spawn=on_spawn,
+            on_exit=on_exit,
+            on_wait=on_wait,
+            _rejoined=True,
+        )
+    # An exhausted quota is a fact of the harness, not invalid JSON
     if (result.returncode != 0 or failed) and (
-            api_error in QUOTA_ERRORS or quota_exhausted(f"{error_text}\n{stderr}")):
+        api_error in QUOTA_ERRORS or quota_exhausted(f"{error_text}\n{stderr}")
+    ):
         raise QuotaExhausted("claude", error_text or stderr or api_error)
     if result.returncode != 0 and not result.text:
         raise RuntimeError(f"claude exited {result.returncode}: {stderr.strip()[-800:]}")

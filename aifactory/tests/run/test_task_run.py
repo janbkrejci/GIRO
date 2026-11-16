@@ -544,24 +544,6 @@ def test_override_is_noted_on_the_run(repo: Path, script: Script) -> None:
     assert result.run.note == "pozor [zdroj harnessu: explicit] [přepis rosteru: model=opus]"
 
 
-def test_legacy_task_harness_values_keep_import_inheritance(repo: Path) -> None:
-    from aifactory import backlog as core
-
-    project = repo / "backlog/M01-core/index.md"
-    project.write_text(
-        project.read_text().replace(
-            "workflow: plan-commit", "workflow: plan-commit\nharness: claude\nmodel: opus"
-        )
-    )
-    task_path = repo / "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
-    task_path.write_text(
-        task_path.read_text().replace("status: todo", "status: todo\nharness: codex")
-    )
-    task = core.load_for_edit(repo).by_id[T01]
-    assert isinstance(task, core.Task)
-    assert task_mod.task_harness_values(task) == {"harness": "codex"}
-
-
 def test_project_and_task_model_choices_are_legacy_metadata(repo: Path, script: Script) -> None:
     project = repo / "backlog/M01-core/index.md"
     project.write_text(

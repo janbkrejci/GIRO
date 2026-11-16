@@ -1,7 +1,7 @@
 # Step name -> role. Content mirrors vendor adw_modules/roles.py; output types
 # and gates are names looked up in adw_modules.data_types / adw_modules.gates.
 # `aliases` are extra step names that share the same role (`plan` == `planner`).
-# aifactory: a `.factory/roles.yaml` without `code_steps` overlays this file — an
+# a `.factory/roles.yaml` without `code_steps` overlays this file — an
 # existing step keeps the fields it does not name, a new step needs `agent`,
 # `output_type`, `gates` and `description`. A file with `code_steps` replaces it.
 roles:
@@ -17,14 +17,14 @@ roles:
     gates: [diff_matches_claims]
     description: Implement what the previous step asked for
     aliases: [builder]
-  # aifactory 3.0: the tester chooses the checks every later `test` step runs.
+  # The tester chooses the checks every later `test` step runs.
   test_plan:
     agent: tester
     output_type: TestPlanOutput
     gates: [checks_runnable, plan_keeps_checks, coverage_required, checks_fit_budget]
     description: Choose the checks that verify this change, enough to trust it and nothing beyond
     retries: 1
-  # aifactory 3.7: optional explicit role for custom workflows; never inserted automatically.
+  # Optional explicit role for custom workflows; never inserted automatically.
   test_review:
     agent: test-reviewer
     output_type: ReviewOutput

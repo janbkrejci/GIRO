@@ -3,7 +3,7 @@
 A known command is not a judgement call: it runs as a subprocess, costs nothing,
 and returns the same answer every time.
 
-aifactory 3.0: the lint/typecheck/build/test placeholder blocks are gone. The
+the lint/typecheck/build/test placeholder blocks are gone. The
 `test` step runs the checks a tester agent chose (aifactory.testing.executor),
 a `command` step runs its own argv; both go through `_run` below.
 
@@ -18,44 +18,53 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from aifactory import oscompat
 
-from .data_types import (EventRecord, QualityCheckResult, QualityCheckSpec, QualityResult,
-                         VerifyOutput)
+from .data_types import (
+    EventRecord,
+    QualityCheckResult,
+    QualityCheckSpec,
+    QualityResult,
+    VerifyOutput,
+)
 from .utils import now_iso, operator_env
+
+if TYPE_CHECKING:
+    from .runner import Run
 
 # How much of a failing command's output rides back inside the envelope. Enough
 # for a builder to act on without opening the artifact; bounded so a runaway
 # stack trace can't swamp the next agent's context.
 TAIL_CHARS = 4_000
 
-# aifactory: default time limit (s) of the test step; run.test_timeout overrides it.
+# Default time limit (s) of the test step; run.test_timeout overrides it.
 DEFAULT_TEST_TIMEOUT = 600
-# aifactory: trace event (type log) of the test step's wait for a slot (engine.slots).
+# Trace event (type log) of the test step's wait for a slot (engine.slots).
 TEST_SLOT_EVENT = "test_slot"
 
 
-def _text(value: str | bytes | None) -> str:  # aifactory
+def _text(value: str | bytes | None) -> str:
     """Decode captured binary output, including partial output from timed-out commands."""
     if value is None:
         return ""
     return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value
 
 
-def _check_dir(run, name: str) -> Path:
+def _check_dir(run: Run, name: str) -> Path:
     seq = run.phases[-1].seq if run.phases else 0
     path = run.context_handoff_dir / "quality" / f"{seq:02d}_{name}"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def _run(spec: QualityCheckSpec, run) -> QualityCheckResult:
+def _run(spec: QualityCheckSpec, run: Any) -> QualityCheckResult:
     phase = run.phases[-1]
     output_dir = _check_dir(run, spec.name)
     output_artifact = output_dir / "command.log"
     command = shlex.join(spec.argv)
-    env = operator_env()             # the engineer's own shell environment
+    env = operator_env()  # the engineer's own shell environment
 
     run.console.note(f"quality {spec.name}: {command}")
     started_at = now_iso()
@@ -63,14 +72,17 @@ def _run(spec: QualityCheckSpec, run) -> QualityCheckResult:
     stdout = ""
     stderr = ""
     try:
-        # aifactory 2.14: files let us wait for the command's actual exit, not EOF
+        # Files let us wait for the command's actual exit, not EOF
         # on pipes inherited by background helpers (e.g. check-scoped cleanup).
         # Keep partial output on timeout without waiting for those helpers either.
-        # aifactory 3.0: ProcessTree is a Windows job object (POSIX: the process group).
-        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err, \
-                oscompat.ProcessTree() as tree:
+        # ProcessTree is a Windows job object (POSIX: the process group).
+        with (
+            tempfile.TemporaryFile() as out,
+            tempfile.TemporaryFile() as err,
+            oscompat.ProcessTree() as tree,
+        ):
             try:
-                # aifactory 2.14: own the process group so a timed-out test cannot
+                # Own the process group so a timed-out test cannot
                 # leave pytest workers running against a deleted temporary directory.
                 with subprocess.Popen(
                     spec.argv,
@@ -85,7 +97,7 @@ def _run(spec: QualityCheckSpec, run) -> QualityCheckResult:
                     try:
                         returncode = process.wait(timeout=spec.timeout_seconds)
                     except subprocess.TimeoutExpired:
-                        # aifactory 3.0: also stops children started during the kill.
+                        # Also stops children started during the kill.
                         try:
                             stopped = tree.kill(process)
                         except Exception as error:  # the root must still be ended below
@@ -94,8 +106,11 @@ def _run(spec: QualityCheckSpec, run) -> QualityCheckResult:
                             process.kill()
                         process.wait()
                         returncode = 124
-                        stderr = (f"\nTimed out: exceeded the time limit of {spec.timeout_seconds:g}s."  # aifactory 3.0: a shared budget leaves fractions
-                                  f"\n{stopped}.")
+                        stderr = (
+                            # :g because a shared budget leaves fractions
+                            f"\nTimed out: exceeded the time limit of {spec.timeout_seconds:g}s."
+                            f"\n{stopped}."
+                        )
             finally:
                 out.seek(0)
                 stdout = _text(out.read())
@@ -110,26 +125,30 @@ def _run(spec: QualityCheckSpec, run) -> QualityCheckResult:
     duration = time.monotonic() - clock
     output_artifact.write_text(
         f"$ {command}\nexit: {returncode}\nduration_seconds: {duration:.3f}\n"
-        f"\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n", encoding="utf-8", newline="\n"
+        f"\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n",
+        encoding="utf-8",
+        newline="\n",
     )
     passed = returncode == 0
-    run.tracer.event(EventRecord(
-        adw_id=run.adw_id,
-        phase_id=phase.phase_id,
-        type="tool_call",
-        name=f"quality:{spec.name}",
-        payload={
-            "area": spec.area,
-            "operation": spec.operation,
-            "command": command,
-            "returncode": returncode,
-            "passed": passed,
-            "timeout_seconds": spec.timeout_seconds,  # aifactory
-            "output_artifact": str(output_artifact),
-        },
-        started_at=started_at,
-        ended_at=now_iso(),
-    ))
+    run.tracer.event(
+        EventRecord(
+            adw_id=run.adw_id,
+            phase_id=phase.phase_id,
+            type="tool_call",
+            name=f"quality:{spec.name}",
+            payload={
+                "area": spec.area,
+                "operation": spec.operation,
+                "command": command,
+                "returncode": returncode,
+                "passed": passed,
+                "timeout_seconds": spec.timeout_seconds,
+                "output_artifact": str(output_artifact),
+            },
+            started_at=started_at,
+            ended_at=now_iso(),
+        )
+    )
     run.console.note(
         f"quality {spec.name}: {'passed' if passed else 'failed'} "
         f"(exit {returncode}, {duration:.1f}s)"
@@ -150,10 +169,18 @@ def _run(spec: QualityCheckSpec, run) -> QualityCheckResult:
 # ── Blocks ────────────────────────────────────────────────────────────────────
 # Replace every argv below. See the banner at the top of this file.
 
-def _slot_event(run, payload: dict) -> None:  # aifactory
+
+def _slot_event(run: Run, payload: dict[str, Any]) -> None:
     phase = run.phases[-1]
-    run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                 type="log", name=TEST_SLOT_EVENT, payload=payload))
+    run.tracer.event(
+        EventRecord(
+            adw_id=run.adw_id,
+            phase_id=phase.phase_id,
+            type="log",
+            name=TEST_SLOT_EVENT,
+            payload=payload,
+        )
+    )
 
 
 def as_envelope(result: QualityResult, what: str) -> VerifyOutput:
@@ -166,16 +193,23 @@ def as_envelope(result: QualityResult, what: str) -> VerifyOutput:
     """
     return VerifyOutput(
         status="success" if result.passed else "fail",
-        summary=(f"{what}: {result.test_plan.coverage}; {result.test_plan.executed} executed; "
-                 f"{result.test_plan.reason}" if result.test_plan and result.passed else
-                 f"{what}: all {len(result.checks)} check(s) passed" if result.passed
-                 else f"{what}: {len(result.failures)} of {len(result.checks)} check(s) failed"),
+        summary=(
+            f"{what}: {result.test_plan.coverage}; {result.test_plan.executed} executed; "
+            f"{result.test_plan.reason}"
+            if result.test_plan and result.passed
+            else f"{what}: all {len(result.checks)} check(s) passed"
+            if result.passed
+            else f"{what}: {len(result.failures)} of {len(result.checks)} check(s) failed"
+        ),
         artifacts=result.artifacts,
-        notes_for_next_agent=("" if result.passed else
-                              "Fix every failure below. The output is verbatim from the "
-                              "command — trust it over any summary."),
+        notes_for_next_agent=(
+            ""
+            if result.passed
+            else "Fix every failure below. The output is verbatim from the "
+            "command — trust it over any summary."
+        ),
         passed=result.passed,
         failures=result.failures,
-        test_plan=result.test_plan,  # aifactory 2.15: preserve selection evidence
-        coverage=result.test_plan.coverage if result.test_plan else "",  # aifactory 3.0
+        test_plan=result.test_plan,  # preserve selection evidence
+        coverage=result.test_plan.coverage if result.test_plan else "",
     )

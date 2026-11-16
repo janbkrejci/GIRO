@@ -4,7 +4,6 @@ import pytest
 
 from aifactory.backlog.derived import harness_values
 from aifactory.backlog.model import Container, Task
-from aifactory.run.task import task_harness_values
 
 
 @pytest.mark.parametrize(
@@ -38,7 +37,6 @@ def test_container_and_task_inherit_the_same_binding(
     before = deepcopy([root.defaults, project.defaults, step.defaults, task.own])
     for node in (project, step, task):
         assert harness_values(node) == expected
-    assert task_harness_values(task) == expected
     assert [root.defaults, project.defaults, step.defaults, task.own] == before
     step.defaults = {"harness": "pi", "model": "provider/model"}
     task.own = {"harness": "codex"}
@@ -47,4 +45,4 @@ def test_container_and_task_inherit_the_same_binding(
         "model": "provider/model",
         "thinking": expected["thinking"],
     }
-    assert task_harness_values(task) == {"harness": "codex", "thinking": expected["thinking"]}
+    assert harness_values(task) == {"harness": "codex", "thinking": expected["thinking"]}

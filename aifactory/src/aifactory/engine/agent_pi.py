@@ -5,7 +5,7 @@ each event to a callback WHILE the agent works (the streaming crack, solved
 by construction). `--session-id` creates-or-continues, so running and
 continuing an agent are the same call: same session id = same context window.
 
-aifactory: pi runs as if started from the CLI in the repo. It reads the repo's
+pi runs as if started from the CLI in the repo. It reads the repo's
 AGENTS.md and CLAUDE.md natively and gets `.agents/skills/` explicitly; an
 unattended `-p` run would skip project skills without trust, so the factory
 grants it with `--approve`. The operator's personal skills (`~/.pi/agent/skills`,
@@ -24,11 +24,12 @@ import os
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any
 
-from aifactory.failure import QuotaExhausted  # aifactory 3.4
+from aifactory.failure import QuotaExhausted
 
 from .data_types import PiRequest, PiResult
 from .utils import env_flag, now_iso, operator_env, prompt_file, read_stderr, send_stdin
@@ -36,7 +37,7 @@ from .utils import env_flag, now_iso, operator_env, prompt_file, read_stderr, se
 PI_PATH = os.environ.get("PI_PATH", "pi")
 
 
-# aifactory 3.2: CreateProcess does not resolve npm's Windows shim (`pi.cmd`) from a
+# CreateProcess does not resolve npm's Windows shim (`pi.cmd`) from a
 # bare name, so on Windows the binary is looked up on PATH; the listing and the run
 # then work without PI_PATH set.
 def pi_executable() -> str:
@@ -45,31 +46,39 @@ def pi_executable() -> str:
         return shutil.which(PI_PATH) or PI_PATH
     return PI_PATH
 
+
 # pi has no way to forbid a shell command: `disallowed_commands` is not passed
 # on, and HAIFA reports that at `factory check` and when a run starts.
 SUPPORTS_DISALLOWED_COMMANDS = False
 
-# aifactory: where codex and pi find the repo's skills (a copy of .claude/skills).
+# Where codex and pi find the repo's skills (a copy of .claude/skills).
 REPO_SKILLS_DIR = (".agents", "skills")
 
 
 def safe_mode() -> bool:
-    """aifactory: PI_SAFE_MODE=1 asks for full isolation; read at call time."""
+    """PI_SAFE_MODE=1 asks for full isolation; read at call time."""
     return env_flag("PI_SAFE_MODE")
 
 
 def isolation_args(cwd: str) -> list[str]:
-    """aifactory: pi flags for repo-native loading, or full isolation under PI_SAFE_MODE=1."""
+    """Pi flags for repo-native loading, or full isolation under PI_SAFE_MODE=1."""
     if safe_mode():
-        return ["--no-approve", "--no-context-files", "--no-skills",
-                "--no-extensions", "--no-prompt-templates"]
-    args = ["--approve",              # project trust: unattended -p would skip .agents/skills
-            "--no-skills",            # drops ~/.pi/agent/skills and ~/.agents/skills ...
-            "--no-extensions",        # ... personal/discovered extensions (explicit -e still load)
-            "--no-prompt-templates"]
+        return [
+            "--no-approve",
+            "--no-context-files",
+            "--no-skills",
+            "--no-extensions",
+            "--no-prompt-templates",
+        ]
+    args = [
+        "--approve",  # project trust: unattended -p would skip .agents/skills
+        "--no-skills",  # drops ~/.pi/agent/skills and ~/.agents/skills ...
+        "--no-extensions",  # ... personal/discovered extensions (explicit -e still load)
+        "--no-prompt-templates",
+    ]
     skills = Path(cwd).joinpath(*REPO_SKILLS_DIR)
     if skills.is_dir():
-        args += ["--skill", str(skills.resolve())]   # ... and loads the repo's skills explicitly
+        args += ["--skill", str(skills.resolve())]  # ... and loads the repo's skills explicitly
     return args
 
 
@@ -80,20 +89,36 @@ def isolation_args(cwd: str) -> list[str]:
 # JSON", blaming the model for what the provider refused to run. pi's retries
 # are fast because they are meant for a blip; these are slow because they are
 # meant for a quota window.
-TRANSIENT_MARKERS = ("429", "500", "502", "503", "504", "529",
-                     "rate limit", "overloaded", "too many requests")
-TRANSIENT_BACKOFF = (5, 20, 60)   # seconds; one entry per retry, in order
-# aifactory 3.4: an exhausted quota or credit balance is not waited out (a provider may
+TRANSIENT_MARKERS = (
+    "429",
+    "500",
+    "502",
+    "503",
+    "504",
+    "529",
+    "rate limit",
+    "overloaded",
+    "too many requests",
+)
+TRANSIENT_BACKOFF = (5, 20, 60)  # seconds; one entry per retry, in order
+# An exhausted quota or credit balance is not waited out (a provider may
 # report it as a 429 too); the run fails with failure_kind quota.
-QUOTA_MARKERS = ("insufficient_quota", "exceeded your current quota", "quota exceeded",
-                 "usage limit", "credit balance", "insufficient credits",
-                 "requires more credits", "out of credits", "billing")
-MODELS_JSON = os.environ.get("PI_MODELS_PATH",
-                             str(Path.home() / ".pi" / "agent" / "models.json"))
+QUOTA_MARKERS = (
+    "insufficient_quota",
+    "exceeded your current quota",
+    "quota exceeded",
+    "usage limit",
+    "credit balance",
+    "insufficient credits",
+    "requires more credits",
+    "out of credits",
+    "billing",
+)
+MODELS_JSON = os.environ.get("PI_MODELS_PATH", str(Path.home() / ".pi" / "agent" / "models.json"))
 
-RESULT_SNIPPET_CHARS = 20_000   # tool output rides along whole; clip only guards pathological cases
-ARG_VALUE_CHARS = 20_000        # args too — the UI scrolls, it must not be handed cut-off data
-LABEL_CHARS = 80                # "bash: <command>" shown as the event name
+RESULT_SNIPPET_CHARS = 20_000  # tool output rides along whole; clip only guards pathological cases
+ARG_VALUE_CHARS = 20_000  # args too — the UI scrolls, it must not be handed cut-off data
+LABEL_CHARS = 80  # "bash: <command>" shown as the event name
 
 # The arg that identifies a call at a glance, in the order tools tend to use.
 PRIMARY_ARGS = ("command", "path", "file_path", "pattern", "query", "url")
@@ -113,8 +138,13 @@ def _pi_catalog() -> list[tuple[str, str, int]]:
     """Read pi's merged catalog, including built-in providers and custom models."""
     try:
         result = subprocess.run(
-            [pi_executable(), "--list-models"], capture_output=True, text=True,
-            timeout=30, env=operator_env(), check=False, encoding="utf-8",
+            [pi_executable(), "--list-models"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=operator_env(),
+            check=False,
+            encoding="utf-8",
         )
     except (OSError, subprocess.TimeoutExpired):
         return []
@@ -132,14 +162,19 @@ def _pi_catalog() -> list[tuple[str, str, int]]:
     return rows
 
 
-# aifactory 3.0: a provider can come from a pi package (`pi install`, e.g. nousresearch).
+# A provider can come from a pi package (`pi install`, e.g. nousresearch).
 # `--no-extensions` keeps the operator's extensions out of a run and drops that provider
 # with them, so the package entry that registers the run's provider is passed with `-e`.
 def _listed_providers(*args: str) -> set[str]:
     try:
         result = subprocess.run(
-            [pi_executable(), *args, "--list-models"], capture_output=True, text=True,
-            timeout=30, env=operator_env(), check=False, encoding="utf-8",
+            [pi_executable(), *args, "--list-models"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=operator_env(),
+            check=False,
+            encoding="utf-8",
         )
     except (OSError, subprocess.TimeoutExpired):
         return set()
@@ -152,8 +187,13 @@ def _package_entries() -> list[str]:
     """The extension files declared (`pi.extensions` in package.json) by installed pi packages."""
     try:
         result = subprocess.run(
-            [pi_executable(), "list"], capture_output=True, text=True,
-            timeout=30, env=operator_env(), check=False, encoding="utf-8",
+            [pi_executable(), "list"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=operator_env(),
+            check=False,
+            encoding="utf-8",
         )
     except (OSError, subprocess.TimeoutExpired):
         return []
@@ -197,31 +237,35 @@ def resolve_model(pattern: str) -> tuple[str, str]:
     ``openai/gpt-5.6-terra`` without re-registering built-in models locally.
     """
     catalog = [(provider, model_id) for provider, model_id, _ in _pi_catalog()]
-    # aifactory 3.0: the cached listing can be partial or stale (pi's list varies between
+    # The cached listing can be partial or stale (pi's list varies between
     # calls); a pattern it lacks re-reads it once instead of failing until a restart.
     listed = any(pattern == f"{p}/{m}" or pattern in m for p, m in catalog)
-    if not listed and hasattr(_pi_catalog, "cache_clear"):   # tests replace the function
+    if not listed and hasattr(_pi_catalog, "cache_clear"):  # tests replace the function
         _pi_catalog.cache_clear()
         catalog = [(provider, model_id) for provider, model_id, _ in _pi_catalog()]
     if "/" in pattern:
         provider, model_id = pattern.split("/", 1)
         if (provider, model_id) in catalog:
             return provider, model_id
-    matches = [(provider, model_id) for provider, model_id in catalog
-               if pattern == model_id or pattern in model_id]
-    exact = [match for match in matches
-             if match[1] == pattern or match[1].endswith("/" + pattern)]
+    matches = [
+        (provider, model_id)
+        for provider, model_id in catalog
+        if pattern == model_id or pattern in model_id
+    ]
+    exact = [match for match in matches if match[1] == pattern or match[1].endswith("/" + pattern)]
     if len(exact) == 1:
         return exact[0]
     if len(matches) == 1:
         return matches[0]
     if not matches:
-        raise ValueError(f"model pattern {pattern!r} not found in pi --list-models — "
-                         "authenticate/register it or fix the config")
+        raise ValueError(
+            f"model pattern {pattern!r} not found in pi --list-models — "
+            "authenticate/register it or fix the config"
+        )
     raise ValueError(f"model pattern {pattern!r} is ambiguous: {matches}")
 
 
-def _context_tokens(usage: dict) -> int:
+def _context_tokens(usage: dict[str, Any]) -> int:
     """Tokens occupying the window after a turn.
 
     Mirrors pi's own `calculateContextTokens` (coding-agent
@@ -232,8 +276,7 @@ def _context_tokens(usage: dict) -> int:
     total = usage.get("totalTokens") or 0
     if total:
         return int(total)
-    return int(sum(usage.get(part) or 0
-                   for part in ("input", "output", "cacheRead", "cacheWrite")))
+    return int(sum(usage.get(part) or 0 for part in ("input", "output", "cacheRead", "cacheWrite")))
 
 
 def context_window(provider: str, model_id: str) -> int:
@@ -258,21 +301,26 @@ def context_window(provider: str, model_id: str) -> int:
     return 0
 
 
-def _text_of(container: dict) -> str:
+def _text_of(container: dict[str, Any]) -> str:
     """Join the text blocks of anything pi shapes as {content: [...]} — a
     message or a tool result."""
-    return "".join(part.get("text", "") for part in container.get("content", []) or []
-                   if isinstance(part, dict) and part.get("type") == "text")
+    return "".join(
+        part.get("text", "")
+        for part in container.get("content", []) or []
+        if isinstance(part, dict) and part.get("type") == "text"
+    )
 
 
 def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
 
-def _label(tool: str, args: dict) -> str:
+def _label(tool: str, args: dict[str, Any]) -> str:
     """One-line human name for a tool call: `bash: ls -la src`."""
-    value = next((args[key] for key in PRIMARY_ARGS
-                  if isinstance(args.get(key), str) and args[key].strip()), "")
+    value = next(
+        (args[key] for key in PRIMARY_ARGS if isinstance(args.get(key), str) and args[key].strip()),
+        "",
+    )
     if not value:
         value = next((v for v in args.values() if isinstance(v, str) and v.strip()), "")
     value = " ".join(str(value).split())
@@ -293,22 +341,20 @@ class ToolCallTracker:
     """
 
     def __init__(self) -> None:
-        self._open: dict[str, dict] = {}
-        # aifactory 3.7: calls announced since the last `started()`, for a live tool_start.
+        self._open: dict[str, dict[str, Any]] = {}
+        # Calls announced since the last `started()`, for a live tool_start.
         self._started: list[str] = []
 
-    def observe(self, event: dict) -> Optional[dict]:
+    def observe(self, event: dict[str, Any]) -> dict[str, Any] | None:
         """Returns the record for a finished tool call, else None."""
         etype = event.get("type", "")
         if etype == "message_end":
             for block in event.get("message", {}).get("content", []) or []:
                 if isinstance(block, dict) and block.get("type") == "toolCall":
-                    self._announce(block.get("id"), block.get("name"),
-                                   block.get("arguments"))
+                    self._announce(block.get("id"), block.get("name"), block.get("arguments"))
             return None
         if etype == "tool_execution_start":
-            self._announce(event.get("toolCallId"), event.get("toolName"),
-                           event.get("args"))
+            self._announce(event.get("toolCallId"), event.get("toolName"), event.get("args"))
             return None
         if etype != "tool_execution_end":
             return None
@@ -320,8 +366,10 @@ class ToolCallTracker:
         record = {
             "tool": tool,
             "tool_call_id": call_id,
-            "args": {key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
-                     for key, value in args.items()},
+            "args": {
+                key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
+                for key, value in args.items()
+            },
             "ok": not event.get("isError", False),
             "label": _label(tool, args),
         }
@@ -335,8 +383,8 @@ class ToolCallTracker:
             record["started_at"] = opened["started_at"]
         return record
 
-    # aifactory 3.7: one record per call the moment it is announced, before its result.
-    def started(self) -> list[dict]:
+    # One record per call the moment it is announced, before its result.
+    def started(self) -> list[dict[str, Any]]:
         """The calls announced since the last call that are still running, oldest first."""
         records = []
         for call_id in self._started:
@@ -345,18 +393,22 @@ class ToolCallTracker:
                 continue
             tool = str(opened.get("tool") or "tool")
             args = opened.get("args") or {}
-            records.append({
-                "tool": tool,
-                "tool_call_id": call_id,
-                "args": {key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
-                         for key, value in args.items()},
-                "label": _label(tool, args),
-                "started_at": opened.get("started_at"),
-            })
+            records.append(
+                {
+                    "tool": tool,
+                    "tool_call_id": call_id,
+                    "args": {
+                        key: _clip(value, ARG_VALUE_CHARS) if isinstance(value, str) else value
+                        for key, value in args.items()
+                    },
+                    "label": _label(tool, args),
+                    "started_at": opened.get("started_at"),
+                }
+            )
         self._started = []
         return records
 
-    def _announce(self, call_id, tool, args) -> None:
+    def _announce(self, call_id: Any, tool: Any, args: Any) -> None:
         """First sighting starts the clock; a later sighting only fills gaps."""
         if not call_id:
             return
@@ -366,8 +418,8 @@ class ToolCallTracker:
         self._open[str(call_id)] = {
             "tool": tool or known.get("tool", ""),
             "args": args or known.get("args", {}),
-            "started_at": known.get("started_at") or now_iso(),   # wall clock, for the row
-            "clock": known.get("clock") or time.monotonic(),      # monotonic, for duration
+            "started_at": known.get("started_at") or now_iso(),  # wall clock, for the row
+            "clock": known.get("clock") or time.monotonic(),  # monotonic, for duration
         }
 
 
@@ -378,15 +430,18 @@ def _is_transient(error: str) -> bool:
 
 
 def quota_exhausted(text: str) -> bool:
-    """aifactory 3.4: True when pi's provider error reports an exhausted quota or credit."""
+    """True when pi's provider error reports an exhausted quota or credit."""
     lowered = text.lower()
     return any(marker in lowered for marker in QUOTA_MARKERS)
 
 
-def run(request: PiRequest, on_event: Optional[Callable[[dict], None]] = None,
-        on_spawn: Optional[Callable[[int], None]] = None,
-        on_exit: Optional[Callable[[int], None]] = None,
-        on_wait: Optional[Callable[[int, int, str], None]] = None) -> PiResult:
+def run(
+    request: PiRequest,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+    on_spawn: Callable[[int], None] | None = None,
+    on_exit: Callable[[int], None] | None = None,
+    on_wait: Callable[[int, int, str], None] | None = None,
+) -> PiResult:
     """Run one non-interactive pi turn, waiting out a throttling provider.
 
     Only a turn that produced NO text is retried, and only when the provider
@@ -396,23 +451,27 @@ def run(request: PiRequest, on_event: Optional[Callable[[dict], None]] = None,
     """
     for attempt, pause in enumerate(TRANSIENT_BACKOFF + (0,), start=1):
         result, error = _attempt(request, on_event, on_spawn, on_exit)
-        if not result.text and quota_exhausted(error):   # aifactory 3.4
+        if not result.text and quota_exhausted(error):
             raise QuotaExhausted("pi", error)
         if result.text or not _is_transient(error):
             return result
         if not pause:
             raise RuntimeError(
                 f"pi could not reach the provider for {request.model} after "
-                f"{attempt} attempts — last error: {error.strip()[:300]}")
+                f"{attempt} attempts — last error: {error.strip()[:300]}"
+            )
         if on_wait:
             on_wait(attempt, pause, error)
         time.sleep(pause)
-    raise AssertionError("unreachable")     # the loop always returns or raises
+    raise AssertionError("unreachable")  # the loop always returns or raises
 
 
-def _attempt(request: PiRequest, on_event: Optional[Callable[[dict], None]] = None,
-             on_spawn: Optional[Callable[[int], None]] = None,
-             on_exit: Optional[Callable[[int], None]] = None) -> tuple[PiResult, str]:
+def _attempt(
+    request: PiRequest,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+    on_spawn: Callable[[int], None] | None = None,
+    on_exit: Callable[[int], None] | None = None,
+) -> tuple[PiResult, str]:
     """One spawn of pi: the result, plus the provider error it ended on (if any).
 
     `on_spawn(pid)` and `on_exit(pid)` bracket the child process so the caller
@@ -421,43 +480,59 @@ def _attempt(request: PiRequest, on_event: Optional[Callable[[dict], None]] = No
     """
     provider, model_id = resolve_model(request.model)
     cmd = [
-        pi_executable(), "-p", "--mode", "json",   # aifactory 3.2: pi.cmd on Windows
-        "--provider", provider, "--model", model_id,
-        "--thinking", request.thinking,
-        "--session-id", request.session_id,
-        "--session-dir", request.session_dir,
-        # aifactory 3.1: pi reads `--system-prompt` from a file when given an
+        pi_executable(),
+        "-p",
+        "--mode",
+        "json",  # pi.cmd on Windows
+        "--provider",
+        provider,
+        "--model",
+        model_id,
+        "--thinking",
+        request.thinking,
+        "--session-id",
+        request.session_id,
+        "--session-dir",
+        request.session_dir,
+        # Pi reads `--system-prompt` from a file when given an
         # existing path, so neither prompt rides on the command line (WinError 206).
-        "--system-prompt", prompt_file(request.session_dir,
-                                       f"{request.session_id}.system.md",
-                                       request.system_prompt),
-        *isolation_args(request.cwd),     # aifactory: repo-native instructions and skills
-        *provider_extensions(provider),   # aifactory 3.0: a provider from a pi package
+        "--system-prompt",
+        prompt_file(request.session_dir, f"{request.session_id}.system.md", request.system_prompt),
+        *isolation_args(request.cwd),  # repo-native instructions and skills
+        *provider_extensions(provider),  # a provider from a pi package
     ]
     if request.tools:
         cmd += ["--tools", ",".join(request.tools)]
     for extension in request.extensions:
         cmd += ["-e", extension]
-    # aifactory 3.1: the user prompt goes through stdin; pi reads piped stdin as
+    # The user prompt goes through stdin; pi reads piped stdin as
     # the first message.
 
     raw_path = Path(request.raw_output_path)
     raw_path.parent.mkdir(parents=True, exist_ok=True)
 
-    result = PiResult(session_id=request.session_id,
-                      context_window=context_window(provider, model_id))
+    result = PiResult(
+        session_id=request.session_id, context_window=context_window(provider, model_id)
+    )
     last_error = ""
-    # aifactory 3.1: stdin is a pipe that carries the prompt and is closed right
+    # Stdin is a pipe that carries the prompt and is closed right
     # after, so pi always sees EOF. Never inherit the parent's stdin: pi then
     # sees a non-TTY and can sit forever waiting for piped input that will never
     # arrive or EOF. That failure is silent and total: no request goes out, no
     # bytes come back, and the ADW blocks on a read loop with nothing to read.
     # Observed as a run that sat idle at 0% CPU with an empty raw_output.jsonl.
-    process = subprocess.Popen(cmd, stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               text=True, bufsize=1, cwd=request.cwd,
-                               env=operator_env(), encoding="utf-8")
-    stderr_read = read_stderr(process)  # aifactory 3.6: keep both output pipes draining
+    process = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        cwd=request.cwd,
+        env=operator_env(),
+        encoding="utf-8",
+    )
+    stderr_read = read_stderr(process)  # keep both output pipes draining
     send_stdin(process, request.prompt)
     if on_spawn:
         on_spawn(process.pid)
@@ -465,7 +540,7 @@ def _attempt(request: PiRequest, on_event: Optional[Callable[[dict], None]] = No
         assert process.stdout is not None
         for line in process.stdout:
             raw.write(line)
-            raw.flush()                      # events land on disk as they happen
+            raw.flush()  # events land on disk as they happen
             line = line.strip()
             if not line:
                 continue
@@ -480,7 +555,7 @@ def _attempt(request: PiRequest, on_event: Optional[Callable[[dict], None]] = No
                         last_error = str(message.get("errorMessage") or "")
                     text = _text_of(message)
                     if text:
-                        result.text = text   # last assistant message wins
+                        result.text = text  # last assistant message wins
                     usage = message.get("usage", {}) or {}
                     turn = _context_tokens(usage)
                     result.tokens += turn
@@ -499,7 +574,7 @@ def _attempt(request: PiRequest, on_event: Optional[Callable[[dict], None]] = No
     if on_exit:
         on_exit(process.pid)
     if result.returncode != 0 and not result.text and quota_exhausted(f"{last_error}\n{stderr}"):
-        raise QuotaExhausted("pi", last_error or stderr)   # aifactory 3.4
+        raise QuotaExhausted("pi", last_error or stderr)
     if result.returncode != 0 and not result.text and not _is_transient(last_error):
         raise RuntimeError(f"pi exited {result.returncode}: {stderr.strip()[-800:]}")
     return result, last_error or (stderr.strip() if result.returncode else "")

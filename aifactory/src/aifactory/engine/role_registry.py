@@ -13,7 +13,7 @@ not name; a new role needs ``agent``, ``output_type``, ``gates`` and
 
 from __future__ import annotations
 
-import copy  # aifactory: overlay merge works on copies of the packaged data
+import copy  # overlay merge works on copies of the packaged data
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from importlib import resources
@@ -23,12 +23,12 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from aifactory import packagedata  # aifactory: packaged data as of process start
+from aifactory import packagedata  # packaged data as of process start
 from aifactory.engine import loader as engine
-from aifactory.yamlload import safe_load  # aifactory 3.1: libyaml parser when available
+from aifactory.yamlload import safe_load  # libyaml parser when available
 
 # Deterministic step actions. The step name is the action.
-# aifactory 3.0: `quality` is gone; a tester agent's plan covers lint, types and build.
+# `quality` is gone; a tester agent's plan covers lint, types and build.
 CODE_ACTIONS: tuple[str, ...] = (
     "test",
     "commit",
@@ -39,7 +39,7 @@ CODE_ACTIONS: tuple[str, ...] = (
 )
 VERIFY_ACTIONS: tuple[str, ...] = ("test", "command")
 COMMIT_FIELDS: frozenset[str] = frozenset({"sha", "committed", "message"})
-# aifactory 3.2: the fields every envelope has (``data_types.EnvelopeBase``).
+# The fields every envelope has (``data_types.EnvelopeBase``).
 _ENVELOPE_FIELDS: frozenset[str] = frozenset(
     {
         "status",
@@ -49,12 +49,12 @@ _ENVELOPE_FIELDS: frozenset[str] = frozenset(
         "follow_ups",
         "blocked_by",
         "pr_summary",
-        "fail_kind",  # aifactory 3.4: why an agent reports status=fail
-        "needs_writes",  # aifactory 2.9: structured requests to extend task writes
+        "fail_kind",  # why an agent reports status=fail
+        "needs_writes",  # structured requests to extend task writes
     }
 )
 # Fields of ``aifactory.workflow.rebase.RebaseOutput`` (spelled out: workflow imports this module).
-REBASE_FIELDS: frozenset[str] = _ENVELOPE_FIELDS | frozenset(  # aifactory 3.2: base fields
+REBASE_FIELDS: frozenset[str] = _ENVELOPE_FIELDS | frozenset(  # base fields
     {
         "onto",
         "before",
@@ -65,7 +65,7 @@ REBASE_FIELDS: frozenset[str] = _ENVELOPE_FIELDS | frozenset(  # aifactory 3.2: 
     }
 )
 # Fields of ``aifactory.workflow.rebuild.RebuildOutput``.
-REBUILD_FIELDS: frozenset[str] = _ENVELOPE_FIELDS | frozenset(  # aifactory 3.2: base fields
+REBUILD_FIELDS: frozenset[str] = _ENVELOPE_FIELDS | frozenset(  # base fields
     {"built", "files"}
 )
 RAN_FIELD = "ran"
@@ -75,7 +75,7 @@ DEFAULT_ROLES_PATH = DEFAULTS_DIR / "roles.yaml"
 
 _ROLE_KEYS = frozenset({"agent", "output_type", "gates", "description", "aliases", "retries"})
 _CODE_KEYS = frozenset({"owner", "description"})
-# aifactory: fields a role new to an overlay must set (the rest have defaults)
+# Fields a role new to an overlay must set (the rest have defaults)
 OVERLAY_REQUIRED: tuple[str, ...] = ("agent", "output_type", "gates", "description")
 
 
@@ -328,19 +328,19 @@ class _Loader:
         return RoleRegistry(roles=roles, code_steps=code_steps)
 
 
-def _default_data() -> dict[str, Any]:  # aifactory: raw packaged registry, base of an overlay
-    # aifactory 3.1: libyaml
-    data = safe_load(packagedata.read_text(DEFAULT_ROLES_PATH))  # aifactory: start-time data
+def _default_data() -> dict[str, Any]:  # raw packaged registry, base of an overlay
+    # Libyaml
+    data = safe_load(packagedata.read_text(DEFAULT_ROLES_PATH))  # start-time data
     assert isinstance(data, dict)
     return data
 
 
-def is_overlay(data: object) -> bool:  # aifactory
+def is_overlay(data: object) -> bool:
     """A roles mapping without ``code_steps`` overlays the packaged registry."""
     return isinstance(data, Mapping) and "code_steps" not in data
 
 
-def merge_overlay(data: Mapping[Any, Any], base: Mapping[Any, Any]) -> dict[str, Any]:  # aifactory
+def merge_overlay(data: Mapping[Any, Any], base: Mapping[Any, Any]) -> dict[str, Any]:
     """Merge an overlay onto ``base`` (raw YAML); raise ``RolesError`` on structural problems.
 
     The result still goes through the normal validation, so unknown keys, output
@@ -402,7 +402,7 @@ def parse_roles(data: object, base: Mapping[Any, Any] | None = None) -> RoleRegi
 
     A mapping without ``code_steps`` overlays ``base`` (default: the packaged registry).
     """
-    # aifactory: a file without `code_steps` overlays the packaged registry (D24)
+    # A file without `code_steps` overlays the packaged registry (D24)
     if is_overlay(data):
         assert isinstance(data, Mapping)
         data = merge_overlay(data, base if base is not None else _default_data())
@@ -417,11 +417,11 @@ def load_roles(path: Path | None = None) -> RoleRegistry:
     """Load the role registry (default: the packaged ``defaults/roles.yaml``)."""
     source = path or DEFAULT_ROLES_PATH
     try:
-        text = packagedata.read_text(source)  # aifactory: start-time data for the packaged file
+        text = packagedata.read_text(source)  # start-time data for the packaged file
     except OSError as error:
         raise RolesError([Issue("missing_file", str(error), str(source))]) from error
     try:
-        data = safe_load(text)  # aifactory 3.1: libyaml
+        data = safe_load(text)  # libyaml
     except yaml.YAMLError as error:
         raise RolesError([Issue("invalid_yaml", str(error), str(source))]) from error
     return parse_roles(data)

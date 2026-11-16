@@ -138,7 +138,7 @@ jsou automatizace vypnuté; harness dědí místní výchozí hodnotu počítač
 hodnoty jsou metadata a žádné runtime rozhodnutí automatizací z nich nevychází.
 `effective_sources`, `effective` a `harness_values` zůstávají pro čtení metadat a náhled,
 nikoli jako fallback místní politiky. Guide ověřuje kontext tasku, ale jeho volbu harnessu
-určuje místní služba; `task_harness_values` je kompatibilní čtečka metadat.
+určuje místní služba.
 
 CLI `config local legacy` a Přehled zobrazí effective hodnoty i původ pro všechny úrovně.
 `config local import` a odpovídající API přijmou shodné hodnoty, při rozporech vyžadují
@@ -261,3 +261,12 @@ UUID knihovny, `skill/factory`, metadata návrhů a historické záznamy zůstá
 Lokální knihovny bez remote ani vlastní vzdálené knihovny se nepřepojují.
 Při přesunu checkoutu se opraví Git worktrees, cesta a zobrazovaný název v
 registraci dashboardu a klíč lokálních nastavení; ID registrace `haifa` zůstává.
+
+## 2026-11-16: Engine je vlastní kód GIRO (OPT-S05-T12)
+
+`aifactory/src/aifactory/engine/` vznikl portem modulů `adw_modules` ze sssf
+(github.com/disler/super-simple-software-factory). Poslední známý upstream je
+commit `aa8b55c` repozitáře sssf (vendorováno 2026-09-26 do `vendor/sssf`, kopie
+smazána v `81121dc2`). Protože upstream kopie v repu už není, pravidlo
+o diffovatelnosti se sssf a značky `# aifactory N:` se ruší. Engine podléhá
+stejnému ruff a striktnímu mypy jako zbytek balíčku a mění se jako běžný kód.
