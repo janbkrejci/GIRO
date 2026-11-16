@@ -347,8 +347,13 @@ def make_context(
     owned: Owned,
     r5_samples: int,
     selected: list[str] | tuple[str, ...] = (),
+    in_process: bool = False,
 ) -> Context:
-    """The shared Context of one run over a prepared sandbox (writes the hidden test)."""
+    """The shared Context of one run over a prepared sandbox (writes the hidden test).
+
+    `in_process` runs the commands over the fake harness in this process
+    (``Context.in_process``); ``just validate`` keeps one worker subprocess per command.
+    """
     harnesses = step_harnesses(sandbox.repo)
     return Context(
         remote,
@@ -359,6 +364,7 @@ def make_context(
         hidden=write_hidden(workdir),
         harnesses=harnesses,
         selected=list(selected),
+        in_process=in_process,
     )
 
 

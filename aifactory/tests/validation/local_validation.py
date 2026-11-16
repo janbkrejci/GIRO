@@ -113,7 +113,9 @@ class LocalValidation:
         self.workdir = owned.add(root / "work")
         self.out = root / "results"
         sandbox = setup_local(self.workdir, roster)
-        self.ctx = runner.make_context("local", sandbox, self.workdir, owned, r5_samples=3)
+        self.ctx = runner.make_context(
+            "local", sandbox, self.workdir, owned, r5_samples=3, in_process=True
+        )
         self.done: dict[str, ScenarioResult] = {}
         self._states: dict[str, Any] = {}
         self._stages: dict[str, dict[str, bool]] = {}

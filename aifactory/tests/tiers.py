@@ -17,6 +17,11 @@ SLOW_FILES = frozenset(
         "tests/web/test_web_task_run.py",
         "tests/providers/test_providers_azure.py",
         "tests/review/test_approve_merge_retry.py",
+        "tests/review/test_ci_gate.py",
+        "tests/review/test_branch_cleanup.py",
+        "tests/run/test_task_publish.py",
+        "tests/check/test_factory_check_system.py",
+        "tests/backlog/test_backlog_snapshot_large.py",
     }
 )
 BROWSER_FILES = frozenset({"tests/e2e/test_f3_browser.py", "tests/e2e/test_multi_repo_browser.py"})
