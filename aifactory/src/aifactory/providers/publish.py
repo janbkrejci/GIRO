@@ -35,6 +35,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from aifactory import gitquery, gitrun
 from aifactory.config.settings import ProjectSettings
 from aifactory.providers import git
 from aifactory.providers.base import GitProvider, ProviderError, PullRequest
@@ -169,18 +170,41 @@ def plan_digest(base: str, base_sha: str, files: Sequence[PlannedFile]) -> str:
     return h.hexdigest()
 
 
+def _blobs_at(root: Path, base_sha: str, paths: Sequence[str]) -> dict[str, tuple[str, str]]:
+    """(mode, blob) of each path that is a file in `base_sha` (``git.blob_at`` for many)."""
+    try:
+        entries = gitquery.ls_tree(root, base_sha, paths)
+    except gitrun.GitCommandFailed as exc:
+        raise ProviderError("commit_failed", str(exc)) from exc
+    return {p: (e.mode, e.sha) for p, e in entries.items() if e.type == "blob"}
+
+
+def _with_old_content(root: Path, files: list[PlannedFile]) -> list[PlannedFile]:
+    """`files` with ``old_content`` read from their old blobs in one process."""
+    try:
+        blobs = gitquery.read_objects(root, [f.old_blob for f in files if f.old_blob])
+    except gitrun.GitCommandFailed as exc:
+        raise ProviderError("commit_failed", str(exc)) from exc
+    return [replace(f, old_content=blobs.get(f.old_blob) if f.old_blob else None) for f in files]
+
+
 def plan_files(root: Path, base_sha: str, paths: Iterable[str]) -> list[PlannedFile]:
-    """The planned change of each path: working-tree bytes against the blob in `base_sha`."""
+    """The planned change of each path: working-tree bytes against the blob in `base_sha`.
+
+    A constant number of git processes, whatever the number of paths.
+    """
+    wanted = sorted(set(paths))
+    olds = _blobs_at(root, base_sha, wanted)
     files: list[PlannedFile] = []
-    for path in sorted(set(paths)):
-        old = git.blob_at(root, base_sha, path)
+    for path in wanted:
+        old = olds.get(path)
         disk = root / path
         content = disk.read_bytes() if disk.is_file() else None
         mode = _file_mode(disk, old[0] if old else None) if content is not None else None
         if old is None and content is None:
             continue
         if old is not None and content is not None:
-            if mode == old[0] and git.hash_blob(root, content, write=False) == old[1]:
+            if mode == old[0] and gitquery.blob_id(content, like=old[1]) == old[1]:
                 continue
         action: Action = "create" if old is None else "delete" if content is None else "modify"
         files.append(
@@ -191,10 +215,10 @@ def plan_files(root: Path, base_sha: str, paths: Iterable[str]) -> list[PlannedF
                 old_blob=old[1] if old else None,
                 mode=mode,
                 content=content,
-                old_content=git.read_blob(root, old[1]) if old else None,
+                old_content=None,
             )
         )
-    return files
+    return _with_old_content(root, files)
 
 
 def plan_contents(root: Path, base_sha: str, contents: Mapping[str, bytes]) -> list[PlannedFile]:
@@ -203,11 +227,12 @@ def plan_contents(root: Path, base_sha: str, contents: Mapping[str, bytes]) -> l
     Paths whose blob in base already has these bytes are left out.
     """
     files: list[PlannedFile] = []
+    olds = _blobs_at(root, base_sha, sorted(contents))
     for path in sorted(contents):
         content = contents[path]
-        old = git.blob_at(root, base_sha, path)
+        old = olds.get(path)
         if old is not None and old[0] == "100644":
-            if git.hash_blob(root, content, write=False) == old[1]:
+            if gitquery.blob_id(content, like=old[1]) == old[1]:
                 continue
         files.append(
             PlannedFile(
@@ -217,10 +242,10 @@ def plan_contents(root: Path, base_sha: str, contents: Mapping[str, bytes]) -> l
                 old_blob=old[1] if old else None,
                 mode="100644",
                 content=content,
-                old_content=git.read_blob(root, old[1]) if old else None,
+                old_content=None,
             )
         )
-    return files
+    return _with_old_content(root, files)
 
 
 def remote_state(
@@ -423,13 +448,15 @@ def _finish_pr(
 
 
 def _changes(root: Path, files: Sequence[PlannedFile]) -> list[git.TreeChange]:
-    out: list[git.TreeChange] = []
-    for f in files:
-        if f.content is None:
-            out.append((f.path, None, None))
-        else:
-            out.append((f.path, f.mode, git.hash_blob(root, f.content)))
-    return out
+    written = [(f.path, f.content) for f in files if f.content is not None]
+    try:
+        stored = gitquery.write_blobs(root, [content for _, content in written])
+    except gitrun.GitCommandFailed as exc:
+        raise ProviderError("commit_failed", str(exc)) from exc
+    ids = dict(zip((path for path, _ in written), stored, strict=True))
+    return [
+        (f.path, None, None) if f.content is None else (f.path, f.mode, ids[f.path]) for f in files
+    ]
 
 
 def _prune_dirs(checkout: Path, folder: Path) -> None:
