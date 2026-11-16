@@ -5,16 +5,24 @@ trace DB) and the skills of the repo in ``.claude/skills/`` and ``.agents/skills
 
 Runs read the configuration from the ``base`` commit, so anything changed in
 the working tree is ignored by them; these changes are reported as warnings.
+
+``config_status`` is the one implementation of ``giro config status`` (CLI and dashboard).
+It reads one ``TreeState``: the base commit and one ``git status`` of the checkout. When
+``HEAD`` is the base commit the changes come from that status alone; otherwise the
+comparison with base needs ``diff-index`` and ``ls-files`` (``working_tree_changes``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import subprocess
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from aifactory.config.source import FACTORY_DIR, git
+from aifactory import gitquery
+from aifactory.config.errors import ConfigIssue
+from aifactory.config.source import FACTORY_DIR, GitError, git, resolve_commit
 
 SHARED_FILES = (
     ".factory/config.yaml",
@@ -128,3 +136,83 @@ def change_summary(changes: list[ConfigChange], base: str, sha: str) -> str:
         f"{files} of .factory/ changed in the working tree but not committed to {base} "
         f"({sha[:7]}); runs use the committed version: {listed}"
     )
+
+
+@dataclass(frozen=True)
+class TreeState:
+    """The checkout at ``root`` against ``base``: its commit, ``HEAD`` and one ``git status``."""
+
+    root: Path
+    base: str
+    commit: str
+    head: str | None
+    entries: tuple[gitquery.StatusEntry, ...]
+
+    def changes(self, pathspecs: Sequence[str], keep: Callable[[str], bool]) -> list[ConfigChange]:
+        """Paths under ``pathspecs`` that ``keep`` accepts whose state differs from base.
+
+        ``keep`` must accept exactly the paths ``pathspecs`` match (and may narrow them).
+        """
+        if self.head != self.commit:
+            found = working_tree_changes(self.root, self.commit, pathspecs)
+            return [c for c in found if keep(c.path)]
+        result: dict[str, ChangeStatus] = {}
+        untracked: list[str] = []
+        for entry in self.entries:
+            if not keep(entry.path):
+                continue
+            if entry.kind == "untracked":
+                untracked.append(entry.path)
+            elif entry.kind == "unmerged":
+                result[entry.path] = "modified"
+            elif "D" in (entry.index, entry.worktree):
+                if entry.index != "A":  # added to the index, then deleted: not in either
+                    result[entry.path] = "deleted"
+            else:
+                result[entry.path] = "added" if entry.index == "A" else "modified"
+        for path in untracked:
+            result.setdefault(path, "untracked")
+        return [ConfigChange(path=path, status=status) for path, status in sorted(result.items())]
+
+
+def read_tree(root: Path, base: str) -> TreeState:
+    """The ``TreeState`` of ``root``; ``ConfigError`` when ``base`` names no commit."""
+    commit = resolve_commit(root, base)
+    try:
+        head, entries = gitquery.status_head(root)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise GitError([ConfigIssue(str(root), f"git status: {exc}")]) from exc
+    return TreeState(root, base, commit, head, tuple(entries))
+
+
+@dataclass(frozen=True)
+class ConfigStatus:
+    """``giro config status``: shared config not committed to base (D4)."""
+
+    base: str
+    commit: str
+    changes: list[ConfigChange]
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "base": self.base,
+            "commit": self.commit,
+            "clean": not self.changes,
+            "changes": [c.to_dict() for c in self.changes],
+        }
+
+    @property
+    def warnings(self) -> list[str]:
+        return change_warnings(self.changes, self.base, self.commit)
+
+
+def config_status(
+    root: Path, base: str | None = None, tree: TreeState | None = None
+) -> ConfigStatus:
+    """The config status of the checkout ``root`` (from ``tree`` when the caller has one)."""
+    if tree is None:
+        from aifactory.config.run import worktree_base  # config.run imports this module
+
+        tree = read_tree(root, base if base else worktree_base(root))
+    changes = tree.changes(CONFIG_PATHSPECS, is_shared_config_path)
+    return ConfigStatus(tree.base, tree.commit, changes)

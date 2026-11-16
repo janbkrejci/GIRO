@@ -1159,35 +1159,21 @@ def _config_edit(args: argparse.Namespace) -> int:
 
 
 def _config_status(args: argparse.Namespace) -> int:
-    from aifactory.config import (
-        ConfigError,
-        change_warnings,
-        config_changes,
-        repo_root,
-        resolve_commit,
-        worktree_base,
-    )
+    from aifactory.config import ConfigError, repo_root
+    from aifactory.config.status import config_status
 
     try:
         root = repo_root(Path.cwd())
-        base = args.base.strip() if args.base else worktree_base(root)
-        sha = resolve_commit(root, base)
-        changes = config_changes(root, sha)
+        status = config_status(root, args.base.strip() if args.base else None)
     except ConfigError as exc:
         return _fail_from_exception(exc, args.json, "factory config status")
-    warnings = change_warnings(changes, base, sha)
     if args.json:
-        data: dict[str, Any] = {
-            "base": base,
-            "commit": sha,
-            "clean": not changes,
-            "changes": [c.to_dict() for c in changes],
-        }
-        return _emit_ok(data, warnings)
-    if not changes:
+        return _emit_ok(status.to_json(), status.warnings)
+    base, sha = status.base, status.commit
+    if not status.changes:
         print(f"config in sync with {base} ({sha[:7]})")
     else:
-        for change in changes:
+        for change in status.changes:
             print(f"{change.status:<9} {change.path}")
         print(f"runs use {base} ({sha[:7]}); commit these changes to include them")
     return 0
