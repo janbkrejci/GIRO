@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T10
 title: Rozdělit library/config_edit.py
-status: todo
+status: done
 depends_on: [OPT-S05-T03, OPT-S05-T02]
 ---
 

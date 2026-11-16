@@ -1,7 +1,7 @@
 ---
 id: OPT-S04-T04
 title: Společné testové helpery a šablony repozitářů
-status: todo
+status: done
 depends_on: [OPT-S04-T03]
 ---
 

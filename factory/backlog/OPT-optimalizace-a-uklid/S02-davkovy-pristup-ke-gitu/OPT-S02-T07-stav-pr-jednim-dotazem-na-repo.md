@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T07
 title: Stav PR jedním dotazem na repo
-status: todo
+status: done
 depends_on: [OPT-S02-T01]
 ---
 

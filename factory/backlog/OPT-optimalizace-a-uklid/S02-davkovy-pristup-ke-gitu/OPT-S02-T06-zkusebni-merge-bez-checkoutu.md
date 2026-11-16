@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T06
 title: Zkušební merge bez checkoutu
-status: todo
+status: done
 depends_on: [OPT-S02-T01]
 ---
 

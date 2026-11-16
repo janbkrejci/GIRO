@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T03
 title: Vrstvy balíčků bez cyklických importů
-status: todo
+status: done
 depends_on: [OPT-S01-T01, OPT-S02-T03, OPT-S02-T04, OPT-S02-T05, OPT-S02-T06, OPT-S02-T07, OPT-S05-T01]
 ---
 

@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T08
 title: Rozdělit review/flow.py
-status: todo
+status: done
 depends_on: [OPT-S05-T03]
 ---
 

@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T13
 title: "Aliasy HAIFA_* na jednom místě"
-status: todo
+status: done
 depends_on: [OPT-S05-T01]
 ---
 

@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T01
 title: Jeden git runner s timeoutem
-status: todo
+status: done
 depends_on: []
 ---
 

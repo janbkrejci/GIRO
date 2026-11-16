@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T03
 title: Převzetí běhu bez gitu každých 50 ms
-status: todo
+status: done
 depends_on: []
 ---
 

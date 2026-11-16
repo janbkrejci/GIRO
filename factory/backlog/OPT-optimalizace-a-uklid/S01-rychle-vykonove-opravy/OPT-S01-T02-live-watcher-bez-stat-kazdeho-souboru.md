@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T02
 title: Live watcher bez stat každého souboru
-status: todo
+status: done
 depends_on: []
 ---
 

@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T11
 title: Odstranit mrtvý kód
-status: todo
+status: done
 depends_on: []
 ---
 

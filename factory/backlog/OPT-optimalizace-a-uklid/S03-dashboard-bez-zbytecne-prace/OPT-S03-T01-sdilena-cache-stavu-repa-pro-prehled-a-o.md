@@ -1,7 +1,7 @@
 ---
 id: OPT-S03-T01
 title: Sdílená cache stavu repa pro přehled a obrazovky
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 

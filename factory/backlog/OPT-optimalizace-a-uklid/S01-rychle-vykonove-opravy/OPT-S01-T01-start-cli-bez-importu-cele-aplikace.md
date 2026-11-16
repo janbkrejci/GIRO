@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T01
 title: Start CLI bez importu celé aplikace
-status: todo
+status: done
 depends_on: []
 ---
 

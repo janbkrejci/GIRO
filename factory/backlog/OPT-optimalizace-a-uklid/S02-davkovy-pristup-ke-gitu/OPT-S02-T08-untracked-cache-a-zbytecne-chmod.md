@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T08
 title: Untracked cache a zbytečné chmod
-status: todo
+status: done
 depends_on: []
 ---
 

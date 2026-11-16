@@ -1,7 +1,7 @@
 ---
 id: OPT-S04-T03
 title: Pravidla řetězení jako unit testy
-status: todo
+status: done
 depends_on: []
 ---
 

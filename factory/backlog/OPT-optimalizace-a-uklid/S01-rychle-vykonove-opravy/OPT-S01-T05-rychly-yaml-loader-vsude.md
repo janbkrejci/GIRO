@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T05
 title: Rychlý YAML loader všude
-status: todo
+status: done
 depends_on: []
 ---
 

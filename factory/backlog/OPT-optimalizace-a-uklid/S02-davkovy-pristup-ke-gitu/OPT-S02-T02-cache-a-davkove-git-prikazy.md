@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T02
 title: Cache a dávkové git příkazy
-status: todo
+status: done
 depends_on: [OPT-S02-T01]
 ---
 

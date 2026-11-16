@@ -1,7 +1,7 @@
 ---
 id: OPT-S04-T01
 title: Pomalé testové soubory do slow tieru
-status: todo
+status: done
 depends_on: []
 ---
 

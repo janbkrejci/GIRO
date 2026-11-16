@@ -1,7 +1,7 @@
 ---
 id: OPT-S04-T02
 title: Validační scénáře v jednom procesu
-status: todo
+status: done
 depends_on: []
 ---
 

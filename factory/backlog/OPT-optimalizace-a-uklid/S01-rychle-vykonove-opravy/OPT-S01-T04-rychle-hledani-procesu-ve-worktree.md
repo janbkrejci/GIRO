@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T04
 title: Rychlé hledání procesů ve worktree
-status: todo
+status: done
 depends_on: []
 ---
 

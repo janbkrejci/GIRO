@@ -1,7 +1,7 @@
 ---
 id: OPT-S03-T02
 title: Přehled řízený live událostmi
-status: todo
+status: done
 depends_on: [OPT-S03-T01, OPT-S05-T01]
 ---
 

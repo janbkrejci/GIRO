@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T03
 title: Write guard s dávkovými voláními gitu
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 

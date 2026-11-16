@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T04
 title: Konfigurace běhu načtená jednou
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 

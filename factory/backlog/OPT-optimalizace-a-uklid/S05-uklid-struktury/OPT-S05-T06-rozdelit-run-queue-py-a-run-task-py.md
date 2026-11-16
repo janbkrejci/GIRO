@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T06
 title: Rozdělit run/queue.py a run/task.py
-status: todo
+status: done
 depends_on: [OPT-S05-T05]
 ---
 

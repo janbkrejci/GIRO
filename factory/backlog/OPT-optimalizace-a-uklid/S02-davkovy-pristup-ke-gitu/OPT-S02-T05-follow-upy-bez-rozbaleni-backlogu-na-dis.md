@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T05
 title: Follow-upy bez rozbalení backlogu na disk
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 
