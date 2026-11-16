@@ -1,4 +1,4 @@
-"""aifactory: machine-wide slots of the ``test`` step (``test_slots``).
+"""Machine-wide slots of the ``test`` step (``test_slots``).
 
 At most ``slots`` test commands run at once on the machine; the other runs wait in a
 queue in the order they asked for a slot. The state is a directory (by default

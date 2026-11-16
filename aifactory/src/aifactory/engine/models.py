@@ -23,9 +23,10 @@ from . import agent_cc, agent_pi
 @dataclass(frozen=True)
 class ResolvedModel:
     """A model name, settled: which harness runs it and what to write in config."""
-    harness: str                    # "pi" | "claude_code"
-    model: str                      # the value an AgentConfig.model should hold
-    label: str                      # what to show a human
+
+    harness: str  # "pi" | "claude_code"
+    model: str  # the value an AgentConfig.model should hold
+    label: str  # what to show a human
 
 
 def looks_like_claude(pattern: str) -> bool:
@@ -47,16 +48,19 @@ def resolve(pattern: str) -> ResolvedModel:
     if looks_like_claude(pattern):
         _, model_id = agent_cc.resolve_model(pattern)
         return ResolvedModel(harness="claude_code", model=model_id, label=model_id)
-    provider, model_id = agent_pi.resolve_model(pattern)   # raises on ambiguity
-    return ResolvedModel(harness="pi", model=f"{provider}/{model_id}",
-                         label=f"{provider}/{model_id}")
+    provider, model_id = agent_pi.resolve_model(pattern)  # raises on ambiguity
+    return ResolvedModel(
+        harness="pi", model=f"{provider}/{model_id}", label=f"{provider}/{model_id}"
+    )
 
 
 def free_models() -> list[str]:
     """Every pi model that costs nothing — the default menu for cheap chains."""
-    return [f"{provider}/{model_id}"
-            for provider, model_id, _ in agent_pi._pi_catalog()
-            if model_id.endswith(":free")]
+    return [
+        f"{provider}/{model_id}"
+        for provider, model_id, _ in agent_pi._pi_catalog()
+        if model_id.endswith(":free")
+    ]
 
 
 def claude_models() -> list[str]:

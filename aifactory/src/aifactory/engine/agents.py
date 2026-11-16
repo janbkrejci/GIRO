@@ -10,22 +10,33 @@ disposes.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, cast
 
-import yaml
-
-from aifactory import yamlload  # aifactory 3.1: libyaml parser when available
-# aifactory 3.4: failures that carry the run's failure_kind
+# Failures that carry the run's failure_kind
 from aifactory.failure import NEEDS_ENVIRONMENT, AgentReportedFail, InvalidOutput, QuotaExhausted
 
 from . import agent_cc, agent_pi, permissions, prompts
-from .data_types import (AgentCall, AgentConfig, AgentRequest, AgentResult,
-                         EnvelopeBase, EventRecord, GateCheck, GateReport,
-                         Phase, SSSFConfig, UsageBreakdown)
+from .data_types import (
+    AgentCall,
+    AgentConfig,
+    AgentRequest,
+    AgentResult,
+    EnvelopeBase,
+    EventRecord,
+    GateCheck,
+    GateReport,
+    Phase,
+    SSSFConfig,
+    UsageBreakdown,
+)
 from .utils import agent_environment, new_id
 
-JSON_FIX_ATTEMPTS = 2      # continue-with-correction attempts for malformed JSON
+if TYPE_CHECKING:
+    from .runner import Run
+
+JSON_FIX_ATTEMPTS = 2  # continue-with-correction attempts for malformed JSON
 
 # The coding agents this factory can drive. Each module is a complete interface
 # — `run(request, on_event, on_spawn, on_exit) -> AgentResult`, `resolve_model`,
@@ -34,28 +45,32 @@ JSON_FIX_ATTEMPTS = 2      # continue-with-correction attempts for malformed JSO
 INTERFACES = {"pi": agent_pi, "claude_code": agent_cc}
 
 
-def interface(agent: AgentConfig):
+def interface(agent: AgentConfig) -> Any:
     """The coding-agent module that runs this agent."""
     try:
         return INTERFACES[agent.coding_agent]
     except KeyError:
-        raise SystemExit(f"agent {agent.name!r}: unknown coding_agent "
-                         f"{agent.coding_agent!r} — available: "
-                         f"{sorted(INTERFACES)}") from None
+        raise SystemExit(
+            f"agent {agent.name!r}: unknown coding_agent "
+            f"{agent.coding_agent!r} — available: "
+            f"{sorted(INTERFACES)}"
+        ) from None
 
 
-class GateFailure(InvalidOutput):  # aifactory 3.4: was RuntimeError, now invalid_output
+class GateFailure(InvalidOutput):  # was RuntimeError, now invalid_output
     pass
 
 
 # ── config ───────────────────────────────────────────────────────────────────
 
+
 def resolve(cfg: SSSFConfig, name: str) -> AgentConfig:
     for agent in cfg.agents:
         if agent.name == name:
             return agent
-    raise SystemExit(f"agent {name!r} is not defined in the config — "
-                     f"available: {[a.name for a in cfg.agents]}")
+    raise SystemExit(
+        f"agent {name!r} is not defined in the config — available: {[a.name for a in cfg.agents]}"
+    )
 
 
 def validate(cfg: SSSFConfig, required: list[str]) -> None:
@@ -68,17 +83,23 @@ def validate(cfg: SSSFConfig, required: list[str]) -> None:
             problems.append(str(e))
             continue
         if agent.coding_agent not in INTERFACES:
-            problems.append(f"agent {name!r}: unknown coding_agent "
-                            f"{agent.coding_agent!r} — available: {sorted(INTERFACES)}")
+            problems.append(
+                f"agent {name!r}: unknown coding_agent "
+                f"{agent.coding_agent!r} — available: {sorted(INTERFACES)}"
+            )
             continue
         # pi extensions are pi's; loading one into Claude Code silently drops
         # the tools the roster promised the agent, so say so before anything runs.
         if agent.coding_agent != "pi" and agent.harness_engineering:
-            problems.append(f"agent {name!r}: harness_engineering is a pi extension "
-                            f"mechanism — coding_agent {agent.coding_agent!r} cannot "
-                            f"load {agent.harness_engineering}")
-        for label, ref in (("system", agent.prompt_engineering.system),
-                           ("user", agent.prompt_engineering.user)):
+            problems.append(
+                f"agent {name!r}: harness_engineering is a pi extension "
+                f"mechanism — coding_agent {agent.coding_agent!r} cannot "
+                f"load {agent.harness_engineering}"
+            )
+        for label, ref in (
+            ("system", agent.prompt_engineering.system),
+            ("user", agent.prompt_engineering.user),
+        ):
             if not Path(ref).is_file():
                 problems.append(f"agent {name!r}: {label} prompt not found: {ref}")
         try:
@@ -91,14 +112,15 @@ def validate(cfg: SSSFConfig, required: list[str]) -> None:
 
 # ── execution ────────────────────────────────────────────────────────────────
 
-def execute(run, phase: Phase, call: AgentCall) -> EnvelopeBase:
+
+def execute(run: Run, phase: Phase, call: AgentCall) -> EnvelopeBase:
     """One agent call: render prompts -> harness run -> typed parse -> gates -> envelope."""
     agent = resolve(run.cfg, phase.params.owner)
     harness = interface(agent)
     agent_dir = run.session_dir / agent.name
     agent_dir.mkdir(parents=True, exist_ok=True)
 
-    # aifactory 2.9: run-level variables first, the engine's own win on a clash.
+    # Run-level variables first, the engine's own win on a clash.
     variables = {
         **getattr(run, "prompt_variables", {}),
         **call.variables,
@@ -107,11 +129,12 @@ def execute(run, phase: Phase, call: AgentCall) -> EnvelopeBase:
         "context_handoff_dir": str(run.context_handoff_dir),
     }
     system_text = prompts.render(agent.prompt_engineering.system, variables)
-    # aifactory 2.10: index assigned repo skills before saving the audit copy and
+    # Index assigned repo skills before saving the audit copy and
     # sending the same system prompt to any harness. Skill bodies remain on disk.
     from aifactory.harness.repo_skills import prompt_index
+
     system_text += prompt_index(run.repo_root, agent.skills)
-    # aifactory 3.7: a task run's guard states the agent's own write scope, which can
+    # A task run's guard states the agent's own write scope, which can
     # be narrower than the task's allowed paths in the prompt (planner, reviewer).
     scope_prompt = getattr(getattr(run, "write_guard", None), "scope_prompt", None)
     if scope_prompt is not None:
@@ -119,27 +142,38 @@ def execute(run, phase: Phase, call: AgentCall) -> EnvelopeBase:
     user_text = prompts.render(agent.prompt_engineering.user, variables)
     prompts.save(agent_dir / "prompts", "system.md", system_text)
     prompts.save(agent_dir / "prompts", "user.md", user_text)
-    # aifactory 2.10: each phase keeps its own copy; the agent-level files above stay
+    # Each phase keeps its own copy; the agent-level files above stay
     # (last phase wins there) for readers that know only them.
     phase_prompts = prompts.phase_dir(agent_dir / "prompts", phase.params.name)
     prompts.save(phase_prompts, "system.md", system_text)
     prompts.save(phase_prompts, "user.md", user_text)
 
     session_id = _agent_session_id(run, agent)
-    # aifactory 3.1: persist before spawning, including a first turn that is stopped
+    # Persist before spawning, including a first turn that is stopped
     # or fails before its envelope is accepted. Its conversation still exists.
-    run.save_agent_map(agent.name, {"session_id": session_id, "model": agent.model,
-                                    "coding_agent": agent.coding_agent})
-    run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                 type="agent_start", name=agent.name,
-                                 payload={"model": agent.model, "thinking": agent.thinking,
-                                          "color": agent.color,
-                                          "session_id": session_id,
-                                          "coding_agent": agent.coding_agent,
-                                          "purpose": agent.purpose,
-                                          "tools": agent.tools,  # None = all tools
-                                          "disallowed_commands": agent.disallowed_commands,
-                                          "harness_engineering": agent.harness_engineering}))
+    run.save_agent_map(
+        agent.name,
+        {"session_id": session_id, "model": agent.model, "coding_agent": agent.coding_agent},
+    )
+    run.tracer.event(
+        EventRecord(
+            adw_id=run.adw_id,
+            phase_id=phase.phase_id,
+            type="agent_start",
+            name=agent.name,
+            payload={
+                "model": agent.model,
+                "thinking": agent.thinking,
+                "color": agent.color,
+                "session_id": session_id,
+                "coding_agent": agent.coding_agent,
+                "purpose": agent.purpose,
+                "tools": agent.tools,  # None = all tools
+                "disallowed_commands": agent.disallowed_commands,
+                "harness_engineering": agent.harness_engineering,
+            },
+        )
+    )
     run.console.agent_started(agent.name, agent.model, session_id)
 
     # Parse retries and gate corrections re-enter the SAME agent session, so
@@ -165,39 +199,59 @@ def execute(run, phase: Phase, call: AgentCall) -> EnvelopeBase:
             disallowed_commands=agent.disallowed_commands,
             cwd=str(run.repo_root),
         )
+
         def waiting(attempt: int, seconds: int, error: str) -> None:
             """A throttled provider is a fact of the run, not a silent pause."""
-            run.console.retry(agent.name, attempt, len(agent_pi.TRANSIENT_BACKOFF),
-                              f"provider unavailable, waiting {seconds}s: "
-                              f"{error.strip()[:120]}")
-            run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                         type="log", name="provider_backoff",
-                                         payload={"agent": agent.name, "attempt": attempt,
-                                                  "wait_seconds": seconds,
-                                                  "error": error.strip()[:300]}))
+            run.console.retry(
+                agent.name,
+                attempt,
+                len(agent_pi.TRANSIENT_BACKOFF),
+                f"provider unavailable, waiting {seconds}s: {error.strip()[:120]}",
+            )
+            run.tracer.event(
+                EventRecord(
+                    adw_id=run.adw_id,
+                    phase_id=phase.phase_id,
+                    type="log",
+                    name="provider_backoff",
+                    payload={
+                        "agent": agent.name,
+                        "attempt": attempt,
+                        "wait_seconds": seconds,
+                        "error": error.strip()[:300],
+                    },
+                )
+            )
 
-        # aifactory 2.15: a worker can tag its child commands without mutating os.environ.
+        # A worker can tag its child commands without mutating os.environ.
         with agent_environment(getattr(run, "agent_environment", {})):
-            def invoke():
+
+            def invoke() -> AgentResult:
                 try:
                     response = harness.run(
                         request,
                         on_event=_event_forwarder(run, phase, agent.name, harness),
                         on_wait=waiting,
                         on_spawn=lambda pid: run.tracer.process_start(
-                            run.adw_id, "agent", agent.name, pid,
-                            f"{agent.coding_agent} {agent.name} {agent.model}"),
-                        on_exit=lambda pid: run.tracer.process_end(run.adw_id, pid))
+                            run.adw_id,
+                            "agent",
+                            agent.name,
+                            pid,
+                            f"{agent.coding_agent} {agent.name} {agent.model}",
+                        ),
+                        on_exit=lambda pid: run.tracer.process_end(run.adw_id, pid),
+                    )
                 except QuotaExhausted as exc:
-                    # aifactory 3.4: the run's quota detail names the agent and its model
+                    # The run's quota detail names the agent and its model
                     exc.failure_detail.setdefault("agent", agent.name)
                     exc.failure_detail.setdefault("model", agent.model)
                     raise
                 if response.returncode != 0 and _missing_session(response.text):
                     raise RuntimeError(response.text)
-                return response
+                typed: AgentResult = response
+                return typed
 
-            # aifactory 3.1: only an explicitly missing conversation permits a fresh
+            # Only an explicitly missing conversation permits a fresh
             # session. Authentication, model and provider failures must still stop.
             try:
                 result = invoke()
@@ -206,12 +260,27 @@ def execute(run, phase: Phase, call: AgentCall) -> EnvelopeBase:
                     raise
                 session_id = f"sssf-{run.adw_id}-{agent.name}-{new_id(8)}"
                 request.session_id = session_id
-                run.save_agent_map(agent.name, {"session_id": session_id, "model": agent.model,
-                                                "coding_agent": agent.coding_agent})
-                run.tracer.event(EventRecord(
-                    adw_id=run.adw_id, phase_id=phase.phase_id, type="log",
-                    name="session_fallback", payload={"agent": agent.name,
-                    "reason": "previous session unavailable", "session_id": session_id}))
+                run.save_agent_map(
+                    agent.name,
+                    {
+                        "session_id": session_id,
+                        "model": agent.model,
+                        "coding_agent": agent.coding_agent,
+                    },
+                )
+                run.tracer.event(
+                    EventRecord(
+                        adw_id=run.adw_id,
+                        phase_id=phase.phase_id,
+                        type="log",
+                        name="session_fallback",
+                        payload={
+                            "agent": agent.name,
+                            "reason": "previous session unavailable",
+                            "session_id": session_id,
+                        },
+                    )
+                )
                 result = invoke()
         run.add_usage(result.tokens, result.cost)
         spent.merge(result.usage)
@@ -221,16 +290,15 @@ def execute(run, phase: Phase, call: AgentCall) -> EnvelopeBase:
     # What the tree looked like before this agent got its hands on it. Every
     # send in this phase — first prompt, JSON retries, gate corrections — is
     # measured against this one baseline.
-    # aifactory 2.9: a task run brings its own guard (worktree + main checkout).
+    # A task run brings its own guard (worktree + main checkout).
     guard = getattr(run, "write_guard", None) or permissions
     tree_before = guard.snapshot(run)
 
-    # aifactory 2.9: whatever ends this phase early (harness error, JSON that
+    # Whatever ends this phase early (harness error, JSON that
     # never parses, a gate that stays red), what the agent wrote is still
     # checked and rolled back before the error propagates.
     try:
-        envelope, attempt, result = _send_and_check(run, phase, call, agent,
-                                                    user_text, send)
+        envelope, attempt, result = _send_and_check(run, phase, call, agent, user_text, send)
     except Exception as error:
         _enforce_after_failure(run, phase, agent, guard, tree_before, error)
         raise
@@ -244,51 +312,95 @@ def execute(run, phase: Phase, call: AgentCall) -> EnvelopeBase:
         _trace_breach(run, phase, agent, breach)
         raise
     if touched:
-        run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                     type="log", name="paths_touched",
-                                     payload={"agent": agent.name, "paths": touched}))
+        run.tracer.event(
+            EventRecord(
+                adw_id=run.adw_id,
+                phase_id=phase.phase_id,
+                type="log",
+                name="paths_touched",
+                payload={"agent": agent.name, "paths": touched},
+            )
+        )
 
     _persist_envelope(run, phase, agent.name, call, envelope, attempt, valid=True)
     run.console.envelope_summary(envelope)
     context = latest or result
-    run.tracer.agent_session_row(run.adw_id, agent, session_id,
-                                 context_tokens=context.context_tokens,
-                                 context_window=context.context_window)
-    run.save_agent_map(agent.name, {"session_id": session_id, "model": agent.model,
-                                    "coding_agent": agent.coding_agent})
-    run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                 type="handoff", name=agent.name,
-                                 payload={"artifacts": envelope.artifacts,
-                                          "summary": envelope.summary}))
-    run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                 type="agent_end", name=agent.name,
-                                 # Phase totals, not the last send's: a retried
-                                 # phase paid for every attempt.
-                                 tokens=spent.total_tokens,
-                                 payload={"cost": spent.total_cost,
-                                          "usage": spent.model_dump(),
-                                          "context_tokens": context.context_tokens,
-                                          "context_window": context.context_window}))
+    run.tracer.agent_session_row(
+        run.adw_id,
+        agent,
+        session_id,
+        context_tokens=context.context_tokens,
+        context_window=context.context_window,
+    )
+    run.save_agent_map(
+        agent.name,
+        {"session_id": session_id, "model": agent.model, "coding_agent": agent.coding_agent},
+    )
+    run.tracer.event(
+        EventRecord(
+            adw_id=run.adw_id,
+            phase_id=phase.phase_id,
+            type="handoff",
+            name=agent.name,
+            payload={"artifacts": envelope.artifacts, "summary": envelope.summary},
+        )
+    )
+    run.tracer.event(
+        EventRecord(
+            adw_id=run.adw_id,
+            phase_id=phase.phase_id,
+            type="agent_end",
+            name=agent.name,
+            # Phase totals, not the last send's: a retried
+            # phase paid for every attempt.
+            tokens=spent.total_tokens,
+            payload={
+                "cost": spent.total_cost,
+                "usage": spent.model_dump(),
+                "context_tokens": context.context_tokens,
+                "context_window": context.context_window,
+            },
+        )
+    )
     run.console.agent_finished(agent.name, spent.total_tokens, spent.total_cost)
     if envelope.status != "success":
-        # aifactory 3.4: typed, so the run records nothing_to_do or other
-        # aifactory 3.6: the paths of fail_kind needs_writes make it writes_needed
-        raise AgentReportedFail(agent.name, envelope.summary, envelope.fail_kind,
-                                [n.model_dump() for n in envelope.needs_writes])
+        # Typed, so the run records nothing_to_do or other
+        # The paths of fail_kind needs_writes make it writes_needed
+        raise AgentReportedFail(
+            agent.name,
+            envelope.summary,
+            envelope.fail_kind,
+            [n.model_dump() for n in envelope.needs_writes],
+        )
     return envelope
 
 
-def _trace_breach(run, phase: Phase, agent: AgentConfig, breach) -> None:
-    run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                 type="error", name="permission_breach",
-                                 payload={"agent": agent.name, "error": str(breach),
-                                          "writes": agent.writes,
-                                          "protected_files": run.cfg.defaults.protected_files}))
+def _trace_breach(run: Run, phase: Phase, agent: AgentConfig, breach: BaseException) -> None:
+    run.tracer.event(
+        EventRecord(
+            adw_id=run.adw_id,
+            phase_id=phase.phase_id,
+            type="error",
+            name="permission_breach",
+            payload={
+                "agent": agent.name,
+                "error": str(breach),
+                "writes": agent.writes,
+                "protected_files": run.cfg.defaults.protected_files,
+            },
+        )
+    )
 
 
-def _enforce_after_failure(run, phase: Phase, agent: AgentConfig, guard, before,
-                           error: BaseException) -> None:
-    """aifactory 2.9: the phase failed; still undo what the agent wrote outside its limits.
+def _enforce_after_failure(
+    run: Run,
+    phase: Phase,
+    agent: AgentConfig,
+    guard: Any,
+    before: dict[str, str],
+    error: BaseException,
+) -> None:
+    """The phase failed; still undo what the agent wrote outside its limits.
 
     A breach found here replaces the original error (chained to it), because a
     write the agent was not allowed to make is the more serious fact. Without a
@@ -301,15 +413,21 @@ def _enforce_after_failure(run, phase: Phase, agent: AgentConfig, guard, before,
         raise breach from error
 
 
-def _send_and_check(run, phase: Phase, call: AgentCall, agent: AgentConfig,
-                    user_text: str, send):
-    """First send, typed parse, then the claim gates with corrections (aifactory 2.9: split out)."""
+def _send_and_check(
+    run: Run,
+    phase: Phase,
+    call: AgentCall,
+    agent: AgentConfig,
+    user_text: str,
+    send: Callable[[str], AgentResult],
+) -> tuple[EnvelopeBase, int, AgentResult]:
+    """First send, typed parse, then the claim gates with corrections (split out)."""
     result = send(user_text)
     envelope, attempt = _parse_with_retries(run, phase, call, result, send)
 
     # claim gates — violations flow back into the SAME session as corrections
     for gate_attempt in range(1, max(1, phase.params.retries + 1) + 1):
-        # aifactory 3.7: missing environment cannot be fixed by a claim correction.
+        # Missing environment cannot be fixed by a claim correction.
         # Return through the caller so the write guard and envelope persistence still run.
         # Check each parsed response, including one received during a gate correction.
         if envelope.status == "fail" and envelope.fail_kind == NEEDS_ENVIRONMENT:
@@ -319,27 +437,39 @@ def _send_and_check(run, phase: Phase, call: AgentCall, agent: AgentConfig,
             report = _as_report(gate(envelope, run))
             found = report.violations
             run.tracer.gate_row(phase, gate.__name__, report, gate_attempt)
-            run.tracer.event(EventRecord(
-                adw_id=run.adw_id, phase_id=phase.phase_id,
-                type="gate_fail" if found else "gate_pass", name=gate.__name__,
-                payload={"attempt": gate_attempt, "violations": found,
-                         "checks": [c.model_dump() for c in report.checks]}))
+            run.tracer.event(
+                EventRecord(
+                    adw_id=run.adw_id,
+                    phase_id=phase.phase_id,
+                    type="gate_fail" if found else "gate_pass",
+                    name=gate.__name__,
+                    payload={
+                        "attempt": gate_attempt,
+                        "violations": found,
+                        "checks": [c.model_dump() for c in report.checks],
+                    },
+                )
+            )
             run.console.gate_result(gate.__name__, report)
             violations.extend(found)
         if not violations:
             break
         if gate_attempt > phase.params.retries:
-            raise GateFailure(f"{agent.name} failed gates after {gate_attempt} attempt(s):\n- "
-                              + "\n- ".join(violations),
-                              # aifactory 3.4: the facts of the run's invalid_output
-                              detail={"agent": agent.name, "cause": "gates",
-                                      "violations": violations})
+            raise GateFailure(
+                f"{agent.name} failed gates after {gate_attempt} attempt(s):\n- "
+                + "\n- ".join(violations),
+                # The facts of the run's invalid_output
+                detail={"agent": agent.name, "cause": "gates", "violations": violations},
+            )
         phase.attempt = gate_attempt
-        run.console.retry(agent.name, gate_attempt, phase.params.retries,
-                          f"{len(violations)} gate violation(s)")
-        correction = ("Your previous response failed validation:\n- "
-                      + "\n- ".join(violations)
-                      + "\n\nFix these problems, then re-emit ONLY your Report JSON.")
+        run.console.retry(
+            agent.name, gate_attempt, phase.params.retries, f"{len(violations)} gate violation(s)"
+        )
+        correction = (
+            "Your previous response failed validation:\n- "
+            + "\n- ".join(violations)
+            + "\n\nFix these problems, then re-emit ONLY your Report JSON."
+        )
         result = send(correction)
         envelope, attempt = _parse_with_retries(run, phase, call, result, send)
 
@@ -348,33 +478,48 @@ def _send_and_check(run, phase: Phase, call: AgentCall, agent: AgentConfig,
 
 # ── internals ────────────────────────────────────────────────────────────────
 
-def _as_report(result) -> GateReport:
+
+def _as_report(result: object) -> GateReport:
     """Accept a GateReport, or a legacy gate that returned a violations list."""
     if isinstance(result, GateReport):
         return result
-    return GateReport(checks=[GateCheck(item=str(v), ok=False) for v in (result or [])])
+    violations = cast("Iterable[object] | None", result) or []
+    return GateReport(checks=[GateCheck(item=str(v), ok=False) for v in violations])
 
 
-def _agent_session_id(run, agent: AgentConfig) -> str:
+def _agent_session_id(run: Run, agent: AgentConfig) -> str:
     entry = run.agent_map.get(agent.name)
-    # aifactory 3.5: a session belongs to its harness too (a quota fallback switches it)
-    if (entry and entry.get("model") == agent.model
-            and entry.get("coding_agent", agent.coding_agent) == agent.coding_agent):
-        return entry["session_id"]           # rejoin the existing context window
+    # A session belongs to its harness too (a quota fallback switches it)
+    if (
+        entry
+        and entry.get("model") == agent.model
+        and entry.get("coding_agent", agent.coding_agent) == agent.coding_agent
+    ):
+        return str(entry["session_id"])  # rejoin the existing context window
     return f"sssf-{run.adw_id}-{agent.name}-{new_id(4)}"
 
 
 def _missing_session(error: str) -> bool:
     """Recognize a missing saved conversation, without retrying unrelated failures."""
     text = error.lower()
-    return any(marker in text for marker in (
-        "no conversation found", "session not found", "session does not exist",
-        "thread not found", "thread does not exist", "no rollout found",
-        "failed to load session", "could not find session",
-    ))
+    return any(
+        marker in text
+        for marker in (
+            "no conversation found",
+            "session not found",
+            "session does not exist",
+            "thread not found",
+            "thread does not exist",
+            "no rollout found",
+            "failed to load session",
+            "could not find session",
+        )
+    )
 
 
-def _event_forwarder(run, phase: Phase, agent_name: str, harness):
+def _event_forwarder(
+    run: Run, phase: Phase, agent_name: str, harness: Any
+) -> Callable[[dict[str, Any]], None]:
     """One tool_call event per real tool call, with its exact args and result.
 
     Each interface ships the tracker that understands its own event stream and
@@ -382,28 +527,41 @@ def _event_forwarder(run, phase: Phase, agent_name: str, harness):
     """
     tracker = harness.ToolCallTracker()
 
-    def forward(event: dict) -> None:
+    def forward(event: dict[str, Any]) -> None:
         record = tracker.observe(event)
-        # aifactory 3.7: a tool_start per call as soon as it is announced, so a run
+        # A tool_start per call as soon as it is announced, so a run
         # shows the running call; its tool_call follows with the result.
         for start in getattr(tracker, "started", lambda: [])():
-            run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                         type="tool_start", name=start.pop("label"),
-                                         started_at=start.pop("started_at", None),
-                                         payload={**start, "agent": agent_name}))
+            run.tracer.event(
+                EventRecord(
+                    adw_id=run.adw_id,
+                    phase_id=phase.phase_id,
+                    type="tool_start",
+                    name=start.pop("label"),
+                    started_at=start.pop("started_at", None),
+                    payload={**start, "agent": agent_name},
+                )
+            )
         if record is None:
             return
         # The call's span rides the columns; duration_ms stays in the payload as
         # pi's own authoritative number.
-        run.tracer.event(EventRecord(adw_id=run.adw_id, phase_id=phase.phase_id,
-                                     type="tool_call", name=record.pop("label"),
-                                     started_at=record.pop("started_at", None),
-                                     ended_at=record.pop("ended_at", None),
-                                     payload={**record, "agent": agent_name}))
+        run.tracer.event(
+            EventRecord(
+                adw_id=run.adw_id,
+                phase_id=phase.phase_id,
+                type="tool_call",
+                name=record.pop("label"),
+                started_at=record.pop("started_at", None),
+                ended_at=record.pop("ended_at", None),
+                payload={**record, "agent": agent_name},
+            )
+        )
+
     return forward
 
 
-def _extract_json(text: str) -> dict:
+def _extract_json(text: str) -> dict[str, Any]:
     candidate = text
     if "```" in text:
         for block in text.split("```")[1::2]:
@@ -414,10 +572,17 @@ def _extract_json(text: str) -> dict:
     start, end = candidate.find("{"), candidate.rfind("}")
     if start == -1 or end <= start:
         raise ValueError("no JSON object found in the response")
-    return json.loads(candidate[start:end + 1])
+    payload: dict[str, Any] = json.loads(candidate[start : end + 1])
+    return payload
 
 
-def _parse_with_retries(run, phase: Phase, call: AgentCall, result, send):
+def _parse_with_retries(
+    run: Run,
+    phase: Phase,
+    call: AgentCall,
+    result: AgentResult,
+    send: Callable[[str], AgentResult],
+) -> tuple[EnvelopeBase, int]:
     """Parse the final response against the declared output type; on failure,
     continue the SAME session with a correction (bounded)."""
     for attempt in range(1, JSON_FIX_ATTEMPTS + 2):
@@ -425,33 +590,60 @@ def _parse_with_retries(run, phase: Phase, call: AgentCall, result, send):
             payload = _extract_json(result.text)
             return call.output_type.model_validate(payload), attempt
         except Exception as error:
-            _persist_envelope(run, phase, phase.params.owner, call, None, attempt,
-                              valid=False, raw=result.text)
+            _persist_envelope(
+                run, phase, phase.params.owner, call, None, attempt, valid=False, raw=result.text
+            )
             if attempt > JSON_FIX_ATTEMPTS:
-                # aifactory 3.4: typed, the run records invalid_output
+                # Typed, the run records invalid_output
                 raise InvalidOutput(
                     f"{phase.params.owner} never produced valid "
                     f"{call.output_type.__name__} JSON: {error}",
-                    detail={"agent": phase.params.owner, "cause": "json",
-                            "output_type": call.output_type.__name__,
-                            "error": str(error)[:500]}) from error
-            run.console.retry(phase.params.owner, attempt, JSON_FIX_ATTEMPTS,
-                              f"invalid {call.output_type.__name__} JSON: {error}")
+                    detail={
+                        "agent": phase.params.owner,
+                        "cause": "json",
+                        "output_type": call.output_type.__name__,
+                        "error": str(error)[:500],
+                    },
+                ) from error
+            run.console.retry(
+                phase.params.owner,
+                attempt,
+                JSON_FIX_ATTEMPTS,
+                f"invalid {call.output_type.__name__} JSON: {error}",
+            )
             fields = ", ".join(call.output_type.model_fields.keys())
             result = send(
                 f"Your response was not valid JSON for the required structure "
                 f"({error}). Respond again with ONLY a JSON object with these "
-                f"fields: {fields}. No prose, no code fences.")
+                f"fields: {fields}. No prose, no code fences."
+            )
+    raise AssertionError("unreachable: the last attempt raises")
 
 
-def _persist_envelope(run, phase: Phase, agent_name: str, call: AgentCall,
-                      envelope: Optional[EnvelopeBase], attempt: int,
-                      valid: bool, raw: str = "") -> None:
-    payload_json = envelope.model_dump_json(indent=2) if envelope else json.dumps({"raw": raw[-2000:]})
-    run.tracer.envelope_row(phase, agent_name, call.output_type.__name__,
-                            payload_json, valid, attempt)
+def _persist_envelope(
+    run: Run,
+    phase: Phase,
+    agent_name: str,
+    call: AgentCall,
+    envelope: EnvelopeBase | None,
+    attempt: int,
+    valid: bool,
+    raw: str = "",
+) -> None:
+    payload_json = (
+        envelope.model_dump_json(indent=2) if envelope else json.dumps({"raw": raw[-2000:]})
+    )
+    run.tracer.envelope_row(
+        phase, agent_name, call.output_type.__name__, payload_json, valid, attempt
+    )
     if envelope:
-        record = {"agent_name": agent_name, "purpose": resolve(run.cfg, agent_name).purpose,
-                  "output_type": call.output_type.__name__, "attempt": attempt,
-                  **envelope.model_dump()}
-        (run.session_dir / agent_name / "envelope.json").write_text(json.dumps(record, indent=2), encoding="utf-8", newline="\n")
+        record = {
+            "agent_name": agent_name,
+            "purpose": resolve(run.cfg, agent_name).purpose,
+            "output_type": call.output_type.__name__,
+            "attempt": attempt,
+            **envelope.model_dump(),
+        }
+        (run.session_dir / agent_name / "envelope.json").write_text(
+            json.dumps(record, indent=2), encoding="utf-8", newline="\n"
+        )

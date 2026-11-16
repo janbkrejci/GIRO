@@ -38,13 +38,17 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from aifactory.failure import WRITES_VIOLATION, RunFailure
 
-from .data_types import AgentConfig, SSSFConfig
+from .data_types import AgentConfig, Phase, SSSFConfig
+
+if TYPE_CHECKING:
+    from .runner import Run
 
 
-class PermissionBreach(RunFailure):  # aifactory 3.4: a RuntimeError with failure_kind
+class PermissionBreach(RunFailure):  # a RuntimeError with failure_kind
     """An agent modified a path it was not permitted to modify."""
 
     failure_kind = WRITES_VIOLATION
@@ -54,7 +58,7 @@ class PermissionsUnavailable(RuntimeError):
     """The repo cannot support enforcement, so no agent may run against it."""
 
 
-def repo_state(repo_root) -> str:
+def repo_state(repo_root: str | Path) -> str:
     """`ok`, `no-repo`, or `no-commits` — whether this tree can be enforced on.
 
     Enforcement is a diff against `HEAD`, so it needs a repo AND a commit. Both
@@ -74,40 +78,57 @@ def repo_state(repo_root) -> str:
 
     Both are the engineer's to fix, and the fix is one commit.
     """
-    probe = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=repo_root,
-                           capture_output=True, text=True, encoding="utf-8")
+    probe = subprocess.run(
+        ["git", "rev-parse", "--git-dir"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
     if probe.returncode != 0:
         return "no-repo"
-    head = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], cwd=repo_root,
-                          capture_output=True, text=True, encoding="utf-8")
+    head = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
     return "ok" if head.returncode == 0 else "no-commits"
 
 
-def require_enforceable(repo_root) -> None:
+def require_enforceable(repo_root: str | Path) -> None:
     """Raise unless `repo_root` is a git repo with at least one commit."""
     state = repo_state(repo_root)
     if state == "ok":
         return
     reason = {
         "no-repo": f"{repo_root} is not a git repository, so `writes:` cannot be "
-                   "enforced and every agent would be unrestricted in practice",
+        "enforced and every agent would be unrestricted in practice",
         "no-commits": f"{repo_root} is a git repository with no commits, so every "
-                      "file in it reads as untracked — enforcement would treat the "
-                      "whole tree as agent-created and delete it",
+        "file in it reads as untracked — enforcement would treat the "
+        "whole tree as agent-created and delete it",
     }[state]
     raise PermissionsUnavailable(
         f"{reason}. Run `git add -A && git commit` first; SSSF will not run an "
-        "agent against a tree it cannot protect.")
+        "agent against a tree it cannot protect."
+    )
 
 
-def _git(args: list[str], cwd) -> str:
-    # aifactory 3.0: unquoted paths (Testovací sady/), not git's octal-escaped quoting
-    result = subprocess.run(["git", "-c", "core.quotePath=false", *args], cwd=cwd,
-                            capture_output=True, text=True, encoding="utf-8", errors="replace")
+def _git(args: list[str], cwd: str | Path) -> str:
+    # Unquoted paths (Testovací sady/), not git's octal-escaped quoting
+    result = subprocess.run(
+        ["git", "-c", "core.quotePath=false", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     return result.stdout if result.returncode == 0 else ""
 
 
-def snapshot(run) -> dict[str, str]:
+def snapshot(run: Any) -> dict[str, str]:
     """Fingerprint every path the working tree currently differs on.
 
     Tracked files carry their numstat counts, so an edit to an already-dirty
@@ -122,8 +143,7 @@ def snapshot(run) -> dict[str, str]:
         if len(fields) >= 3:
             path = fields[-1].strip()
             fingerprints[path] = f"{fields[0]},{fields[1]}"
-    for path in _git(["ls-files", "--others", "--exclude-standard"],
-                     run.repo_root).splitlines():
+    for path in _git(["ls-files", "--others", "--exclude-standard"], run.repo_root).splitlines():
         if path.strip():
             fingerprints[path.strip()] = "untracked"
     return fingerprints
@@ -131,11 +151,10 @@ def snapshot(run) -> dict[str, str]:
 
 def changed_paths(before: dict[str, str], after: dict[str, str]) -> list[str]:
     """Every path whose state differs — appeared, vanished, or was rewritten."""
-    return sorted({p for p in set(before) | set(after)
-                   if before.get(p) != after.get(p)})
+    return sorted({p for p in set(before) | set(after) if before.get(p) != after.get(p)})
 
 
-def _glob(pattern: str) -> re.Pattern:
+def _glob(pattern: str) -> re.Pattern[str]:
     """Translate a pattern, with `*` stopping at a path separator.
 
     fnmatch would let `*` cross `/`, which quietly widens every pattern:
@@ -161,7 +180,7 @@ def _glob(pattern: str) -> re.Pattern:
 
 
 def _matches(path: str, pattern: str) -> bool:
-    if pattern.endswith("/"):                      # directory prefix
+    if pattern.endswith("/"):  # directory prefix
         return path.startswith(pattern)
     if "*" in pattern or "?" in pattern:
         return _glob(pattern).fullmatch(path) is not None
@@ -190,13 +209,13 @@ def permitted(path: str, agent: AgentConfig, cfg: SSSFConfig) -> bool:
     if any(_matches(path, p) for p in always_writable(cfg)):
         return True
     if any(_matches(path, p) for p in (agent.writes or [])):
-        return True                      # naming a path is what unlocks a protected one
+        return True  # naming a path is what unlocks a protected one
     if any(_matches(path, p) for p in cfg.defaults.protected_files):
         return False
-    return agent.writes is None          # None = unrestricted, [] = no repo writes
+    return agent.writes is None  # None = unrestricted, [] = no repo writes
 
 
-def _roll_back(run, path: str, before: dict[str, str], after: dict[str, str]) -> str:
+def _roll_back(run: Run, path: str, before: dict[str, str], after: dict[str, str]) -> str:
     """Undo one unauthorized change. Returns a word describing what happened.
 
     Only changes the agent INTRODUCED are undone. A path that was already dirty
@@ -208,20 +227,28 @@ def _roll_back(run, path: str, before: dict[str, str], after: dict[str, str]) ->
         # Already dirty beforehand. If it is gone from the diff now, the agent
         # reverted an engineer's uncommitted work and the content is not ours
         # to reconstruct — say so loudly rather than pretend it was handled.
-        return "REVERTED-BY-AGENT (uncommitted work lost, cannot restore)" \
-            if path not in after else "left as-is (was already modified)"
+        return (
+            "REVERTED-BY-AGENT (uncommitted work lost, cannot restore)"
+            if path not in after
+            else "left as-is (was already modified)"
+        )
     if after.get(path) == "untracked":
         try:
             (Path(run.repo_root) / path).unlink()
             return "deleted"
         except OSError as error:
             return f"could not delete ({error})"
-    result = subprocess.run(["git", "checkout", "--", path],
-                            cwd=run.repo_root, capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(
+        ["git", "checkout", "--", path],
+        cwd=run.repo_root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
     return "rolled back" if result.returncode == 0 else "could not roll back"
 
 
-def enforce(run, phase, agent: AgentConfig, before: dict[str, str]) -> list[str]:
+def enforce(run: Run, phase: Phase, agent: AgentConfig, before: dict[str, str]) -> list[str]:
     """Compare the tree against `before`; undo and raise if the agent overstepped.
 
     Returns the paths it legitimately changed, so the trace records what an
@@ -246,11 +273,16 @@ def enforce(run, phase, agent: AgentConfig, before: dict[str, str]) -> list[str]
         return touched
 
     outcomes = {p: _roll_back(run, p, before, after) for p in breaches}
-    scope = ("read-only" if agent.writes == []
-             else f"limited to {agent.writes}" if agent.writes
-             else f"barred from {run.cfg.defaults.protected_files}")
+    scope = (
+        "read-only"
+        if agent.writes == []
+        else f"limited to {agent.writes}"
+        if agent.writes
+        else f"barred from {run.cfg.defaults.protected_files}"
+    )
     detail = "\n".join(f"  - {p} — {outcome}" for p, outcome in outcomes.items())
     raise PermissionBreach(
         f"{agent.name} is {scope} but modified {len(breaches)} path(s):\n{detail}",
-        # aifactory 3.4: the facts of the run's writes_violation
-        detail={"agent": agent.name, "paths": breaches, "writes": agent.writes})
+        # The facts of the run's writes_violation
+        detail={"agent": agent.name, "paths": breaches, "writes": agent.writes},
+    )

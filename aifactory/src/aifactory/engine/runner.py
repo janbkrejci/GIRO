@@ -10,26 +10,36 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import agents, git_helper
 from .console import Console
-from .data_types import AgentCall, EnvelopeBase, EventRecord, Phase, PhaseParams
+from .data_types import AgentCall, EnvelopeBase, EventRecord, Phase, PhaseParams, SSSFConfig
+from .tracer import Tracer
 from .utils import ensure_dir, now_iso
+
+if TYPE_CHECKING:
+    from aifactory.workflow.rebuild import Generated
 
 
 class PhaseHandle:
-    def __init__(self, run: "Run", phase: Phase):
+    def __init__(self, run: Run, phase: Phase):
         self.run = run
         self.phase = phase
 
-    def log(self, **payload) -> None:
-        self.run.tracer.event(EventRecord(adw_id=self.run.adw_id,
-                                          phase_id=self.phase.phase_id,
-                                          type="log", name=self.phase.params.name,
-                                          payload=payload))
+    def log(self, **payload: Any) -> None:
+        self.run.tracer.event(
+            EventRecord(
+                adw_id=self.run.adw_id,
+                phase_id=self.phase.phase_id,
+                type="log",
+                name=self.phase.params.name,
+                payload=payload,
+            )
+        )
         self.run.console.note(", ".join(f"{k}: {v}" for k, v in payload.items()))
         if self.phase.params.kind == "engineer" and "input" in payload:
             self.run.tracer.session_request(self.run.adw_id, str(payload["input"]))
@@ -41,7 +51,7 @@ class PhaseHandle:
 
 
 class Run:
-    def __init__(self, cfg, adw_id: str, tracer, engineer: str):
+    def __init__(self, cfg: SSSFConfig, adw_id: str, tracer: Tracer, engineer: str) -> None:
         self.cfg = cfg
         self.adw_id = adw_id
         self.tracer = tracer
@@ -50,41 +60,44 @@ class Run:
         self.phases: list[Phase] = []
         self.tokens = 0
         self.cost = 0.0
-        self.test_profile: Any = None  # aifactory 3.7: advisory per-project testing knowledge
-        self._seq = tracer.max_phase_seq(adw_id)   # a joined run continues the sequence
-        self.repo_root = git_helper.repo_root()    # where every agent is spawned to work
+        self.test_profile: Any = None  # advisory per-project testing knowledge
+        self._seq = tracer.max_phase_seq(adw_id)  # a joined run continues the sequence
+        self.repo_root = git_helper.repo_root()  # where every agent is spawned to work
         self.session_dir = ensure_dir(Path(cfg.defaults.data_dir) / "sessions" / adw_id)
         self.context_handoff_dir = ensure_dir(self.session_dir / "context_handoff")
         self._agent_map_path = self.session_dir / "agent_map.json"
-        self.agent_map: dict = (json.loads(self._agent_map_path.read_text())
-                                if self._agent_map_path.exists() else {})
-        # aifactory 2.9: a task run swaps in its own write guard (an object with
+        self.agent_map: dict[str, Any] = (
+            json.loads(self._agent_map_path.read_text()) if self._agent_map_path.exists() else {}
+        )
+        # A task run swaps in its own write guard (an object with
         # `snapshot(run)` and `enforce(run, phase, agent, before)`); None means the
         # `permissions` module. Extra prompt variables ({{task_id}}, {{spec_path}}, ...)
         # are rendered into every agent prompt; the engine's own variables win.
         self.write_guard: Any = None
-        # aifactory 2.15: subprocess-only settings for an agent call, without global env changes.
+        # Subprocess-only settings for an agent call, without global env changes.
         self.agent_environment: dict[str, str] = {}
-        self.prompt_variables: dict = {}
-        # aifactory 2.9: argv of every `test` step (quality.test); a task run sets it
+        self.prompt_variables: dict[str, Any] = {}
+        # Argv of every `test` step (quality.test); a task run sets it
         # from the task's `test`, index.md or test_command. None means `just test`.
-        # aifactory 2.15: pinned adaptive-test baseline, independent of later commits.
+        # Pinned adaptive-test baseline, independent of later commits.
         self.test_baseline: str | None = None
         self.test_argv: list[str] | None = None
-        # aifactory: time limit (s) of every `test` step (quality.test); a task run sets
+        # Time limit (s) of every `test` step (quality.test); a task run sets
         # it from the task's `test_timeout`, index.md or config.yaml. None means 600 s.
         self.test_timeout: int | None = None
-        # aifactory: generated outputs a `rebuild` step may rebuild (workflow.rebuild
+        # Generated outputs a `rebuild` step may rebuild (workflow.rebuild
         # `Generated`); a resolve run sets them from `generated:` in config.yaml.
-        self.generated: tuple = ()
-        # aifactory: machine-wide slots of the `test` step (slots.TestSlots); a task run
+        self.generated: tuple[Generated, ...] = ()
+        # Machine-wide slots of the `test` step (slots.TestSlots); a task run
         # sets it from `test_slots`. None means the test command does not wait.
         self.test_slots: Any = None
 
     # ── agent map (adw_id -> per-agent coding-agent session ids) ────────────
-    def save_agent_map(self, agent: str, entry: dict) -> None:
+    def save_agent_map(self, agent: str, entry: dict[str, Any]) -> None:
         self.agent_map[agent] = entry
-        self._agent_map_path.write_text(json.dumps(self.agent_map, indent=2), encoding="utf-8", newline="\n")
+        self._agent_map_path.write_text(
+            json.dumps(self.agent_map, indent=2), encoding="utf-8", newline="\n"
+        )
 
     # ── usage (run totals mirror what the tracer accumulates in sqlite) ─────
     def add_usage(self, tokens: int, cost: float) -> None:
@@ -94,43 +107,74 @@ class Run:
 
     # ── the phase primitive ─────────────────────────────────────────────────
     @contextmanager
-    def phase(self, params: PhaseParams):
+    def phase(self, params: PhaseParams) -> Iterator[PhaseHandle]:
         self._seq += 1
-        phase = Phase(phase_id=f"{self.adw_id}_{self._seq:02d}_{params.name}",
-                      adw_id=self.adw_id, seq=self._seq, params=params,
-                      status="running", started_at=now_iso())
+        phase = Phase(
+            phase_id=f"{self.adw_id}_{self._seq:02d}_{params.name}",
+            adw_id=self.adw_id,
+            seq=self._seq,
+            params=params,
+            status="running",
+            started_at=now_iso(),
+        )
         self.phases.append(phase)
         self.tracer.phase_upsert(phase)
-        self.tracer.event(EventRecord(adw_id=self.adw_id, phase_id=phase.phase_id,
-                                      type="phase_start", name=params.name,
-                                      payload={"kind": params.kind, "owner": params.owner,
-                                               "description": params.description}))
+        self.tracer.event(
+            EventRecord(
+                adw_id=self.adw_id,
+                phase_id=phase.phase_id,
+                type="phase_start",
+                name=params.name,
+                payload={
+                    "kind": params.kind,
+                    "owner": params.owner,
+                    "description": params.description,
+                },
+            )
+        )
         self.console.phase_started(phase)
         clock = time.monotonic()
         try:
             yield PhaseHandle(self, phase)
         except BaseException as error:
-            phase.status = "fail"                      # success must be earned
+            phase.status = "fail"  # success must be earned
             phase.error = str(error)[:1000]
             phase.ended_at = now_iso()
-            self.tracer.event(EventRecord(adw_id=self.adw_id, phase_id=phase.phase_id,
-                                          type="error", name=params.name,
-                                          payload={"error": phase.error}))
-            self.tracer.event(EventRecord(adw_id=self.adw_id, phase_id=phase.phase_id,
-                                          type="phase_end", name=params.name,
-                                          payload={"status": "fail"}))
+            self.tracer.event(
+                EventRecord(
+                    adw_id=self.adw_id,
+                    phase_id=phase.phase_id,
+                    type="error",
+                    name=params.name,
+                    payload={"error": phase.error},
+                )
+            )
+            self.tracer.event(
+                EventRecord(
+                    adw_id=self.adw_id,
+                    phase_id=phase.phase_id,
+                    type="phase_end",
+                    name=params.name,
+                    payload={"status": "fail"},
+                )
+            )
             self.tracer.phase_upsert(phase)
             self.tracer.session_finish(self.adw_id, ok=False)
             self.console.phase_ended(phase, time.monotonic() - clock)
-            self.console.session_finished(False, self.tokens, self.cost,
-                                          self.cfg.observability.db)
+            self.console.session_finished(False, self.tokens, self.cost, self.cfg.observability.db)
             raise
         else:
             phase.status = "success"
             phase.ended_at = now_iso()
-            self.tracer.event(EventRecord(adw_id=self.adw_id, phase_id=phase.phase_id,
-                                          type="phase_end", name=params.name,
-                                          payload={"status": "success"}))
+            self.tracer.event(
+                EventRecord(
+                    adw_id=self.adw_id,
+                    phase_id=phase.phase_id,
+                    type="phase_end",
+                    name=params.name,
+                    payload={"status": "success"},
+                )
+            )
             self.tracer.phase_upsert(phase)
             self.console.phase_ended(phase, time.monotonic() - clock)
 
@@ -156,10 +200,15 @@ class Run:
         ok = phases_ok and accepted
         if phases_ok and not accepted:
             note = reason or "the run's acceptance criterion was not met"
-            self.tracer.event(EventRecord(
-                adw_id=self.adw_id,
-                phase_id=self.phases[-1].phase_id if self.phases else "",
-                type="error", name="not_accepted", payload={"reason": note}))
+            self.tracer.event(
+                EventRecord(
+                    adw_id=self.adw_id,
+                    phase_id=self.phases[-1].phase_id if self.phases else "",
+                    type="error",
+                    name="not_accepted",
+                    payload={"reason": note},
+                )
+            )
             self.console.note(f"not accepted: {note}")
         self.tracer.session_finish(self.adw_id, ok=ok)
         self.console.session_finished(ok, self.tokens, self.cost, self.cfg.observability.db)

@@ -13,11 +13,13 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Any
 
 from .data_types import EnvelopeBase, GateReport
 
-TAIL_CHARS = 1000        # command output kept as evidence on a failure
+TAIL_CHARS = 1000  # command output kept as evidence on a failure
 
 
 def _size(path: Path) -> str:
@@ -25,47 +27,56 @@ def _size(path: Path) -> str:
     return f"{n}B" if n < 1024 else f"{n / 1024:.1f}KB"
 
 
-def _inside(path: Path, roots) -> bool:
-    """aifactory 2.9: True when `path` lies inside one of `roots`."""
+def _inside(path: Path, roots: Iterable[Path]) -> bool:
+    """True when `path` lies inside one of `roots`."""
     return any(path == root or path.is_relative_to(root) for root in roots)
 
 
-def artifacts_exist(envelope: EnvelopeBase, run) -> GateReport:
-    # aifactory 2.9: an artifact counts only inside the run's worktree (repo_root)
+def artifacts_exist(envelope: EnvelopeBase, run: Any) -> GateReport:
+    # An artifact counts only inside the run's worktree (repo_root)
     # or its session directory. A relative path is taken from repo_root, not from
     # the process cwd, so a file the agent wrote into another checkout never passes.
     report = GateReport()
     repo_root = getattr(run, "repo_root", None)
     session_dir = getattr(run, "session_dir", None)
-    roots = ([Path(repo_root).resolve(), Path(session_dir).resolve()]
-             if repo_root is not None and session_dir is not None else None)
+    roots = (
+        [Path(repo_root).resolve(), Path(session_dir).resolve()]
+        if repo_root is not None and session_dir is not None
+        else None
+    )
     for a in envelope.artifacts:
         p = Path(a)
         if roots is not None:
             if not p.is_absolute():
-                p = Path(repo_root) / p
+                p = roots[0] / p
             p = p.resolve()
             if not _inside(p, roots):
-                report.check(a, False,
-                             "declared artifact is outside the run's worktree and session directory")
+                report.check(
+                    a,
+                    False,
+                    "declared artifact is outside the run's worktree and session directory",
+                )
                 continue
-        report.check(a, p.exists(),
-                     f"exists, {_size(p)}" if p.exists() else "declared artifact does not exist")
+        report.check(
+            a,
+            p.exists(),
+            f"exists, {_size(p)}" if p.exists() else "declared artifact does not exist",
+        )
     return report
 
 
-def files_non_empty(envelope: EnvelopeBase, run) -> GateReport:
+def files_non_empty(envelope: EnvelopeBase, run: Any) -> GateReport:
     report = GateReport()
     for a in envelope.artifacts:
         p = Path(a)
         if not (p.exists() and p.is_file()):
-            continue                       # existence is artifacts_exist's job
+            continue  # existence is artifacts_exist's job
         empty = p.stat().st_size == 0
         report.check(a, not empty, "declared artifact is empty" if empty else _size(p))
     return report
 
 
-def json_parses(envelope: EnvelopeBase, run) -> GateReport:
+def json_parses(envelope: EnvelopeBase, run: Any) -> GateReport:
     report = GateReport()
     for a in envelope.artifacts:
         p = Path(a)
@@ -88,17 +99,23 @@ def _deleted_paths() -> set[str]:
     guarantees.
     """
     paths: set[str] = set()
-    for args in (["diff", "--name-only", "--diff-filter=D"],
-                 ["diff", "--cached", "--name-only", "--diff-filter=D"]):
-        # aifactory 3.0: unquoted non-ASCII paths
-        result = subprocess.run(["git", "-c", "core.quotePath=false", *args],
-                                capture_output=True, text=True, encoding="utf-8")
+    for args in (
+        ["diff", "--name-only", "--diff-filter=D"],
+        ["diff", "--cached", "--name-only", "--diff-filter=D"],
+    ):
+        # Unquoted non-ASCII paths
+        result = subprocess.run(
+            ["git", "-c", "core.quotePath=false", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
         if result.returncode == 0:
             paths.update(line for line in result.stdout.splitlines() if line)
     return paths
 
 
-def diff_matches_claims(envelope: EnvelopeBase, run) -> GateReport:
+def diff_matches_claims(envelope: EnvelopeBase, run: Any) -> GateReport:
     """Every file claimed changed must exist on disk, or be one git says was deleted."""
     report = GateReport()
     claims = list(getattr(envelope, "changed_files", []))
@@ -110,12 +127,11 @@ def diff_matches_claims(envelope: EnvelopeBase, run) -> GateReport:
             report.check(f, True, f"exists, {_size(p)}")
         else:
             gone = f in deleted
-            report.check(f, gone,
-                         "deleted" if gone else "claimed changed file does not exist")
+            report.check(f, gone, "deleted" if gone else "claimed changed file does not exist")
     return report
 
 
-def verdict_consistent(envelope: EnvelopeBase, run) -> GateReport:
+def verdict_consistent(envelope: EnvelopeBase, run: Any) -> GateReport:
     """A review's verdict must agree with the findings it just wrote down.
 
     Nothing here judges the code — that is the reviewer's job. This checks the
@@ -128,22 +144,36 @@ def verdict_consistent(envelope: EnvelopeBase, run) -> GateReport:
     blocking = list(getattr(envelope, "blocking", []))
     unmet = [f.requirement for f in getattr(envelope, "findings", []) if not f.met]
 
-    report.check("approved vs blocking", not (approved and blocking),
-                 "no blocking items" if not blocking
-                 else f"{len(blocking)} blocking item(s) while approved=true"
-                 if approved else f"{len(blocking)} blocking item(s), not approved")
-    report.check("approved vs findings", not (approved and unmet),
-                 "every requirement met" if not unmet
-                 else f"{len(unmet)} unmet requirement(s) while approved=true"
-                 if approved else f"{len(unmet)} unmet requirement(s), not approved")
-    report.check("rejection names a problem", approved or bool(blocking or unmet),
-                 "verdict is supported" if approved or blocking or unmet
-                 else "approved=false but no blocking item or unmet requirement was given")
+    report.check(
+        "approved vs blocking",
+        not (approved and blocking),
+        "no blocking items"
+        if not blocking
+        else f"{len(blocking)} blocking item(s) while approved=true"
+        if approved
+        else f"{len(blocking)} blocking item(s), not approved",
+    )
+    report.check(
+        "approved vs findings",
+        not (approved and unmet),
+        "every requirement met"
+        if not unmet
+        else f"{len(unmet)} unmet requirement(s) while approved=true"
+        if approved
+        else f"{len(unmet)} unmet requirement(s), not approved",
+    )
+    report.check(
+        "rejection names a problem",
+        approved or bool(blocking or unmet),
+        "verdict is supported"
+        if approved or blocking or unmet
+        else "approved=false but no blocking item or unmet requirement was given",
+    )
     return report
 
 
-def checks_runnable(envelope: EnvelopeBase, run) -> GateReport:
-    """aifactory 3.0: every check of a test plan names a program this checkout can start.
+def checks_runnable(envelope: EnvelopeBase, run: Any) -> GateReport:
+    """Every check of a test plan names a program this checkout can start.
 
     Only the first argv element is checked (on PATH, or a file in the worktree);
     whether the checks are the right ones is the reviewer's call.
@@ -154,14 +184,18 @@ def checks_runnable(envelope: EnvelopeBase, run) -> GateReport:
         program = check.argv[0]
         local = (root / program).is_file() if ("/" in program or "\\" in program) else False
         found = local or shutil.which(program) is not None
-        report.check(check.name, found,
-                     f"`{program}` found" if found
-                     else f"`{program}` is neither on PATH nor a file in the worktree")
+        report.check(
+            check.name,
+            found,
+            f"`{program}` found"
+            if found
+            else f"`{program}` is neither on PATH nor a file in the worktree",
+        )
     return report
 
 
-def plan_keeps_checks(envelope: EnvelopeBase, run) -> GateReport:
-    """aifactory 3.0: a new test plan drops no check of the previous plan silently.
+def plan_keeps_checks(envelope: EnvelopeBase, run: Any) -> GateReport:
+    """A new test plan drops no check of the previous plan silently.
 
     Scoped rounds may defer green, unaffected checks without repeated reasons.
     Failures and unexecuted prerequisites stay, including when the new plan is
@@ -186,33 +220,44 @@ def plan_keeps_checks(envelope: EnvelopeBase, run) -> GateReport:
             replacement = check.name in names and (
                 (previous.coverage == "full" and scoped) or check.name in dropped
             )
-            report.check(check.name, replacement,
-                         "failed check replaced explicitly or suite narrowed to a regression" if replacement
-                         else "failed check must be kept; a dropped entry cannot discard a failure")
+            report.check(
+                check.name,
+                replacement,
+                "failed check replaced explicitly or suite narrowed to a regression"
+                if replacement
+                else "failed check must be kept; a dropped entry cannot discard a failure",
+            )
         elif scoped:
             report.check(check.name, True, "scoped round; the whole suite confirms later")
         elif getattr(envelope, "coverage", None) == "full":
             report.check(check.name, True, "covered by the full plan")
         else:
-            report.check(check.name, check.name in dropped,
-                         "dropped with a reason" if check.name in dropped
-                         else "left out without a `dropped` entry; keep it or say why it goes")
+            report.check(
+                check.name,
+                check.name in dropped,
+                "dropped with a reason"
+                if check.name in dropped
+                else "left out without a `dropped` entry; keep it or say why it goes",
+            )
     return report
 
 
-def coverage_required(envelope: EnvelopeBase, run) -> GateReport:
-    """aifactory 3.0: a test plan step with `coverage:` gets a plan of that coverage."""
+def coverage_required(envelope: EnvelopeBase, run: Any) -> GateReport:
+    """A test plan step with `coverage:` gets a plan of that coverage."""
     report = GateReport()
     wanted = getattr(run, "required_coverage", None)
     if wanted:
         got = getattr(envelope, "coverage", None)
-        report.check("coverage", got == wanted,
-                     f"{got}" if got == wanted else f"the step requires `{wanted}`, the plan is `{got}`")
+        report.check(
+            "coverage",
+            got == wanted,
+            f"{got}" if got == wanted else f"the step requires `{wanted}`, the plan is `{got}`",
+        )
     return report
 
 
-def checks_fit_budget(envelope: EnvelopeBase, run) -> GateReport:
-    """aifactory 3.0: the checks' own timeouts fit the test step's shared time limit.
+def checks_fit_budget(envelope: EnvelopeBase, run: Any) -> GateReport:
+    """The checks' own timeouts fit the test step's shared time limit.
 
     The test step stops at ``run.test_timeout`` (else 600 s) whatever a check asks for,
     so a plan whose timeouts add up to more can only end in a timeout.
@@ -222,20 +267,28 @@ def checks_fit_budget(envelope: EnvelopeBase, run) -> GateReport:
     report = GateReport()
     budget = getattr(run, "test_timeout", None) or DEFAULT_TEST_TIMEOUT
     asked = sum(check.timeout or 0 for check in getattr(envelope, "checks", []))
-    report.check("time limit", asked <= budget,
-                 f"{asked}s of {budget}s" if asked <= budget
-                 else f"the checks ask for {asked}s but the test step has {budget}s; "
-                      "narrow or split them")
+    report.check(
+        "time limit",
+        asked <= budget,
+        f"{asked}s of {budget}s"
+        if asked <= budget
+        else f"the checks ask for {asked}s but the test step has {budget}s; narrow or split them",
+    )
     return report
 
-def tests_pass(command: str):
+
+def tests_pass(command: str) -> Callable[[EnvelopeBase, Any], GateReport]:
     """Gate factory: the given shell command must exit 0."""
-    def gate(envelope: EnvelopeBase, run) -> GateReport:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, encoding="utf-8")
+
+    def gate(envelope: EnvelopeBase, run: Any) -> GateReport:
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True, encoding="utf-8"
+        )
         ok = result.returncode == 0
         note = f"exit {result.returncode}"
         if not ok:
             note += "\n" + (result.stdout + result.stderr)[-TAIL_CHARS:]
         return GateReport().check(command, ok, note)
+
     gate.__name__ = f"tests_pass({command})"
     return gate
