@@ -12,6 +12,9 @@ replaced atomically and only files under a backlog root are ever written. Every
 written file is recorded in the journal of ``aifactory/mainwrites.py``, so the guard of a
 concurrent task run does not take the write for one of its agent.
 
+The functions take a checkout root or a ``MemoryBacklog`` (``common``): a committed
+snapshot edited in memory, validated on an overlay snapshot, with nothing on disk.
+
 Stable error codes (``TaskEditError.code`` / ``errors()[i]["code"]``):
 
 =====================================  ====  ==========================================

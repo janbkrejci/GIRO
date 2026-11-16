@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from aifactory.backlog.edit.common import (
+    BacklogFiles,
+    Root,
     TaskEditError,
     _apply,
     _dedupe,
     _write_checked,
     compose_id,
+    files_of,
     load_for_edit,
     serialized_write,
     slugify,
 )
-from aifactory.backlog.loader import iter_containers, load_backlog
+from aifactory.backlog.loader import iter_containers
 from aifactory.backlog.model import (
     CONTAINER_KEYS,
     HARNESS_KEYS,
@@ -48,7 +50,7 @@ def _find_container(backlog: Backlog, container_id: str) -> Container | None:
     return None
 
 
-def set_auto_continue(root: Path, container_id: str, enabled: bool | None) -> ContainerWriteResult:
+def set_auto_continue(root: Root, container_id: str, enabled: bool | None) -> ContainerWriteResult:
     """Set (``True``/``False``) or remove (``None``) ``auto_continue`` in a container's index.md.
 
     Writes the working tree; runs read the backlog from base, so commit it first.
@@ -58,7 +60,7 @@ def set_auto_continue(root: Path, container_id: str, enabled: bool | None) -> Co
     )
 
 
-def set_auto_merge(root: Path, container_id: str, enabled: bool | None) -> ContainerWriteResult:
+def set_auto_merge(root: Root, container_id: str, enabled: bool | None) -> ContainerWriteResult:
     """Set (``True``/``False``) or remove (``None``) ``auto_merge`` in a container's index.md.
 
     Writes the working tree; runs read the backlog from base, so commit it first.
@@ -68,7 +70,7 @@ def set_auto_merge(root: Path, container_id: str, enabled: bool | None) -> Conta
 
 @serialized_write
 def _set_container_flag(
-    root: Path, container_id: str, key: str, enabled: bool | None, command: str
+    root: Root, container_id: str, key: str, enabled: bool | None, command: str
 ) -> ContainerWriteResult:
     backlog = load_for_edit(root)
     container = _find_container(backlog, container_id)
@@ -80,13 +82,14 @@ def _set_container_flag(
         raise TaskEditError(
             "no_index", f"'{container_id}' has no index.md", id=container_id, path=container.path
         )
-    text = (root / rel).read_text(encoding="utf-8")
+    text = files_of(root).read(rel)
     if enabled is None:
         new_text = _apply(text, "remove", key)
     else:
         new_text = _apply(text, "set", key, enabled)
-    changed = _write_checked(backlog, check_backlog(backlog), {rel: new_text}, command)
-    after = load_backlog(root, backlog.settings)
+    files = files_of(root)
+    changed = _write_checked(files, backlog, check_backlog(backlog), {rel: new_text}, command)
+    after = files.load(backlog.settings)
     found = _find_container(after, container_id)
     if found is None:  # pragma: no cover - guarded by validation
         raise TaskEditError("unknown_container", f"'{container_id}' not found after write")
@@ -154,9 +157,9 @@ def _container_dir(
 
 
 def _container_result(
-    backlog: Backlog, action: str, changed: bool, rel: str, container_id: str
+    files: BacklogFiles, backlog: Backlog, action: str, changed: bool, rel: str, container_id: str
 ) -> ContainerWriteResult:
-    after = load_backlog(backlog.root, backlog.settings)
+    after = files.load(backlog.settings)
     found = _find_container(after, container_id)
     if found is None:  # pragma: no cover - guarded by validation
         raise TaskEditError("unknown_container", f"'{container_id}' not found after write")
@@ -165,7 +168,7 @@ def _container_result(
 
 @serialized_write
 def add_container(
-    root: Path,
+    root: Root,
     parent: str | None,
     container_id: str,
     title: str,
@@ -218,13 +221,14 @@ def add_container(
                 )
             ],
         )
-    if (root / rel_dir).exists():
+    if files_of(root).exists(rel_dir):
         raise TaskEditError(
             "file_exists", f"directory '{rel_dir}' exists already", path=rel_dir, id=container_id
         )
     text = new_index_text(container_id, title, body)
-    changed = _write_checked(backlog, baseline, {rel: text}, f"backlog add {level}")
-    return _container_result(backlog, "add", changed, rel, container_id)
+    files = files_of(root)
+    changed = _write_checked(files, backlog, baseline, {rel: text}, f"backlog add {level}")
+    return _container_result(files, backlog, "add", changed, rel, container_id)
 
 
 def _check_chain(value: object) -> list[str]:
@@ -274,7 +278,7 @@ def _check_container_value(key: str, value: object) -> str | list[str] | bool:
 
 @serialized_write
 def edit_container(
-    root: Path,
+    root: Root,
     container_id: str,
     *,
     title: str | None = None,
@@ -317,7 +321,7 @@ def edit_container(
         raise TaskEditError(
             "no_index", f"'{container_id}' has no index.md", id=container_id, path=container.path
         )
-    text = (root / rel).read_text(encoding="utf-8")
+    text = files_of(root).read(rel)
     if title is not None:
         if not title.strip():
             raise TaskEditError("invalid_value", "title must not be empty", id=container_id)
@@ -326,5 +330,6 @@ def edit_container(
         text = _apply(text, "set", key, value)
     for key in clear:
         text = _apply(text, "remove", key)
-    changed = _write_checked(backlog, baseline, {rel: text}, "backlog edit")
-    return _container_result(backlog, "edit", changed, rel, container_id)
+    files = files_of(root)
+    changed = _write_checked(files, backlog, baseline, {rel: text}, "backlog edit")
+    return _container_result(files, backlog, "edit", changed, rel, container_id)

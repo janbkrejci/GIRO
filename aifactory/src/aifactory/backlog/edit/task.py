@@ -6,11 +6,12 @@ import datetime
 import json
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from aifactory.backlog.derived import is_human
 from aifactory.backlog.edit.common import (
     EDITABLE_STATUSES,
+    BacklogFiles,
+    Root,
     TaskEditError,
     _apply,
     _dedupe,
@@ -19,13 +20,13 @@ from aifactory.backlog.edit.common import (
     _read,
     _write_checked,
     compose_id,
+    files_of,
     find_task,
     load_for_edit,
     serialized_write,
     slugify,
     task_revision,
 )
-from aifactory.backlog.loader import load_backlog
 from aifactory.backlog.model import (
     ASSIGNEES,
     Backlog,
@@ -52,6 +53,7 @@ class WriteResult:
 
 
 def _commit(
+    files: BacklogFiles,
     backlog: Backlog,
     baseline: list[Issue],
     changes: dict[str, str],
@@ -59,8 +61,8 @@ def _commit(
     target_rel: str,
     task_id: str,
 ) -> WriteResult:
-    changed = _write_checked(backlog, baseline, changes, f"task {action}")
-    after = load_backlog(backlog.root, backlog.settings)
+    changed = _write_checked(files, backlog, baseline, changes, f"task {action}")
+    after = files.load(backlog.settings)
     issues = check_backlog(after)
     node = after.by_id.get(task_id)
     if not isinstance(node, Task):  # pragma: no cover - guarded by validation
@@ -70,7 +72,7 @@ def _commit(
 
 @serialized_write
 def add_task(
-    root: Path,
+    root: Root,
     step: str,
     title: str,
     *,
@@ -110,7 +112,7 @@ def add_task(
         raise TaskEditError("self_ref", f"task '{task_id}' cannot relate to itself", id=task_id)
     name = f"{task_id}-{slug}.md" if slug else f"{task_id}.md"
     rel = f"{container.path}/{name}"
-    if (root / rel).exists():
+    if files_of(root).exists(rel):
         raise TaskEditError("file_exists", f"file '{rel}' exists already", path=rel, id=task_id)
     fields: dict[str, object] = {
         "id": task_id,
@@ -130,7 +132,9 @@ def add_task(
     if follow_up_request_id is not None:
         text = set_field(text, "follow_up_request_id", follow_up_request_id)
         text = set_field(text, "follow_up_request_hash", follow_up_request_hash or "")
-    return _commit(backlog, check_backlog(backlog), {rel: text}, "add", rel, task_id)
+    return _commit(
+        files_of(root), backlog, check_backlog(backlog), {rel: text}, "add", rel, task_id
+    )
 
 
 def follow_up_title(task: Task) -> str:
@@ -145,7 +149,7 @@ def follow_up_commit_message(new_id: str, task_id: str) -> str:
 
 @serialized_write
 def follow_up_task(
-    root: Path, task_id: str, body: str, *, title: str | None = None, request_id: str | None = None
+    root: Root, task_id: str, body: str, *, title: str | None = None, request_id: str | None = None
 ) -> WriteResult:
     """A new ``todo`` task that follows the done task `task_id` (``factory task follow-up``).
 
@@ -164,7 +168,7 @@ def follow_up_task(
         for existing in backlog.by_id.values():
             if not isinstance(existing, Task):
                 continue
-            header, _ = parse_frontmatter(_read(root, existing))
+            header, _ = parse_frontmatter(_read(files_of(root), existing))
             if header.get("follow_up_request_id") == request_id:
                 if (
                     existing.follows != task_id
@@ -221,7 +225,7 @@ def human_done_entry() -> str:
 
 @serialized_write
 def edit_task(
-    root: Path,
+    root: Root,
     task_id: str,
     *,
     title: str | None = None,
@@ -272,7 +276,7 @@ def edit_task(
     backlog = load_for_edit(root)
     baseline = check_backlog(backlog)
     task = find_task(backlog, task_id, baseline)
-    text = _read(root, task)
+    text = _read(files_of(root), task)
     if expected_revision is not None and task_revision(text) != expected_revision:
         raise TaskEditError(
             "edit_conflict",
@@ -348,11 +352,11 @@ def edit_task(
             text = _apply(text, "remove" if value is None else "set", key, value)
     if body is not None:
         text = replace_body(text, body)
-    return _commit(backlog, baseline, {task.path: text}, "edit", task.path, task_id)
+    return _commit(files_of(root), backlog, baseline, {task.path: text}, "edit", task.path, task_id)
 
 
 @serialized_write
-def complete_task(root: Path, task_id: str, entry: str) -> WriteResult:
+def complete_task(root: Root, task_id: str, entry: str) -> WriteResult:
     """``status: done`` and `entry` in ``## Běhy`` for a task that ends without a PR.
 
     For a run that found nothing to change and for a task done by a person. A cancelled
@@ -363,13 +367,13 @@ def complete_task(root: Path, task_id: str, entry: str) -> WriteResult:
     task = find_task(backlog, task_id, baseline)
     if task.status == "cancelled":
         raise TaskEditError("invalid_status", "task is cancelled", id=task_id)
-    text = mark_done(_read(root, task), entry)
-    return _commit(backlog, baseline, {task.path: text}, "done", task.path, task_id)
+    text = mark_done(_read(files_of(root), task), entry)
+    return _commit(files_of(root), backlog, baseline, {task.path: text}, "done", task.path, task_id)
 
 
 @serialized_write
 def link_task(
-    root: Path,
+    root: Root,
     task_id: str,
     *,
     depends_on: list[str] | None = None,
@@ -386,7 +390,7 @@ def link_task(
     backlog = load_for_edit(root)
     baseline = check_backlog(backlog)
     task = find_task(backlog, task_id, baseline)
-    text = _read(root, task)
+    text = _read(files_of(root), task)
     for key, refs, current in (
         ("depends_on", depends_on, task.depends_on),
         ("related", related, task.related),
@@ -403,7 +407,7 @@ def link_task(
             text = _apply(text, "remove", key)
         else:
             text = _apply(text, "set", key, new)
-    return _commit(backlog, baseline, {task.path: text}, "link", task.path, task_id)
+    return _commit(files_of(root), backlog, baseline, {task.path: text}, "link", task.path, task_id)
 
 
 def _validate_parameters(parameters: dict[str, object]) -> None:

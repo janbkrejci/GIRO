@@ -15,8 +15,9 @@ otherwise the task inherits. Merged reports keep the highest severity.
 A follow-up only a person can do (``for_human``, or ``writes`` that reach the
 backlog or ``protected_files``) gets ``assignee: human``: no run starts it.
 
-The backlog is edited in a temporary copy through ``aifactory.backlog.edit`` and
-published on ``base`` without writing pending files to the main checkout.
+The backlog committed on the target is edited in memory through ``aifactory.backlog.edit``
+(``MemoryBacklog``: no files on disk) and published on ``base`` without writing pending
+files to the main checkout.
 A follow-up task carries the marker
 ``<!-- factory: follow-up-of=<task id> -->``; a retry or a replayed journal finds it
 by the marker and title and creates nothing new.
@@ -24,10 +25,8 @@ by the marker and title and creates nothing new.
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
-import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -49,7 +48,7 @@ from aifactory.backlog import (
     load_for_edit,
 )
 from aifactory.backlog.derived import descendant_tasks
-from aifactory.backlog.edit.common import _write_checked, compose_id
+from aifactory.backlog.edit.common import MemoryBacklog, _write_checked, compose_id
 from aifactory.backlog.followup_ids import (
     _norm,
     current_target,
@@ -333,31 +332,6 @@ def _can_block(backlog: Backlog, source: Task, target: Task) -> bool:
         source.depends_on = previous
 
 
-@contextlib.contextmanager
-def _snapshot(root: Path, sha: str, settings: ProjectSettings) -> Iterator[Path]:
-    """A temporary directory holding the backlog roots as committed at `sha`.
-
-    The tree is read in memory (``read_snapshot``: one ``ls-tree`` and one
-    ``cat-file --batch``, whatever the number of files) and written out, because the
-    backlog edit commands that record follow-ups work on files.
-    """
-    import os
-
-    snapshot = read_snapshot(root, sha, settings, create_missing=False)
-    with tempfile.TemporaryDirectory(prefix="factory-followups-") as tmp:
-        stage = Path(tmp)
-        for rel in sorted(snapshot.directories):
-            (stage / rel).mkdir(parents=True, exist_ok=True)
-        for rel, data in snapshot.files.items():
-            target = stage / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if rel in snapshot.links:
-                os.symlink(snapshot.links[rel], target)
-            else:
-                target.write_bytes(data)
-        yield stage
-
-
 def record(
     main: Path,
     task_id: str,
@@ -406,33 +380,37 @@ def _record_current(
     decisions: dict[Reported, Decision] | None,
     running: Callable[[str], object] | None,
 ) -> FollowUpOutcome:
-    with _snapshot(main, target, settings) as stage:
-        config = stage / ".factory/config.yaml"
-        config.parent.mkdir()
-        config.write_bytes((main / ".factory/config.yaml").read_bytes())
-        before = _contents(stage)
-        # Keep checkout line endings for additive extensions, without importing
-        # uncommitted assignments or stale task state into the target snapshot.
-        for path, data in before.items():
-            local = main / path
-            if local.is_file():
-                checkout = local.read_bytes()
-                if checkout != data and checkout.replace(b"\r\n", b"\n") == data.replace(
-                    b"\r\n", b"\n"
-                ):
-                    (stage / path).write_bytes(checkout)
-                    before[path] = checkout
-        outcome = _record(
-            stage, task_id, run_id, wf, blocking=blocking, decisions=decisions, running=running
-        )
-        contents = {p: data for p, data in _contents(stage).items() if before.get(p) != data}
-        if contents:
-            _publish(main, base, target, settings, contents, task_id, run_id, outcome)
-        return outcome
+    # The target's backlog in memory: one ls-tree and one cat-file --batch, whatever the
+    # number of files, and nothing extracted to disk.
+    files = MemoryBacklog(read_snapshot(main, target, settings))
+    before = _contents(files)
+    # Keep checkout line endings for additive extensions, without importing
+    # uncommitted assignments or stale task state into the target snapshot.
+    for path, data in before.items():
+        local = main / path
+        if local.is_file():
+            checkout = local.read_bytes()
+            if checkout != data and checkout.replace(b"\r\n", b"\n") == data.replace(
+                b"\r\n", b"\n"
+            ):
+                files.files[path] = checkout
+                before[path] = checkout
+    outcome = _record(
+        files, task_id, run_id, wf, blocking=blocking, decisions=decisions, running=running
+    )
+    contents = {p: data for p, data in _contents(files).items() if before.get(p) != data}
+    if contents:
+        _publish(main, base, target, settings, contents, task_id, run_id, outcome)
+    return outcome
 
 
-def _contents(root: Path) -> dict[str, bytes]:
-    return {path.relative_to(root).as_posix(): path.read_bytes() for path in root.rglob("*.md")}
+def _contents(files: MemoryBacklog) -> dict[str, bytes]:
+    """The Markdown files of `files` (a committed symlink is not a file of its own)."""
+    return {
+        rel: data
+        for rel, data in files.files.items()
+        if rel.endswith(".md") and rel not in files.links
+    }
 
 
 def _publish(
@@ -512,7 +490,7 @@ def _publish(
 
 
 def _record(
-    main: Path,
+    main: MemoryBacklog,
     task_id: str,
     run_id: str,
     wf: WorkflowRun,
@@ -642,7 +620,7 @@ def _record(
             elif isinstance(target, Task) and decision.action in ("covered", "extend"):
                 if decision.action == "extend":
                     marker = _extension_marker(task_id, item, backlog.settings)
-                    original_text = (main / target.path).read_bytes().decode("utf-8")
+                    original_text = main.read_bytes(target.path).decode("utf-8")
                     if marker not in original_text:
                         section = (
                             f"\n\n### Doplnění z běhu {run_id} tasku {task_id}\n\n"
@@ -650,6 +628,7 @@ def _record(
                         )
                         try:
                             _write_checked(
+                                main,
                                 backlog,
                                 check_backlog(backlog),
                                 {target.path: original_text + section},

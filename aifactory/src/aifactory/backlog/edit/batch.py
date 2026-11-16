@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from aifactory.backlog.edit.common import (
+    Root,
     TaskEditError,
     _dedupe,
     _find_step,
-    _guard,
-    _new_issues,
     _write_checked,
     compose_id,
+    files_of,
     load_for_edit,
     serialized_write,
     slugify,
@@ -78,7 +77,7 @@ class BatchResult:
 
 
 def _new_container_problems(
-    root: Path, backlog: Backlog, container_id: str, title: str, rel_dir: str, level: str
+    root: Root, backlog: Backlog, container_id: str, title: str, rel_dir: str, level: str
 ) -> list[Issue]:
     """Problems of a new container of a batch: empty title, taken id, existing directory."""
     problems: list[Issue] = []
@@ -91,7 +90,7 @@ def _new_container_problems(
                 "duplicate_id", f"id '{container_id}' exists already ({where})", where, container_id
             )
         )
-    if (root / rel_dir).exists():
+    if files_of(root).exists(rel_dir):
         problems.append(
             Issue("file_exists", f"directory '{rel_dir}' exists already", rel_dir, container_id)
         )
@@ -100,7 +99,7 @@ def _new_container_problems(
 
 @serialized_write
 def add_batch(
-    root: Path,
+    root: Root,
     tasks: list[NewTask],
     *,
     step: str | None = None,
@@ -212,7 +211,7 @@ def add_batch(
             )
         slug = slugify(task_title)
         rel = f"{rel_dir}/{task_id}-{slug}.md" if slug else f"{rel_dir}/{task_id}.md"
-        if (root / rel).exists():
+        if files_of(root).exists(rel):
             problems.append(Issue("file_exists", f"file '{rel}' exists already", rel, task_id))
         writes = _dedupe(task.writes) if task.writes is not None else None
         fields: dict[str, object] = {
@@ -232,11 +231,11 @@ def add_batch(
     if not problems:
         for rel in changes:
             try:
-                _guard(root, backlog, rel)
+                files_of(root).guard(backlog, rel)
             except TaskEditError as exc:
                 problems.append(Issue(exc.code, exc.message, rel))
     if not problems:
-        problems = _new_issues(backlog, baseline, changes)
+        problems = files_of(root).new_issues(backlog, baseline, changes)
     if problems:
         raise TaskEditError(
             "backlog_invalid",
@@ -245,7 +244,7 @@ def add_batch(
             issues=problems,
         )
     if write:
-        _write_checked(backlog, baseline, changes, "backlog propose")
+        _write_checked(files_of(root), backlog, baseline, changes, "backlog propose")
     return BatchResult(
         step_id=step_id,
         step_title=title,

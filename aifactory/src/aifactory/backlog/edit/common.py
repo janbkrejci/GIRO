@@ -1,5 +1,12 @@
 """Shared primitives of backlog writes: errors, the write lock, lookups, ids and the
-validated write of changed files (``_write_checked``)."""
+validated write of changed files (``_write_checked``).
+
+The edit functions read and write the backlog through a ``BacklogFiles``:
+``DiskBacklog`` (the checkout under a root path; a plain ``Path`` means this one) or
+``MemoryBacklog`` (a committed snapshot edited in memory, for follow-ups). A change is
+validated on a copy before it is written: a staged directory for the checkout, an
+overlay of the snapshot in memory.
+"""
 
 from __future__ import annotations
 
@@ -11,8 +18,9 @@ import tempfile
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator
 from functools import wraps
-from pathlib import Path
-from typing import ParamSpec, TypeVar
+from pathlib import Path, PurePosixPath
+from posixpath import normpath
+from typing import TYPE_CHECKING, ParamSpec, Protocol, TypeVar
 
 from aifactory import mainwrites
 from aifactory.backlog.loader import iter_containers, load_backlog
@@ -30,6 +38,10 @@ from aifactory.backlog.taskfile import (
 from aifactory.backlog.validate import check_backlog
 from aifactory.locks import path_lock
 from aifactory.oscompat import atomic_write
+
+if TYPE_CHECKING:
+    from aifactory.backlog.snapshot import _Snapshot
+    from aifactory.config.settings import ProjectSettings
 
 EDITABLE_STATUSES: tuple[str, ...] = ("todo", "cancelled")
 
@@ -86,8 +98,10 @@ def serialized_write(fn: Callable[P, R]) -> Callable[P, R]:
 
     @wraps(fn)
     def locked(*args: P.args, **kwargs: P.kwargs) -> R:
-        root = Path(str(args[0] if args else kwargs.get("root", kwargs.get("repo"))))
-        with write_lock(root):
+        root = args[0] if args else kwargs.get("root", kwargs.get("repo"))
+        if isinstance(root, MemoryBacklog):  # private to its caller, nothing to share
+            return fn(*args, **kwargs)
+        with write_lock(Path(str(root))):
             return fn(*args, **kwargs)
 
     return locked
@@ -105,9 +119,9 @@ def slugify(text: str) -> str:
     return slug[:_SLUG_MAX].strip("-")
 
 
-def load_for_edit(root: Path) -> Backlog:
+def load_for_edit(root: Root) -> Backlog:
     """The backlog under ``root``; ``missing_backlog_dir`` when a backlog root is missing."""
-    backlog = load_backlog(root)
+    backlog = files_of(root).load()
     missing = next((i for i in backlog.issues if i.code == "missing_backlog_dir"), None)
     if missing is not None:
         raise TaskEditError("missing_backlog_dir", missing.message, path=missing.path)
@@ -155,7 +169,7 @@ def _atomic_write(path: Path, text: str, rel: str) -> None:
 
 
 def _new_issues(backlog: Backlog, baseline: list[Issue], pending: dict[str, str]) -> list[Issue]:
-    """The problems ``pending`` would add to the backlog, checked on a staged copy."""
+    """The problems ``pending`` would add to the checkout's backlog, checked on a staged copy."""
     root = backlog.root
     settings = backlog.settings
     with tempfile.TemporaryDirectory() as tmp:
@@ -167,40 +181,64 @@ def _new_issues(backlog: Backlog, baseline: list[Issue], pending: dict[str, str]
             staged = stage / rel
             staged.parent.mkdir(parents=True, exist_ok=True)
             staged.write_text(text, encoding="utf-8", newline="\n")
-        candidate = check_backlog(load_backlog(stage, settings))
+        return _added(baseline, check_backlog(load_backlog(stage, settings)))
+
+
+def _added(baseline: list[Issue], candidate: list[Issue]) -> list[Issue]:
     known = {_issue_key(i) for i in baseline}
     return [i for i in candidate if _issue_key(i) not in known]
 
 
-def _write_checked(
-    backlog: Backlog, baseline: list[Issue], changes: dict[str, str], command: str
-) -> bool:
-    """Validate `changes` on a copy of the backlog, then write them; True when written.
+class BacklogFiles(Protocol):
+    """Where the edit functions read, validate and write backlog files."""
 
-    `command` names the factory command in the journal of factory writes.
-    """
-    root = backlog.root
-    targets = {rel: _guard(root, backlog, rel) for rel in changes}
-    pending = {
-        rel: text
-        for rel, text in changes.items()
-        if not targets[rel].is_file() or targets[rel].read_text(encoding="utf-8") != text
-    }
-    if pending:
-        new = _new_issues(backlog, baseline, pending)
-        if new:
-            raise TaskEditError(
-                "backlog_invalid",
-                f"change rejected: {len(new)} new problem(s) in the backlog",
-                exit_code=1,
-                issues=new,
-            )
+    root: Path
+
+    def load(self, settings: ProjectSettings | None = None) -> Backlog: ...
+
+    def read(self, rel: str) -> str: ...
+
+    def exists(self, rel: str) -> bool: ...
+
+    def guard(self, backlog: Backlog, rel: str) -> None: ...
+
+    def new_issues(
+        self, backlog: Backlog, baseline: list[Issue], pending: dict[str, str]
+    ) -> list[Issue]: ...
+
+    def write(self, backlog: Backlog, pending: dict[str, str], command: str) -> None: ...
+
+
+class DiskBacklog:
+    """The backlog of the checkout under `root`: atomic writes, shared database, journal."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+
+    def load(self, settings: ProjectSettings | None = None) -> Backlog:
+        return load_backlog(self.root, settings)
+
+    def read(self, rel: str) -> str:
+        return (self.root / rel).read_text(encoding="utf-8")
+
+    def exists(self, rel: str) -> bool:
+        return (self.root / rel).exists()
+
+    def guard(self, backlog: Backlog, rel: str) -> None:
+        _guard(self.root, backlog, rel)
+
+    def new_issues(
+        self, backlog: Backlog, baseline: list[Issue], pending: dict[str, str]
+    ) -> list[Issue]:
+        return _new_issues(backlog, baseline, pending)
+
+    def write(self, backlog: Backlog, pending: dict[str, str], command: str) -> None:
         from aifactory.database.backlog import publish
 
+        root = self.root
         publish(root, pending)
-
         for rel, text in pending.items():
-            target = targets[rel]
+            target = root / rel
             try:
                 old: bytes | None = target.read_bytes()
             except OSError:
@@ -212,6 +250,133 @@ def _write_checked(
             except OSError:
                 written, mode = text.encode("utf-8"), 0
             mainwrites.record(root, rel, old, written, mode=mode, command=command)
+
+
+class MemoryBacklog:
+    """A committed backlog edited in memory: nothing is written to disk.
+
+    Reads go through the snapshot loader (``backlog.snapshot``), writes replace entries of
+    ``files`` (path -> bytes, as committed) and a change is validated on an overlay
+    snapshot. A path through a committed symlink is written to the link's target.
+    """
+
+    def __init__(self, snapshot: _Snapshot) -> None:
+        self.root = snapshot.root
+        self.settings = snapshot.settings
+        self.roots = snapshot.roots()
+        self.directories = set(snapshot.directories)
+        self.files = dict(snapshot.files)
+        self.links = dict(snapshot.links)
+
+    def _loader(
+        self, files: dict[str, bytes] | None = None, directories: set[str] | None = None
+    ) -> _Snapshot:
+        from aifactory.backlog.snapshot import _Snapshot
+
+        return _Snapshot(
+            self.root,
+            self.settings,
+            self.roots,
+            self.directories if directories is None else directories,
+            self.files if files is None else files,
+            self.links,
+        )
+
+    def load(self, settings: ProjectSettings | None = None) -> Backlog:
+        return self._loader().load()
+
+    def _key(self, rel: str) -> str:
+        """The stored path of `rel`, with committed symlinks followed."""
+        try:
+            return self._loader().resolve(self.root / rel)
+        except (OSError, RuntimeError) as exc:
+            raise TaskEditError("write_failed", f"cannot write '{rel}': {exc}", path=rel) from exc
+
+    def read(self, rel: str) -> str:
+        return self._loader().read_text(self.root / rel)
+
+    def read_bytes(self, rel: str) -> bytes:
+        """The stored bytes of `rel` (line ends as committed)."""
+        try:
+            return self.files[self._key(rel)]
+        except KeyError as exc:
+            raise FileNotFoundError(rel) from exc
+
+    def exists(self, rel: str) -> bool:
+        loader = self._loader()
+        return loader.is_file(self.root / rel) or loader.is_dir(self.root / rel)
+
+    def guard(self, backlog: Backlog, rel: str) -> None:
+        owner = owning_root(rel, backlog.settings)
+        target = normpath(rel)
+        base = normpath(owner) if owner is not None else None
+        if not rel.endswith(".md") or base is None or not target.startswith(f"{base}/"):
+            raise TaskEditError(
+                "outside_backlog", f"refusing to write '{rel}' outside the backlog", path=rel
+            )
+        self._key(rel)
+
+    def _overlay(self, pending: dict[str, str]) -> tuple[dict[str, bytes], set[str]]:
+        files = dict(self.files)
+        directories = set(self.directories)
+        for rel, text in pending.items():
+            key = self._key(rel)
+            files[key] = text.encode("utf-8")
+            parent = PurePosixPath(key).parent
+            while str(parent) != ".":
+                directories.add(str(parent))
+                parent = parent.parent
+        return files, directories
+
+    def new_issues(
+        self, backlog: Backlog, baseline: list[Issue], pending: dict[str, str]
+    ) -> list[Issue]:
+        files, directories = self._overlay(pending)
+        return _added(baseline, check_backlog(self._loader(files, directories).load()))
+
+    def write(self, backlog: Backlog, pending: dict[str, str], command: str) -> None:
+        self.files, self.directories = self._overlay(pending)
+
+
+Root = Path | MemoryBacklog
+
+
+def files_of(root: Root) -> BacklogFiles:
+    """The ``BacklogFiles`` behind an edit function's `root` argument."""
+    return root if isinstance(root, MemoryBacklog) else DiskBacklog(root)
+
+
+def _unchanged(files: BacklogFiles, rel: str, text: str) -> bool:
+    try:
+        return files.read(rel) == text
+    except (FileNotFoundError, IsADirectoryError):
+        return False
+
+
+def _write_checked(
+    files: BacklogFiles,
+    backlog: Backlog,
+    baseline: list[Issue],
+    changes: dict[str, str],
+    command: str,
+) -> bool:
+    """Validate `changes` on a copy of the backlog, then write them; True when written.
+
+    `command` names the factory command in the journal of factory writes.
+    """
+    for rel in changes:
+        files.guard(backlog, rel)
+    pending = {rel: text for rel, text in changes.items() if not _unchanged(files, rel, text)}
+    if pending:
+        new = files.new_issues(backlog, baseline, pending)
+        if new:
+            raise TaskEditError(
+                "backlog_invalid",
+                f"change rejected: {len(new)} new problem(s) in the backlog",
+                exit_code=1,
+                issues=new,
+            )
+        files.write(backlog, pending, command)
     return bool(pending)
 
 
@@ -257,8 +422,8 @@ def _next_id(container: Container, step: str, reserved_ids: Iterable[str] = ()) 
     return f"{step}-T{n:0{width}d}"
 
 
-def _read(root: Path, task: Task) -> str:
-    return (root / task.path).read_text(encoding="utf-8")
+def _read(files: BacklogFiles, task: Task) -> str:
+    return files.read(task.path)
 
 
 def _apply(text: str, fn: str, key: str, value: str | list[str] | bool | int | None = None) -> str:
