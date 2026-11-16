@@ -38,6 +38,7 @@ def test_uncommitted_prompt_and_agents_stay_out_of_the_run(tmp_path: Path) -> No
 def test_two_runs_from_one_commit_get_the_same_config(tmp_path: Path) -> None:
     repo = make_repo(tmp_path / "repo")
     a = load_run_config(repo)
+    assert a.warnings == ()  # computed on first read
     write(repo, PLANNER_SYSTEM, "changed between runs\n")
     write(repo, ".factory/workflows/plan-build.yaml", "name: plan-build\nsteps: [build]\n")
     write(repo, ".factory/workflows/extra.yaml", "name: extra\nsteps: [scout]\n")
@@ -50,7 +51,6 @@ def test_two_runs_from_one_commit_get_the_same_config(tmp_path: Path) -> None:
     assert a.config.workflows == b.config.workflows
     assert a.config.settings == b.config.settings
     assert "extra" not in b.config.workflows
-    assert a.warnings == ()
     statuses = {c.path: c.status for c in b.changes}
     assert statuses[".factory/workflows/extra.yaml"] == "untracked"
     assert statuses[PLANNER_SYSTEM] == "modified"

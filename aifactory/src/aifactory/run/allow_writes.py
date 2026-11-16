@@ -58,7 +58,7 @@ from aifactory.backlog import (
 from aifactory.backlog.commit import BacklogCommit
 from aifactory.backlog.roots import owning_root
 from aifactory.backlog.snapshot import load_backlog_at
-from aifactory.config import ConfigError, ProjectSettings, load_run_config
+from aifactory.config import ConfigError, ProjectSettings, RunConfig, load_run_config
 from aifactory.engine import permissions
 from aifactory.run import gitops
 from aifactory.run.errors import TaskRunError
@@ -184,20 +184,31 @@ def _pick_run(store: TaskRunStore, task_id: str, run_id: str | None) -> TaskRunR
     return runs[0]
 
 
+def _load(main: Path) -> RunConfig:
+    try:
+        return load_run_config(main)
+    except ConfigError as exc:
+        raise TaskRunError("invalid_config", str(exc)) from exc
+
+
 def plan_allow_writes(
-    repo: Path, task_id: str, run_id: str | None = None, *, ci_fix: bool = False
+    repo: Path,
+    task_id: str,
+    run_id: str | None = None,
+    *,
+    ci_fix: bool = False,
+    rc: RunConfig | None = None,
 ) -> AllowWritesPlan:
     """What ``allow_writes`` would add to the task's writes and what it refuses.
 
     A run of an internal workflow (``resolve``, ``ci-fix``) is not retried, so it is
     refused (``run_not_retryable``) unless `ci_fix` asks for the newest ``ci-fix`` run,
-    as ``factory task approve --allow-writes`` does.
+    as ``factory task approve --allow-writes`` does. `rc` is the already loaded run
+    configuration of the repository (loaded here when None).
     """
     main = gitops.main_root(repo)
-    try:
-        rc = load_run_config(main)
-    except ConfigError as exc:
-        raise TaskRunError("invalid_config", str(exc)) from exc
+    if rc is None:
+        rc = _load(main)
     store = TaskRunStore(rc.local.trace_db_path(main))
     try:
         row = _pick_run(store, task_id, run_id)
@@ -287,8 +298,13 @@ def allow_writes(
     repo: Path, task_id: str, run_id: str | None = None, *, ci_fix: bool = False
 ) -> AllowWritesResult:
     """Add the allowed paths of the run's ``writes_violation`` or ``writes_needed`` to the
-    task's writes in base (`ci_fix`: of the task's newest ``ci-fix`` run)."""
-    plan = plan_allow_writes(repo, task_id, run_id, ci_fix=ci_fix)
+    task's writes in base (`ci_fix`: of the task's newest ``ci-fix`` run).
+
+    The run configuration is loaded once for the whole operation.
+    """
+    main = gitops.main_root(repo)
+    rc = _load(main)
+    plan = plan_allow_writes(main, task_id, run_id, ci_fix=ci_fix, rc=rc)
     # Already committed permissions still let the retry proceed. Protected,
     # backlog and main-checkout paths keep their refusal even if writes cover them.
     plan.allow.extend(r.path for r in plan.refused if r.reason == ALREADY_ALLOWED)
@@ -300,15 +316,12 @@ def allow_writes(
             f"run {plan.run_id} of task {task_id} has no path writes can allow"
             + (f" ({why})" if why else ""),
         )
-    main = gitops.main_root(repo)
-    rc = load_run_config(main)
     store = TaskRunStore(rc.local.trace_db_path(main))
     try:
         _pull_base(main, rc.config.settings, store, preserve_local_changes=True)
     finally:
         store.close()
-    rc = load_run_config(main)
-    refreshed = plan_allow_writes(main, task_id, plan.run_id, ci_fix=ci_fix)
+    refreshed = plan_allow_writes(main, task_id, plan.run_id, ci_fix=ci_fix, rc=rc)
     new_writes = [*refreshed.writes, *refreshed.allow]
     task = find_task(load_for_edit(main), task_id)
     with _restore_failed_edit(main, task.path):
@@ -316,7 +329,7 @@ def allow_writes(
         if refreshed.allow:
             edit_task(main, task_id, writes=new_writes)
             commit = commit_backlog(
-                main, f"backlog: {task_id} writes += {', '.join(refreshed.allow)}"
+                main, f"backlog: {task_id} writes += {', '.join(refreshed.allow)}", rc=rc
             )
         else:
             commit = BacklogCommit(False, None, rc.base, [], False)
@@ -327,7 +340,6 @@ def allow_writes(
                 f"{commit.pr.get('url') or 'a pull request'}; "
                 f"run {again} after it is merged",
             )
-        rc = load_run_config(main)
         settings = rc.config.settings
         try:
             sha = gitops.git(main, "rev-parse", f"refs/heads/{rc.base}")

@@ -22,7 +22,7 @@ from pydantic import ConfigDict, Field
 
 from aifactory import backlog as core
 from aifactory import gitrun, oscompat, yamlload
-from aifactory.config import load_run_config
+from aifactory.config import FactoryConfig, load_run_config
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentCall, EnvelopeBase, PhaseParams
 from aifactory.engine.runner import Run
@@ -243,8 +243,12 @@ def context(
 
 
 def validate(
-    repo: Path, value: WorkflowRecommendationOutput, catalog: dict[str, Any]
+    repo: Path,
+    value: WorkflowRecommendationOutput,
+    catalog: dict[str, Any],
+    config: FactoryConfig | None = None,
 ) -> dict[str, Any]:
+    """Check a workflow recommendation; `config` is the loaded run configuration, if any."""
     if value.status != "success" or not value.reason.strip():
         raise UsageError("agent did not return a successful, explained recommendation")
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,63}", value.workflow_name):
@@ -259,7 +263,7 @@ def validate(
         if len(value.workflow_yaml.encode()) > 100_000:
             raise UsageError("workflow YAML exceeds 100 KB")
         data = yamlload.safe_load(value.workflow_yaml)
-    cfg = load_run_config(repo).config
+    cfg = config if config is not None else load_run_config(repo).config
     workflow = (
         named_workflow(value.workflow_name, cfg, "draft")
         if value.decision == "existing"
@@ -397,6 +401,7 @@ def recommend(
     task_parameters = ctx.get("task_parameters", False)
     output_type = TaskRecommendationOutput if task_parameters else WorkflowRecommendationOutput
     rc = load_run_config(repo, ctx["commit"])
+    loaded = rc.config
     from aifactory.harness.settings import ensure_enabled
     from aifactory.run.task import apply_agents_override
 
@@ -540,7 +545,10 @@ def recommend(
                 validate_task(repo, TaskRecommendationOutput.model_validate(result), ctx)
                 if task_parameters
                 else validate(
-                    repo, WorkflowRecommendationOutput.model_validate(result), ctx["catalog"]
+                    repo,
+                    WorkflowRecommendationOutput.model_validate(result),
+                    ctx["catalog"],
+                    loaded,
                 )
             )
             if task_parameters:

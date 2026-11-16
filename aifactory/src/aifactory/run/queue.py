@@ -131,7 +131,7 @@ from aifactory.backlog import (
 )
 from aifactory.backlog.derived import ancestors, descendant_tasks
 from aifactory.backlog.snapshot import load_backlog_at
-from aifactory.config import ConfigError
+from aifactory.config import ConfigError, ProjectSettings, RunConfig
 from aifactory.engine.utils import now_iso
 from aifactory.providers import GitProvider
 from aifactory.run import gitops
@@ -737,9 +737,11 @@ class ChainResult:
         }
 
 
-def _base_backlog(repo: Path) -> Backlog:
+def _base_backlog(repo: Path, rc: RunConfig | None = None) -> Backlog:
+    """The backlog at the base commit of `rc` (the run config, loaded when None)."""
     main = gitops.main_root(repo)
-    rc = task_mod._load(main)
+    if rc is None:
+        rc = task_mod._load(main)
     settings = rc.config.settings
     try:
         return load_backlog_at(main, rc.commit, settings)
@@ -748,8 +750,8 @@ def _base_backlog(repo: Path) -> Backlog:
 
 
 @contextlib.contextmanager
-def _fresh_backlog(repo: Path) -> Iterator[Backlog]:
-    yield _base_backlog(repo)
+def _fresh_backlog(repo: Path, rc: RunConfig | None = None) -> Iterator[Backlog]:
+    yield _base_backlog(repo, rc)
 
 
 class _ChainRecord:
@@ -862,12 +864,15 @@ Stacker = Callable[[dict[str, TaskPrRow]], bool]
 """Whether a task can stack on these open PRs of its dependencies (``run/stack.py``)."""
 
 
-def stacker(main: Path) -> Stacker | None:
-    """With ``stacked_prs`` in the config: the ``stack`` check of the selection."""
-    try:
-        enabled = task_mod._load(main).config.settings.stacked_prs
-    except (TaskRunError, ConfigError, OSError):
-        return None
+def stacker(main: Path, settings: ProjectSettings | None = None) -> Stacker | None:
+    """With ``stacked_prs`` in the config (`settings`, loaded when None): the ``stack``
+    check of the selection."""
+    if settings is None:
+        try:
+            settings = task_mod._load(main).config.settings
+        except (TaskRunError, ConfigError, OSError):
+            return None
+    enabled = settings.stacked_prs
     if not enabled:
         return None
     return lambda prs: stack_tip(main, prs) is not None
@@ -980,8 +985,11 @@ def start_factory(
     tried. A missing trace DB is not created here.
     """
     main = gitops.main_root(repo)
-    limit = max_parallel if max_parallel is not None else _max_parallel(repo)
-    db = task_mod._load(main).local.trace_db_path(main)
+    # One configuration for the whole selection: starting runs does not move base.
+    rc = task_mod._load(main)
+    limit = max_parallel if max_parallel is not None else rc.config.settings.max_parallel_runs
+    db = rc.local.trace_db_path(main)
+    stack = stacker(main, rc.config.settings)
     files_of = pr_files if pr_files is not None else _pr_files_default(main)
 
     def taken() -> Slots:
@@ -1006,7 +1014,7 @@ def start_factory(
         if full and not slots.in_review:
             break
         deps: list[str] = []
-        with _fresh_backlog(repo) as backlog:
+        with _fresh_backlog(repo, rc) as backlog:
             if db.is_file():
                 store = TaskRunStore(db)
                 try:
@@ -1019,7 +1027,7 @@ def start_factory(
                         exclude=exclude,
                         conflict=_Pending(occupancy, pending),
                         prefs=store.queue_prefs(),
-                        stack=stacker(main),
+                        stack=stack,
                     )
                     if selection.next is not None:
                         deps = unmet_ids(backlog, selection.next) or []
