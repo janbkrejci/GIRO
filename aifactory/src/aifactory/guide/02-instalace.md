@@ -65,7 +65,7 @@ Při prvním spuštění `claude` dokonči přihlášení. Ostatní harnessy: `c
 
 ## Instalace balíčku
 
-Balíček `giro-<verze>.zip` najdeš mezi [vydáními GIRO](https://github.com/janbkrejci/GIRO/releases/latest). Starší instalaci nejprve aktualizuj na [poslední HAIFA](https://github.com/janbkrejci/HAIFA/releases/latest) (`haifa-H.zip`, řada 0.1). Pro čistou instalaci rozbal GIRO a spusť instalátor:
+Balíček `giro-<verze>.zip` najdeš mezi [vydáními GIRO](https://github.com/janbkrejci/GIRO/releases/latest). Rozbal ho a spusť instalátor:
 
 ```bash
 unzip giro-<verze>.zip
@@ -120,9 +120,9 @@ Ve složce rozbaleného balíčku spusť `uninstall.bat` (Windows) nebo `./unins
 
 Bez balíčku stačí `uv tool uninstall aifactory`. Závislosti (git, uv, gh, Node.js, harnessy), konfigurace repozitářů (`.factory/`) a backlog zůstávají.
 
-Ze starší HAIFA přejdi nejprve na poslední HAIFA s alertem „HAIFA se přejmenovává na GIRO“. Přechodová akce uchová zálohu a obnoví dashboard na stejné adrese. GIRO alert nezobrazuje; aktualizace hledá v novém repo. Offline přechod po zastavení procesů: `giro migrate --confirm --haifa-bundle /cesta/haifa-H.zip`. Návrat vyžaduje zastavení zápisů a obnovu všech cest i softwaru z ověřené zálohy podle `docs/rebranding/release.md`; marker neobcházej.
+Pokud start najde jen starý domovský adresář HAIFA (`~/.config/haifa`), skončí chybou `migration_required` a nic nezapíše. Zastav HAIFA a přesuň složku do `~/.config/giro`, nebo nastav `GIRO_HOME`. Marker dřívější migrace neobcházej.
 
-`factory` a `HAIFA_*` jsou kompatibilní aliasy `giro` a `GIRO_*`. Zachované technické názvy: `.factory/`, `factory/backlog/`, distribuce `aifactory`, `skill/factory`. Výchozí týmová knihovna je [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Storage klíče zůstávají při stejném originu. Migrační zálohy se nemažou; purge označeného home je zakázán, použij `--keep-data` / `-KeepData`.
+`factory` je kompatibilní alias `giro`. Nastavení se čtou jen z proměnných `GIRO_*`; legacy proměnnou `HAIFA_*` (nebo `AIFACTORY_GH`/`AIFACTORY_AZ`) GIRO ignoruje a varuje s názvem náhrady `GIRO_*`. Zachované technické názvy: `.factory/`, `factory/backlog/`, distribuce `aifactory`, `skill/factory`. Výchozí týmová knihovna je [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Storage klíče zůstávají při stejném originu. Migrační zálohy se nemažou; purge označeného home je zakázán, použij `--keep-data` / `-KeepData`.
 
 ## Licence
 

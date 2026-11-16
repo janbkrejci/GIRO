@@ -35,7 +35,6 @@ class Homes:
         self.user = tmp / "home"
         self.user.mkdir()
         monkeypatch.setenv("HOME", str(self.user))
-        monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
         monkeypatch.delenv("GIRO_LIBRARY", raising=False)
         for kind in ("AUTHOR", "COMMITTER"):
             monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
@@ -44,9 +43,8 @@ class Homes:
         _git(tmp, "init", "--bare", "--quiet", "-b", "main", str(self.bare))
 
     def use(self, name: str) -> Path:
-        """Switch both compatible home names to home `name`; its library path."""
+        """Switch GIRO_HOME to home `name`; its library path."""
         home = self.user / name
-        self.mp.setenv("HAIFA_HOME", str(home))
         self.mp.setenv("GIRO_HOME", str(home))
         return home / "library"
 

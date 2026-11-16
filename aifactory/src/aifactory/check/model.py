@@ -23,7 +23,7 @@ SEVERITIES: tuple[Severity, ...] = ("error", "warning", "info")
 @dataclass(frozen=True)
 class Finding:
     """One problem: ``repo`` findings are fixed and committed, ``machine`` ones locally,
-    ``library`` ones in the library in ``$HAIFA_HOME``.
+    ``library`` ones in the library in ``$GIRO_HOME``.
 
     ``fix`` says in words what to do; ``action`` names the fix command (dashboard/CLI)
     or is None when the fix is manual.

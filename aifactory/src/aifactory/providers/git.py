@@ -1,13 +1,15 @@
 """Plain git operations for the providers (ported from the prototype's ``gitops``).
 
-Merges that must not touch the operator's checkout happen in a temporary
-detached worktree; a branch is then moved with ``merge --ff-only`` where it is
+Merges that must not touch the operator's checkout are built without a checkout
+(``merge-tree --write-tree`` and ``commit-tree``, git 2.38 or newer) or, with an older
+git, in a temporary detached worktree; a branch is then moved with ``merge --ff-only`` where it is
 checked out, or ``update-ref`` where it is not.
 """
 
 from __future__ import annotations
 
 import contextlib
+import functools
 import re
 import shutil
 import tempfile
@@ -250,8 +252,43 @@ def detached_worktree(root: Path, start: str) -> Iterator[Path]:
         shutil.rmtree(parent, ignore_errors=True)
 
 
+# ``merge-tree --write-tree`` (a merge without a checkout) exists since git 2.38.
+MERGE_TREE_VERSION = (2, 38)
+
+
+@functools.cache
+def git_version() -> tuple[int, ...]:
+    """The version of the git on ``PATH`` as numbers (asked once per process).
+
+    ``()`` when ``git --version`` gives no version: the caller takes the oldest path.
+    """
+    result = gitrun.run(None, "--version")
+    found = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", result.text) if result.ok else None
+    return tuple(int(n) for n in found.groups() if n is not None) if found else ()
+
+
+def merge_tree_supported() -> bool:
+    return git_version() >= MERGE_TREE_VERSION
+
+
+def _merge_tree(root: Path, base_sha: str, tip: str) -> tuple[str | None, str]:
+    """(tree, output) of merging `tip` into `base_sha` without a checkout; tree None on conflict.
+
+    ``git merge-tree --write-tree`` exits 0 for a clean merge and 1 for a conflict, with
+    the tree first on stdout either way. Any other failure (e.g. unrelated histories) is
+    a conflict too, as ``git merge`` in a worktree failed for it.
+    """
+    result = _run(root, ("merge-tree", "--write-tree", "--messages", base_sha, tip), None)
+    output = result.text
+    if result.returncode != 0:
+        return None, output
+    return output.split("\n", 1)[0].strip(), output
+
+
 def trial_merge(root: Path, base_sha: str, branch_sha: str) -> bool:
     """Whether `branch_sha` merges into `base_sha` without conflicts."""
+    if merge_tree_supported():
+        return _merge_tree(root, base_sha, branch_sha)[0] is not None
     with detached_worktree(root, base_sha) as wt:
         result = _run(wt, ("merge", "--no-commit", "--no-ff", branch_sha), None)
         clean = result.returncode == 0
@@ -259,8 +296,39 @@ def trial_merge(root: Path, base_sha: str, branch_sha: str) -> bool:
         return clean
 
 
+def clean_message(message: str) -> str:
+    """`message` as ``git commit -m`` and ``git merge -m`` store it (cleanup ``whitespace``).
+
+    Trailing whitespace of every line, leading and trailing blank lines and repeated
+    blank lines are removed, and the message ends with one newline.
+    """
+    lines: list[str] = []
+    for line in message.splitlines():
+        line = line.rstrip()
+        if not line and (not lines or not lines[-1]):
+            continue
+        lines.append(line)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines) + "\n" if lines else ""
+
+
 def merge_commit(root: Path, base_sha: str, tip: str, strategy: str, subject: str) -> str:
-    """Build the squash or merge commit of `tip` onto `base_sha`; raise ``conflict``."""
+    """Build the squash or merge commit of `tip` onto `base_sha`; raise ``conflict``.
+
+    With git 2.38 or newer the tree comes from ``merge-tree --write-tree`` and the commit
+    from ``commit-tree`` (no checkout); the commit is the one ``git merge`` in a worktree
+    builds: the same tree, parents and message. A merge that would change nothing (`tip`
+    already in `base_sha`, a squash with no change) takes the worktree path, so its
+    outcome stays exactly that of ``git merge``.
+    """
+    if merge_tree_supported() and not is_ancestor(root, tip, base_sha):
+        tree, output = _merge_tree(root, base_sha, tip)
+        if tree is None:
+            raise ProviderError("conflict", f"{tip[:7]} does not merge cleanly: {output}")
+        parents = ("-p", base_sha) if strategy == "squash" else ("-p", base_sha, "-p", tip)
+        if strategy != "squash" or tree != git(root, "rev-parse", f"{base_sha}^{{tree}}"):
+            return git(root, "commit-tree", tree, *parents, input=clean_message(subject))
     with detached_worktree(root, base_sha) as wt:
         if strategy == "squash":
             result = _run(wt, ("merge", "--squash", tip), None)

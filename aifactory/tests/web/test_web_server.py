@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 import uvicorn
 
-from aifactory.web import HOST, PortInUseError, check_port, create_app, dashboard_url, serve
+from aifactory.web.app import create_app
+from aifactory.web.server import HOST, PortInUseError, check_port, dashboard_url, serve
 
 
 def test_host_is_loopback() -> None:

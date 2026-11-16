@@ -1,4 +1,4 @@
-"""The library a repo inherits from: HEAD of ``$HAIFA_HOME/library``, else the seed.
+"""The library a repo inherits from: HEAD of ``$GIRO_HOME/library``, else the seed.
 
 Agents, workflows, skills and extensions are looked up in the repo's ``.factory/`` first
 and here second; the repo copy wins. The library is read from the tree of its HEAD

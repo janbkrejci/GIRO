@@ -41,8 +41,7 @@ from aifactory.config import ConfigError, load_local, load_run_config
 from aifactory.config.loader import WORKFLOWS_DIR
 from aifactory.config.source import repo_root
 from aifactory.errors import UsageError as UsageError
-from aifactory.harness import canonical
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS, canonical
 from aifactory.run import gitops, task_prs_for, task_runs_for
 from aifactory.run.errors import TaskRunError
 from aifactory.run.queue import priority_map

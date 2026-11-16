@@ -193,18 +193,18 @@ def normalize_repo(value: str | None) -> str:
     text = (value or "").strip()
     if not text:
         raise SetupError(
-            "HAIFA_SANDBOX_REPO is not set: put the GitHub sandbox repo "
+            "GIRO_SANDBOX_REPO is not set: put the GitHub sandbox repo "
             "(owner/name or its URL) into .env"
         )
     for form in _GITHUB_FORMS:
         match = form.match(text)
         if match:
             return f"{match.group(1)}/{match.group(2)}"
-    raise SetupError(f"HAIFA_SANDBOX_REPO={text!r} is not a GitHub repo (owner/name or URL)")
+    raise SetupError(f"GIRO_SANDBOX_REPO={text!r} is not a GitHub repo (owner/name or URL)")
 
 
 def gh_executable() -> str:
-    return os.environ.get("AIFACTORY_GH") or "gh"
+    return os.environ.get("GIRO_GH") or "gh"
 
 
 def gh(cwd: Path, *args: str, check: bool = True) -> str:
@@ -254,7 +254,7 @@ def setup_github(
 
 # ── azure ────────────────────────────────────────────────────────────────────
 
-AZURE_SANDBOX_ENV = "HAIFA_AZURE_SANDBOX_REPO"
+AZURE_SANDBOX_ENV = "GIRO_AZURE_SANDBOX_REPO"
 AZURE_DEVOPS_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
 AZ_TAIL = ("--detect", "false", "--output", "json", "--only-show-errors")
 _SEGMENT = r"[^/?#\s]+"
@@ -297,7 +297,7 @@ def normalize_azure_repo(value: str | None) -> AzureRepo:
 
 
 def az_executable() -> str:
-    return os.environ.get("AIFACTORY_AZ") or "az"
+    return os.environ.get("GIRO_AZ") or "az"
 
 
 def az(cwd: Path, *args: str, check: bool = True) -> str:

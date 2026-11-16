@@ -55,8 +55,8 @@ class Env:
         self.user = tmp / "home"
         self.user.mkdir()
         monkeypatch.setenv("HOME", str(self.user))
-        monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
-        monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
+        monkeypatch.delenv("GIRO_LIBRARY", raising=False)
+        monkeypatch.delenv("GIRO_LIBRARY_URL", raising=False)
         monkeypatch.setattr(share, "FORK_PUSH_DELAY", 0.0)
         for kind in ("AUTHOR", "COMMITTER"):
             monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
@@ -74,7 +74,6 @@ class Env:
     def use(self, name: str) -> Path:
         home = self.user / name
         self.mp.setenv("GIRO_HOME", str(home))
-        self.mp.setenv("HAIFA_HOME", str(home))
         return home / "library"
 
     def guard_main(self) -> None:
@@ -137,17 +136,10 @@ def _no_merge(log: GhLog) -> None:
 
 
 def test_default_url_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
     monkeypatch.delenv("GIRO_LIBRARY_URL", raising=False)
     assert share.default_library_url() == share.DEFAULT_LIBRARY_URL == UPSTREAM
-    assert share.default_library_url({"HAIFA_LIBRARY_URL": " git@corp:t/lib.git "}) == (
+    assert share.default_library_url({"GIRO_LIBRARY_URL": " git@corp:t/lib.git "}) == (
         "git@corp:t/lib.git"
-    )
-    assert (
-        share.default_library_url(
-            {"GIRO_LIBRARY_URL": " git@corp:t/new.git ", "HAIFA_LIBRARY_URL": UPSTREAM}
-        )
-        == "git@corp:t/new.git"
     )
     assert share.github_repo(UPSTREAM) == ("janbkrejci", "GIRO-LIBRARY")
     assert share.github_repo("git@github.com:o/r.git") == ("o", "r")
@@ -171,13 +163,13 @@ def test_clone_without_url_uses_the_default_library(env: Env, capsys: Capsys) ->
 def test_clone_url_from_the_environment(env: Env, capsys: Capsys) -> None:
     env.use("maintainer")
     _ok(capsys, ["library", "init", "--remote", str(env.bare), "--json"])
-    env.mp.setenv("HAIFA_LIBRARY_URL", str(env.bare))
+    env.mp.setenv("GIRO_LIBRARY_URL", str(env.bare))
     env.use("user")
     assert _ok(capsys, ["library", "clone", "--json"])["remote"] == str(env.bare)
 
 
 def test_seed_fallback_without_network(env: Env, capsys: Capsys) -> None:
-    env.mp.setenv("HAIFA_LIBRARY_URL", str(env.tmp / "unreachable.git"))
+    env.mp.setenv("GIRO_LIBRARY_URL", str(env.tmp / "unreachable.git"))
     lib = env.use("offline")
     assert _fail(capsys, ["library", "clone", "--json"])["code"] == "clone_failed"
     assert not lib.exists()

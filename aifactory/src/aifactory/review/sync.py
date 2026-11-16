@@ -19,13 +19,14 @@ background so a PR merged outside factory leaves the review lists.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from aifactory.backlog import Task, load_backlog
 from aifactory.backlog.taskfile import has_entry, mark_done
 from aifactory.config import ConfigError
-from aifactory.providers import CLOSED, MERGED, OPEN, GitProvider, ProviderError
+from aifactory.providers import CLOSED, MERGED, OPEN, GitProvider, ProviderError, PrStatus
 from aifactory.providers import git as pgit
 from aifactory.review.errors import ReviewError
 from aifactory.review.flow import (
@@ -109,14 +110,15 @@ def sync_backlog(repo: Path, *, provider: GitProvider | None = None) -> SyncResu
 def refresh_prs(repo: Path, *, provider: GitProvider | None = None) -> SyncResult:
     """Refresh the provider state of open task PRs and open sync PRs; nothing else.
 
-    No git fetch, no worktree, no commit, no PR is created. A provider error of one PR
-    is a warning in the result. Used by the dashboard's background refresh.
+    No git fetch, no commit, no PR is created. The local provider checks mergeability with
+    a trial merge: ``merge-tree`` without a checkout (git 2.38+), with an older git in a
+    throwaway worktree (``providers.git.trial_merge``). A provider error of one PR is a
+    warning in the result. Used by the dashboard's background refresh.
     """
     ctx = _context(repo, provider)
     try:
         result = SyncResult(pr=None, created=False, updated=False)
-        _refresh_task_prs(ctx, result)
-        _refresh_sync_prs(ctx, result)
+        _refresh_all(ctx, result)
         return result
     except ProviderError as exc:
         raise ReviewError(exc.code, exc.message) from exc
@@ -124,12 +126,27 @@ def refresh_prs(repo: Path, *, provider: GitProvider | None = None) -> SyncResul
         ctx.store.close()
 
 
-def _refresh_task_prs(ctx: _Ctx, result: SyncResult) -> None:
-    for row in ctx.store.open_prs():
-        try:
-            status = ctx.provider.status(row.request())
-        except ProviderError as exc:
-            result.warnings.append(f"PR {row.url}: {exc.code}: {exc.message}")
+def _refresh_all(ctx: _Ctx, result: SyncResult) -> None:
+    """Refresh open task PRs and open sync PRs with one ``statuses`` query for all."""
+    task_rows = ctx.store.open_prs()
+    sync_rows = ctx.store.open_sync_prs()
+    found = ctx.provider.statuses(
+        [row.request() for row in task_rows] + [row.request() for row in sync_rows]
+    )
+    _refresh_task_prs(ctx, result, task_rows, found)
+    _refresh_sync_prs(ctx, result, sync_rows, found)
+
+
+def _refresh_task_prs(
+    ctx: _Ctx,
+    result: SyncResult,
+    rows: list[TaskPrRow],
+    found: Mapping[str, PrStatus | ProviderError],
+) -> None:
+    for row in rows:
+        status = found[row.request().id]
+        if isinstance(status, ProviderError):
+            result.warnings.append(f"PR {row.url}: {status.code}: {status.message}")
             continue
         _record_state(ctx, row, status)
         if status.state in (CLOSED, MERGED):
@@ -143,12 +160,16 @@ def _refresh_task_prs(ctx: _Ctx, result: SyncResult) -> None:
             )
 
 
-def _refresh_sync_prs(ctx: _Ctx, result: SyncResult) -> None:
-    for row in ctx.store.open_sync_prs():
-        try:
-            status = ctx.provider.status(row.request())
-        except ProviderError as exc:
-            result.warnings.append(f"sync PR {row.url}: {exc.code}: {exc.message}")
+def _refresh_sync_prs(
+    ctx: _Ctx,
+    result: SyncResult,
+    rows: list[SyncPrRow],
+    found: Mapping[str, PrStatus | ProviderError],
+) -> None:
+    for row in rows:
+        status = found[row.request().id]
+        if isinstance(status, ProviderError):
+            result.warnings.append(f"sync PR {row.url}: {status.code}: {status.message}")
             continue
         if status.state == CLOSED:
             ctx.store.update_sync_pr(row.branch, state=CLOSED)
@@ -263,8 +284,7 @@ def _guard_branch(ctx: _Ctx, worktree: Path) -> str:
 
 def _sync(ctx: _Ctx) -> SyncResult:
     result = SyncResult(pr=None, created=False, updated=False)
-    _refresh_task_prs(ctx, result)
-    _refresh_sync_prs(ctx, result)
+    _refresh_all(ctx, result)
     result.warnings += _catch_up_base(ctx)
     start_sha = pgit.rev_parse(ctx.main, _start_ref(ctx))
     assert start_sha is not None

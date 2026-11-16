@@ -13,7 +13,7 @@ from trace_fixture import T1, make_trace_db
 
 from aifactory.home import haifa_home
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1"
 

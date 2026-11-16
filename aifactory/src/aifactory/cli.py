@@ -63,7 +63,6 @@ SUBCOMMANDS: tuple[tuple[str, str], ...] = (
         "learn",
         "collect objections that keep coming back in task runs into lessons: scan, accept, dismiss",
     ),
-    ("migrate", "explicit offline migration of legacy HAIFA data with a retained rollback bundle"),
     ("upgrade", "install a newer GIRO from a giro-<version>.zip bundle"),
     ("obs", "serve the local dashboard (127.0.0.1 unless --host) and open it"),
 )
@@ -107,11 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     for name, help_text in SUBCOMMANDS:
         child = sub.add_parser(name, help=help_text, description=help_text)
-        if name == "migrate":
-            from aifactory.home_migration import add_arguments
-
-            add_arguments(child)
-        elif name == "check":
+        if name == "check":
             _add_check_command(child)
         elif name == "init":
             _add_init_command(child)
@@ -1351,7 +1346,7 @@ def _config_pull(args: argparse.Namespace) -> int:
 
 
 def _add_backlog_commands(parser: argparse.ArgumentParser) -> None:
-    from aifactory.backlog import CONTAINER_KEYS, STATUS_FILTERS
+    from aifactory.backlog.model import CONTAINER_KEYS, STATUS_FILTERS
 
     parser.set_defaults(backlog_parser=parser)
     sub = parser.add_subparsers(dest="backlog_command", metavar="<subcommand>")
@@ -2082,7 +2077,7 @@ def _add_task_commands(parser: argparse.ArgumentParser) -> None:
         help="deprecated compatibility option; automatic continuation follows repository-local "
         "auto_continue, set with factory config local set --auto-continue on/off",
     )
-    from aifactory.harness.override import THINKING_LEVELS
+    from aifactory.harness import THINKING_LEVELS
 
     run.add_argument(
         "--harness",
@@ -3181,13 +3176,9 @@ def _leave_deleted_cwd() -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     from aifactory.home import haifa_home
     from aifactory.migration_guard import check_home, process_lease
-    from aifactory.upgrade import UpgradeError
+    from aifactory.versioning import UpgradeError
 
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if arguments and arguments[0] == "migrate":
-        from aifactory.home_migration import migration_command
-
-        return migration_command(arguments[1:])
     if arguments == ["--version"] or "--help" in arguments:
         return _main(argv)
     try:
@@ -3323,10 +3314,7 @@ def _obs(args: argparse.Namespace) -> int:
 
     host = web_server.resolve_host(args.host)
     url = web_server.dashboard_url(port, host)
-    restarted = bool(
-        os.environ.pop("GIRO_OBS_RESTART", None) or os.environ.pop(web_server.RESTART_ENV, None)
-    )
-    os.environ.pop(web_server.RESTART_ENV, None)
+    restarted = bool(os.environ.pop(web_server.RESTART_ENV, None))
     data: dict[str, Any] = {
         "url": url,
         "host": host,
@@ -3422,10 +3410,10 @@ def _upgrade(args: argparse.Namespace) -> int:
     from aifactory.upgrade import (
         HANDOFF_HINT,
         RESTART_HINT,
-        UpgradeError,
         needs_handoff,
         run_upgrade,
     )
+    from aifactory.versioning import UpgradeError
 
     try:
         # On Windows a running dashboard locks the tool environment the upgrade replaces.

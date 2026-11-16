@@ -25,8 +25,8 @@ if [ ! -x "$launcher" ]; then launcher="$bin/giro.exe"; fi
 if [ -x "$launcher" ]; then
     home_dir="$("$launcher" --data-home)"
 else
-    home_dir="${GIRO_HOME:-${HAIFA_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/giro}}"
-    if [ -z "${GIRO_HOME:-${HAIFA_HOME:-}}" ] && [ -e "${XDG_CONFIG_HOME:-$HOME/.config}/haifa" ]; then
+    home_dir="${GIRO_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/giro}"
+    if [ -z "${GIRO_HOME:-}" ] && [ -e "${XDG_CONFIG_HOME:-$HOME/.config}/haifa" ]; then
         echo "error: legacy home exists; inspect and set GIRO_HOME explicitly before uninstalling." >&2
         exit 1
     fi
@@ -36,8 +36,8 @@ case "$home_dir" in
     "~/"*) home_dir="$HOME/${home_dir#\~/}" ;;
     "~"*) echo "error: cannot safely resolve this home without the installed GIRO launcher." >&2; exit 1 ;;
 esac
-if [ -n "${GIRO_HOME:-}" ] && [ -n "${HAIFA_HOME:-}" ] && [ "$GIRO_HOME" != "$HAIFA_HOME" ]; then
-    echo "warning: GIRO_HOME conflicts with HAIFA_HOME; GIRO_HOME wins." >&2
+if [ -n "${HAIFA_HOME:-}" ]; then
+    echo "warning: HAIFA_HOME is ignored; rename it to GIRO_HOME." >&2
 fi
 
 if [ -z "$purge" ] && [ -d "$home_dir" ]; then
@@ -64,7 +64,7 @@ fi
 if [ "$purge" = "yes" ] && [ -d "$home_dir" ]; then
     rm -rf "$home_dir"
     echo "Deleted $home_dir"
-    library="${GIRO_LIBRARY:-${HAIFA_LIBRARY:-}}"
+    library="${GIRO_LIBRARY:-}"
     if [ -n "$library" ]; then
         echo "The external library $library stays."
     fi

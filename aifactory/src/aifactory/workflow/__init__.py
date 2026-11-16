@@ -9,37 +9,112 @@ criterion. Conditions read only fields of typed envelopes and are never
 evaluated as Python.
 """
 
-from aifactory.engine.role_registry import Issue
-from aifactory.workflow.check import CheckResult, check_agents, check_workflow
-from aifactory.workflow.conditions import (
-    Condition,
-    ConditionError,
-    evaluate,
-    parse_condition,
-    refs,
-    truthy,
+from typing import TYPE_CHECKING
+
+from aifactory.lazyexports import lazy_exports
+
+if TYPE_CHECKING:
+    from aifactory.engine.role_registry import Issue
+    from aifactory.workflow.check import CheckResult, check_agents, check_workflow
+    from aifactory.workflow.conditions import (
+        Condition,
+        ConditionError,
+        evaluate,
+        parse_condition,
+        refs,
+        truthy,
+    )
+    from aifactory.workflow.interpreter import (
+        CodeRunner,
+        EngineCodeRunner,
+        StepRecord,
+        WorkflowRun,
+        preflight,
+        run_workflow,
+    )
+    from aifactory.workflow.journal import JOURNAL_FILE, Journal, JournalEntry, read_journal
+    from aifactory.workflow.model import (
+        CodeStep,
+        Repeat,
+        RoleStep,
+        Step,
+        Workflow,
+        WorkflowError,
+        walk,
+    )
+    from aifactory.workflow.parse import (
+        DEFAULT_WORKFLOWS_DIR,
+        load_workflow,
+        outline,
+        parse_workflow,
+    )
+    from aifactory.workflow.rebase import (
+        RebaseOutput,
+        conflict_markers,
+        rebase_onto,
+        unmerged_files,
+    )
+    from aifactory.workflow.rebuild import Generated, RebuildOutput, covered
+
+__getattr__, __dir__ = lazy_exports(
+    __name__,
+    {
+        "aifactory.engine.role_registry": ("Issue",),
+        "aifactory.workflow.check": (
+            "CheckResult",
+            "check_agents",
+            "check_workflow",
+        ),
+        "aifactory.workflow.conditions": (
+            "Condition",
+            "ConditionError",
+            "evaluate",
+            "parse_condition",
+            "refs",
+            "truthy",
+        ),
+        "aifactory.workflow.interpreter": (
+            "CodeRunner",
+            "EngineCodeRunner",
+            "StepRecord",
+            "WorkflowRun",
+            "preflight",
+            "run_workflow",
+        ),
+        "aifactory.workflow.journal": (
+            "JOURNAL_FILE",
+            "Journal",
+            "JournalEntry",
+            "read_journal",
+        ),
+        "aifactory.workflow.model": (
+            "CodeStep",
+            "Repeat",
+            "RoleStep",
+            "Step",
+            "Workflow",
+            "WorkflowError",
+            "walk",
+        ),
+        "aifactory.workflow.parse": (
+            "DEFAULT_WORKFLOWS_DIR",
+            "load_workflow",
+            "outline",
+            "parse_workflow",
+        ),
+        "aifactory.workflow.rebase": (
+            "RebaseOutput",
+            "conflict_markers",
+            "rebase_onto",
+            "unmerged_files",
+        ),
+        "aifactory.workflow.rebuild": (
+            "Generated",
+            "RebuildOutput",
+            "covered",
+        ),
+    },
 )
-from aifactory.workflow.interpreter import (
-    CodeRunner,
-    EngineCodeRunner,
-    StepRecord,
-    WorkflowRun,
-    preflight,
-    run_workflow,
-)
-from aifactory.workflow.journal import JOURNAL_FILE, Journal, JournalEntry, read_journal
-from aifactory.workflow.model import (
-    CodeStep,
-    Repeat,
-    RoleStep,
-    Step,
-    Workflow,
-    WorkflowError,
-    walk,
-)
-from aifactory.workflow.parse import DEFAULT_WORKFLOWS_DIR, load_workflow, outline, parse_workflow
-from aifactory.workflow.rebase import RebaseOutput, conflict_markers, rebase_onto, unmerged_files
-from aifactory.workflow.rebuild import Generated, RebuildOutput, covered
 
 __all__ = [
     "DEFAULT_WORKFLOWS_DIR",

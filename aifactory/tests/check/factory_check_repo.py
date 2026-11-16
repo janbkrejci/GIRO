@@ -123,7 +123,7 @@ class FakeMachine:
 
     ``outputs`` answers exact argv tuples (pi JSON, ``pi --list-models``); ``modes``
     overrides the permission bits of files; ``environment()`` carries the temporary
-    ``HAIFA_HOME`` of the test.
+    ``GIRO_HOME`` of the test.
     """
 
     present: set[str] = field(
@@ -157,7 +157,7 @@ class FakeMachine:
         return self.platform_name
 
     def environment(self) -> Mapping[str, str]:
-        return {"HAIFA_HOME": os.environ["HAIFA_HOME"], **self.environ}
+        return {"GIRO_HOME": os.environ["GIRO_HOME"], **self.environ}
 
     def file_mode(self, path: Path) -> int | None:
         if path in self.modes:

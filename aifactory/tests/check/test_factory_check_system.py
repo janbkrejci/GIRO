@@ -2,7 +2,7 @@
 
 PATH holds only the fakes and the directory of the real git, so ``uv`` and ``node`` are
 missing on purpose. Every fake logs its argv; ``--offline`` must log no login or hosting
-call. The check must change nothing in the repo, the library or ``$HAIFA_HOME``.
+call. The check must change nothing in the repo, the library or ``$GIRO_HOME``.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("PATH", os.pathsep.join([str(bin_dir), str(git_dir)]))
     monkeypatch.setenv("FAKE_LOG", str(calls))
     monkeypatch.delenv("FAKE_RC", raising=False)
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for name in ("CLAUDE_CODE_PATH", "CODEX_PATH", "PI_PATH", "AZURE_DEVOPS_EXT_PAT"):
         monkeypatch.delenv(name, raising=False)
     for key, value in GIT_IDENTITY.items():

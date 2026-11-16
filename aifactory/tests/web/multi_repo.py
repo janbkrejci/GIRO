@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 
 BASE = "http://127.0.0.1:4700"
 CONFIG = "base: main\ndocs_root: .\n"

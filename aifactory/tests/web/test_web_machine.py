@@ -96,7 +96,7 @@ def test_machine_home_in_repo_and_override(
     # Both cwd and the dashboard home can be under a repository.
     state(client).home = repo / "home"
     override = tmp_path / "overridden-library"
-    fake = FakeMachine(environ={**GIT_IDENTITY, "HAIFA_LIBRARY": str(override)})
+    fake = FakeMachine(environ={**GIT_IDENTITY, "GIRO_LIBRARY": str(override)})
     state(client).check_machine = fake
     data = response(client.get("/api/machine/check?fresh=1"))
     assert not data["in_repo"]
@@ -104,9 +104,7 @@ def test_machine_home_in_repo_and_override(
     assert str(override) in finding["message"]
     assert not state(client).home.exists()
     adapter = machine.HomeMachine(fake, state(client).home)
-    assert (
-        adapter.env("HAIFA_HOME") == adapter.environment()["HAIFA_HOME"] == str(state(client).home)
-    )
+    assert adapter.env("GIRO_HOME") == adapter.environment()["GIRO_HOME"] == str(state(client).home)
 
 
 def test_machine_fake_executables(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

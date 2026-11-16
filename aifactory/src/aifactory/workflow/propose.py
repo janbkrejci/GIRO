@@ -707,7 +707,6 @@ def run_proposer(
             run.repo_root = isolated
             run.agent_environment = {
                 "GIRO_RUN_ID": job_id,
-                "HAIFA_RUN_ID": job_id,
                 "CLAUDE_SAFE_MODE": "1",
                 "CODEX_SAFE_MODE": "1",
                 "PI_SAFE_MODE": "1",

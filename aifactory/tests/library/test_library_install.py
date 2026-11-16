@@ -32,10 +32,10 @@ def _git(cwd: Path, *args: str) -> str:
 
 @pytest.fixture
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """``$HAIFA_HOME`` with the library at its default place and a git identity."""
+    """``$GIRO_HOME`` with the library at its default place and a git identity."""
     path = tmp_path / "haifa-home"
-    monkeypatch.setenv("HAIFA_HOME", str(path))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.setenv("GIRO_HOME", str(path))
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")

@@ -44,7 +44,6 @@ import contextlib
 import datetime
 import hashlib
 import json
-import os
 import re
 import shutil
 import tempfile
@@ -59,6 +58,7 @@ from aifactory.backlog.derived import is_human
 from aifactory.backlog.loader import iter_containers, load_backlog
 from aifactory.backlog.model import (
     ASSIGNEES,
+    CONTAINER_KEYS,
     HARNESS_KEYS,
     INDEX_FILE,
     Backlog,
@@ -77,6 +77,7 @@ from aifactory.backlog.taskfile import (
     set_field,
 )
 from aifactory.backlog.validate import check_backlog
+from aifactory.oscompat import atomic_write
 
 EDITABLE_STATUSES: tuple[str, ...] = ("todo", "cancelled")
 _SLUG_MAX = 40
@@ -202,25 +203,9 @@ def _guard(root: Path, backlog: Backlog, rel: str) -> Path:
 
 
 def _atomic_write(path: Path, text: str, rel: str) -> None:
-    tmp_name: str | None = None
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            newline="\n",
-            dir=path.parent,
-            prefix=".",
-            suffix=".tmp",
-            delete=False,
-        ) as handle:
-            tmp_name = handle.name
-            handle.write(text)
-        os.replace(tmp_name, path)
+        atomic_write(path, text)
     except OSError as exc:
-        if tmp_name is not None:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp_name)
         raise TaskEditError("write_failed", f"cannot write '{rel}': {exc}", path=rel) from exc
 
 
@@ -761,19 +746,6 @@ def _set_container_flag(
 
 # ── projects and steps (containers): add and edit index.md ───────────────────
 
-# keys of a container's index.md that ``edit_container`` sets or removes
-CONTAINER_KEYS: tuple[str, ...] = (
-    "archived",
-    "harness",
-    "model",
-    "thinking",
-    "workflow",
-    "writes",
-    "auto_continue",
-    "auto_heal",
-    "quota_switch",
-    "quota_switch_back",
-)
 _STR_KEYS = (
     "workflow",
     "harness",

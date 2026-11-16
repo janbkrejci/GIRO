@@ -162,7 +162,7 @@ def test_assistant_conversation_browser(tmp_path: Path, monkeypatch: pytest.Monk
 def test_assistant_unavailable_on_intent_browser(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, intent_path: str
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     repo = make_repo(tmp_path / "repo")
     release = threading.Event()
     fake_harness(monkeypatch, release)
@@ -253,7 +253,7 @@ def test_assistant_select_harness_for_pi_repo_browser(
 
     repo = make_repo(tmp_path / "repo")
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     RepositorySettings(repo).update({"harness": "pi"})
     release = threading.Event()
     release.set()

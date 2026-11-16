@@ -58,7 +58,7 @@ jobs:
           with zipfile.ZipFile(archive) as bundle:
               assert all(pathlib.PurePosixPath(n).parts[0] == name and '..' not in pathlib.PurePosixPath(n).parts for n in bundle.namelist())
               bundle.extractall(root)
-          env = {k: v for k, v in os.environ.items() if not k.startswith(('HAIFA_', 'GIRO_')) and k not in ('GH_TOKEN', 'GITHUB_TOKEN')}
+          env = {k: v for k, v in os.environ.items() if not k.startswith('GIRO_') and k not in ('GH_TOKEN', 'GITHUB_TOKEN')}
           env.update(UV_TOOL_DIR=str(root / 'tools'), UV_TOOL_BIN_DIR=str(root / 'bin'), UV_PYTHON='3.12',
                      GH_CONFIG_DIR=str(root / 'gh-empty'), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1', GIT_TERMINAL_PROMPT='0')
           env[product + '_HOME'] = str(root / 'home')

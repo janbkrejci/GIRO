@@ -88,7 +88,7 @@ def test_budget_shortens_and_refuses(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 def test_hanging_gh_times_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_on_path(tmp_path, monkeypatch, "gh")
-    monkeypatch.delenv("AIFACTORY_GH", raising=False)
+    monkeypatch.delenv("GIRO_GH", raising=False)
     monkeypatch.setattr(github, "GH_TIMEOUT", 1)
     started = time.monotonic()
     with pytest.raises(ProviderError) as info:
@@ -129,3 +129,12 @@ def test_only_the_runner_starts_git() -> None:
         and (found := _git_subprocess_calls(path))
     }
     assert offenders == {}
+
+
+def test_engine_git_helpers_use_the_runner() -> None:
+    engine = SRC / "engine"
+    assert {
+        name: found
+        for name in ("git_helper.py", "permissions.py")
+        if (found := _git_subprocess_calls(engine / name))
+    } == {}

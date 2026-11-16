@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 
 from aifactory.library import share, store
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 from aifactory.web.machine import CachedCheck
 
 
@@ -26,9 +26,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     user = tmp_path / "user"
     user.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: user))
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "process-home"))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
-    monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "process-home"))
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY_URL", raising=False)
     for role in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{role}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{role}_EMAIL", "ada@example.com")

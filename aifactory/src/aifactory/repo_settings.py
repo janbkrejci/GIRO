@@ -1,4 +1,4 @@
-"""Repository-local operating choices in HAIFA_HOME, independent of the dashboard.
+"""Repository-local operating choices in GIRO_HOME, independent of the dashboard.
 
 Consumers must propagate SettingsError and must never reuse an earlier enabled value.
 Automatic starts must be accepted inside automatic_start(), under the update lock.
@@ -10,7 +10,6 @@ import contextlib
 import hashlib
 import json
 import os
-import tempfile
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, Literal
@@ -206,15 +205,7 @@ class RepositorySettings:
             raise SettingsError("repo_settings_io", str(exc), self.path) from exc
 
     def _write(self, settings: RepoSettings) -> None:
-        fd, temporary = tempfile.mkstemp(prefix=f".{self.key}-", dir=self.directory)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-                stream.write(settings.model_dump_json(indent=2) + "\n")
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, self.path)
-        finally:
-            Path(temporary).unlink(missing_ok=True)
+        oscompat.atomic_write(self.path, settings.model_dump_json(indent=2) + "\n", fsync=True)
 
     def update(self, changes: Mapping[str, object]) -> RepoSettings:
         """Patch only supplied fields, re-reading under the cross-process lock."""
@@ -244,7 +235,7 @@ class RepositorySettings:
             self._write(settings)
 
     def show(self, settings: RepoSettings | None = None) -> dict[str, Any]:
-        """Common CLI/dashboard payload; resolution uses this instance's HAIFA_HOME."""
+        """Common CLI/dashboard payload; resolution uses this instance's GIRO_HOME."""
         value = self.read() if settings is None else settings
         effective_harness: str | None = value.harness
         if effective_harness is None:

@@ -65,6 +65,7 @@ from aifactory.config.source import FACTORY_DIR
 from aifactory.engine.role_registry import Issue, RoleRegistry, load_roles
 from aifactory.library.model import ITEM_TYPES, Item, ItemType, check_name
 from aifactory.library.store import LibraryStoreError, NewFile, SeedItem
+from aifactory.oscompat import atomic_write
 from aifactory.providers import git
 from aifactory.providers.base import ProviderError, PullRequest
 from aifactory.providers.publish import (
@@ -347,7 +348,7 @@ def _check_harness(value: str) -> str:
 
 
 def _check_thinking(value: str) -> str:
-    from aifactory.harness.override import THINKING_LEVELS
+    from aifactory.harness import THINKING_LEVELS
 
     if value not in THINKING_LEVELS:
         raise LibraryStoreError(
@@ -1011,11 +1012,7 @@ def write_worktree(root: Path, change: Change) -> None:
                 target.unlink()
                 _prune_up(root, target.parent)
             continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_name(f".{target.name}.factory-tmp")
-        tmp.write_bytes(data)
-        tmp.chmod(0o755 if path in change.executable else 0o644)
-        os.replace(tmp, target)
+        atomic_write(target, data, mode=0o755 if path in change.executable else 0o644)
 
 
 def run_config(

@@ -21,8 +21,8 @@ from aifactory.config import load_local
 from aifactory.library import store
 from aifactory.run.store import RUNNING, TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
 from aifactory.web import factory as web_factory
+from aifactory.web.app import create_app
 from aifactory.web.repos import trace_db_of
 from fake_exe import make_executable
 
@@ -45,10 +45,10 @@ def git(cwd: Path, *args: str) -> str:
 
 @pytest.fixture(autouse=True)
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """``$HAIFA_HOME`` without a library, a git identity, and only claude on this machine."""
+    """``$GIRO_HOME`` without a library, a git identity, and only claude on this machine."""
     path = tmp_path / "haifa-home"
-    monkeypatch.setenv("HAIFA_HOME", str(path))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.setenv("GIRO_HOME", str(path))
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")
@@ -153,7 +153,7 @@ def check_body(resp: Any, status: int) -> dict[str, Any]:
 
 @pytest.fixture
 def api(tmp_path: Path) -> Api:
-    client = multi_client(Path(os.environ["HAIFA_HOME"]), tmp_path)
+    client = multi_client(Path(os.environ["GIRO_HOME"]), tmp_path)
     client.app.state.check_machine = FakeMachine()  # type: ignore[attr-defined]
     ids: dict[str, str] = {}
     for name in ("a", "b"):

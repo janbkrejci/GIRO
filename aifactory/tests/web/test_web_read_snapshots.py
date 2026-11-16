@@ -17,7 +17,8 @@ from aifactory.harness.config import SSSFConfig
 from aifactory.library.install import init_repo
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run.errors import TaskRunError
-from aifactory.web import backlog, create_app, machine
+from aifactory.web import backlog, machine
+from aifactory.web.app import create_app
 
 
 def _tree_tasks(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -191,7 +192,7 @@ def test_roster_cache_follows_config_base_library_and_registry(
         library.mkdir()
         git(library, "init", "-b", "main")
         git(library, "commit", "--allow-empty", "-m", "library")
-        monkeypatch.setenv("HAIFA_LIBRARY", str(library))
+        monkeypatch.setenv("GIRO_LIBRARY", str(library))
         assert counts()["codex"] == 0
         assert len(reads) == 5
         git(library, "commit", "--allow-empty", "-m", "advance")

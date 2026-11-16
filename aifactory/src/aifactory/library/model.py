@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from aifactory import harness
 from aifactory.engine.role_registry import Issue
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS
 
 ItemType = Literal["agent", "workflow", "skill", "extension"]
 ITEM_TYPES: tuple[ItemType, ...] = ("agent", "workflow", "skill", "extension")

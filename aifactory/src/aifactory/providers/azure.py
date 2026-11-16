@@ -9,7 +9,7 @@ Configuration lives in ``.factory/config.yaml``::
       repository: fabrikam-app
 
 Every ``az`` call goes through ``AzCli.run``. The executable is ``az`` found on
-``PATH`` (or ``$AIFACTORY_AZ``); tests put a fake one first on ``PATH``. Every call
+``PATH`` (or ``$GIRO_AZ``); tests put a fake one first on ``PATH``. Every call
 passes ``--output json --only-show-errors``; ``az repos`` calls also pass
 ``--detect false`` and an explicit ``--org`` so nothing is guessed from git remotes.
 
@@ -64,13 +64,14 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from aifactory.config.settings import AzureSettings, ProjectSettings
+from aifactory.environment import canonical, value
 from aifactory.providers.base import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -93,6 +94,8 @@ from aifactory.providers.base import (
 
 UNKNOWN_ATTEMPTS = 5
 UNKNOWN_DELAY = 2.0
+# How many of the newest PRs ``statuses`` lists; an older one is asked on its own.
+LIST_LIMIT = 200
 API_VERSION = "7.1"
 PAT_ENV = "AZURE_DEVOPS_EXT_PAT"
 AZ_TIMEOUT = 120
@@ -142,7 +145,7 @@ class AzCli:
 
     def __init__(self, cwd: Path, executable: str | None = None) -> None:
         self.cwd = cwd
-        self.executable = executable or os.environ.get("AIFACTORY_AZ") or "az"
+        self.executable = executable or value("AZ") or "az"
 
     def _argv(self, args: tuple[str, ...]) -> list[str]:
         if not WINDOWS:
@@ -168,7 +171,7 @@ class AzCli:
         raise ProviderError(
             "az_missing",
             "Unsupported Azure CLI Windows shim; install the Azure CLI MSI or set "
-            "AIFACTORY_AZ to a native executable (not a .cmd/.bat wrapper).",
+            f"{canonical('AZ')} to a native executable (not a .cmd/.bat wrapper).",
         )
 
     def run(self, *args: str) -> str:
@@ -473,6 +476,29 @@ class AzureProvider(GitProvider):
             if attempt < self.attempts:
                 self.sleep(self.delay)
         return status
+
+    def statuses(self, prs: Sequence[PullRequest]) -> dict[str, PrStatus | ProviderError]:
+        """One ``az repos pr list --status all`` for the repository, paired by PR id.
+
+        A PR outside the newest ``LIST_LIMIT``, or active with an unknown ``mergeStatus``,
+        is asked with ``az repos pr show`` (``status``); so is every PR when the list fails.
+        """
+        if len(prs) < 2:
+            return super().statuses(prs)
+        listed: dict[str, PrStatus] = {}
+        try:
+            self._ready()
+            data = self.az.json(
+                "repos", "pr", "list", *self._org(),
+                "--project", self.azure.project, "--repository", self.azure.repository,
+                "--status", "all", "--top", str(LIST_LIMIT), *self._tail(),
+            )  # fmt: skip
+        except ProviderError:
+            data = []
+        for item in data if isinstance(data, list) else []:
+            if isinstance(item, dict) and isinstance(item.get("pullRequestId"), int):
+                listed[str(item["pullRequestId"])] = self._parse(item)
+        return self._with_listed(prs, listed)
 
     def approve(self, pr: PullRequest, head_sha: str) -> bool:
         """Vote after the final push, guarded by head checks (CLI is not atomic)."""

@@ -25,7 +25,7 @@ def _choose_inventory(page: Page, test_id: str, value: str) -> None:
 
 
 def test_library_seed_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
     monkeypatch.setenv("GIT_CONFIG_KEY_0", "commit.gpgsign")
     monkeypatch.setenv("GIT_CONFIG_VALUE_0", "false")
@@ -120,7 +120,7 @@ def test_library_seed_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_repo_library_hide_restore_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     script = tmp_path / "fake.json"
     script.write_text(json.dumps({"agents": {}}), encoding="utf-8")
     wire, marker = diagnostic_tripwire(tmp_path)

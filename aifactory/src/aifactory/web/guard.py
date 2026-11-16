@@ -16,7 +16,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from aifactory.migration_guard import check_home
 from aifactory.skill.envelope import envelope_fail
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 

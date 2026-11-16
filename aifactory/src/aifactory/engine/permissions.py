@@ -36,10 +36,10 @@ Two keys drive it, both in sssf.config.yaml:
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from aifactory import gitrun
 from aifactory.failure import WRITES_VIOLATION, RunFailure
 
 from .data_types import AgentConfig, Phase, SSSFConfig
@@ -78,23 +78,10 @@ def repo_state(repo_root: str | Path) -> str:
 
     Both are the engineer's to fix, and the fix is one commit.
     """
-    probe = subprocess.run(
-        ["git", "rev-parse", "--git-dir"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    if probe.returncode != 0:
+    if not gitrun.ok(repo_root, "rev-parse", "--git-dir", read_only=True):
         return "no-repo"
-    head = subprocess.run(
-        ["git", "rev-parse", "--verify", "HEAD"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return "ok" if head.returncode == 0 else "no-commits"
+    has_head = gitrun.ok(repo_root, "rev-parse", "--verify", "HEAD", read_only=True)
+    return "ok" if has_head else "no-commits"
 
 
 def require_enforceable(repo_root: str | Path) -> None:
@@ -116,16 +103,9 @@ def require_enforceable(repo_root: str | Path) -> None:
 
 
 def _git(args: list[str], cwd: str | Path) -> str:
-    # Unquoted paths (Testovací sady/), not git's octal-escaped quoting
-    result = subprocess.run(
-        ["git", "-c", "core.quotePath=false", *args],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return result.stdout if result.returncode == 0 else ""
+    """stdout of a read, or "" on failure. Paths are unquoted (Testovací sady/)."""
+    result = gitrun.run(cwd, "-c", "core.quotePath=false", *args, read_only=True)
+    return result.text if result.ok else ""
 
 
 def snapshot(run: Any) -> dict[str, str]:
@@ -238,14 +218,8 @@ def _roll_back(run: Run, path: str, before: dict[str, str], after: dict[str, str
             return "deleted"
         except OSError as error:
             return f"could not delete ({error})"
-    result = subprocess.run(
-        ["git", "checkout", "--", path],
-        cwd=run.repo_root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return "rolled back" if result.returncode == 0 else "could not roll back"
+    restored = gitrun.ok(run.repo_root, "checkout", "--", path)
+    return "rolled back" if restored else "could not roll back"
 
 
 def enforce(run: Run, phase: Phase, agent: AgentConfig, before: dict[str, str]) -> list[str]:

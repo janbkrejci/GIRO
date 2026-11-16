@@ -34,7 +34,7 @@ from starlette.testclient import TestClient
 
 from aifactory.codeprint import CodeWatch
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 
 ALLOWED_GIT = {"rev-parse", "cat-file", "ls-tree", "for-each-ref", "remote"}
 
@@ -520,7 +520,7 @@ def test_delete_keeps_factory_in_the_repo(client: TestClient, tmp_path: Path, ho
 
 
 def test_delete_uninstalls(tmp_path: Path) -> None:
-    home = Path(os.environ["HAIFA_HOME"])
+    home = Path(os.environ["GIRO_HOME"])
     client = multi_client(home, tmp_path)
     root = init_repo(tmp_path / "proj")
     _add(client, root)
@@ -771,7 +771,7 @@ def test_code_and_restart_need_no_repository(tmp_path: Path, home: Path) -> None
 
 
 def test_single_repo_app_has_no_registry_endpoints(tmp_path: Path) -> None:
-    from aifactory.web import create_app
+    from aifactory.web.app import create_app
 
     root = init_repo(tmp_path / "proj")
     client = TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)

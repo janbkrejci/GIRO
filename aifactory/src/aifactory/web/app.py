@@ -517,13 +517,13 @@ async def _active_runs(request: Request) -> int:
 
 
 async def updates_install(request: Request) -> JSONResponse:
-    from aifactory.upgrade import UpgradeError
+    from aifactory.versioning import UpgradeError
 
     source: Updates = request.app.state.updates
     if active := await _active_runs(request):
         return _runs_active(active)
     try:
-        data = await run_in_threadpool(source.begin, request.url.path.endswith("/migrate"))
+        data = await run_in_threadpool(source.begin)
     except UpgradeError as exc:
         return JSONResponse(envelope_fail(exc.code, exc.message), status_code=409)
     # The fresh release request can take seconds. A run may have started meanwhile;
@@ -2129,7 +2129,7 @@ def _shared_state(
     app.state.launcher = launcher if launcher is not None else RunLauncher()
     app.state.code = code_watch if code_watch is not None else CodeWatch()
     app.state.restart = restart if restart is not None else web_server.restart_process
-    app.state.updates = Updates(home=app.state.home)
+    app.state.updates = Updates()
     app.state.control = FactoryControl()
     app.state.worktree_cleanup = _WorktreeCleanup()
     overview: Overview | None = getattr(app.state, "overview", None)
@@ -2197,7 +2197,6 @@ def create_app(
                     Route("/updates", updates_check, methods=["GET"]),
                     Route("/guide", guide_get, methods=["GET"]),
                     Route("/updates/install", updates_install, methods=["POST"]),
-                    Route("/updates/migrate", updates_install, methods=["POST"]),
                     *_repo_routes(),
                 ]
             ),
@@ -2922,7 +2921,6 @@ def create_multi_app(
             Route("/updates", updates_check, methods=["GET"]),
             Route("/guide", guide_get, methods=["GET"]),
             Route("/updates/install", updates_install, methods=["POST"]),
-            Route("/updates/migrate", updates_install, methods=["POST"]),
             Route("/limits", global_limits, methods=["GET"]),
             Route("/repos", repos_list, methods=["GET"]),
             Route("/repos", repos_add, methods=["POST"]),

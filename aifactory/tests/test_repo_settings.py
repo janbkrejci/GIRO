@@ -152,7 +152,7 @@ def test_failed_save_keeps_previous_record(
     def fail(*args: object) -> None:
         raise OSError("disk unavailable")
 
-    monkeypatch.setattr("aifactory.repo_settings.os.replace", fail)
+    monkeypatch.setattr("aifactory.oscompat.os.replace", fail)
     with pytest.raises(SettingsError) as error:
         service.update({"auto_continue": True})
     assert error.value.code == "repo_settings_io"

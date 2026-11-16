@@ -45,7 +45,7 @@ def test_normalize_azure_repo_accepts(value: str, expected: AzureRepo) -> None:
     [None, "", "   ", "owner/name", "https://github.com/a/b", "https://dev.azure.com/org/p/r"],
 )
 def test_normalize_azure_repo_rejects(value: str | None) -> None:
-    with pytest.raises(SetupError, match="HAIFA_AZURE_SANDBOX_REPO"):
+    with pytest.raises(SetupError, match="GIRO_AZURE_SANDBOX_REPO"):
         sandbox.normalize_azure_repo(value)
 
 
@@ -100,7 +100,7 @@ def test_azure_without_sandbox_env_is_a_setup_error(
         ]
     )
     assert code == runner.EXIT_SETUP
-    assert "HAIFA_AZURE_SANDBOX_REPO" in capsys.readouterr().err
+    assert "GIRO_AZURE_SANDBOX_REPO" in capsys.readouterr().err
     assert not (tmp_path / "results").exists()
     assert not (tmp_path / "work").exists()
 

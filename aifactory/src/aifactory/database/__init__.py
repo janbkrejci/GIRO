@@ -47,7 +47,7 @@ def canonical_remote(remote: str) -> str:
 
 
 def database_path(root: Path, local: Path, url: str | None = None) -> Path:
-    """Global database.yaml / HAIFA_DATABASE_URL, with an optional local override."""
+    """Global database.yaml / GIRO_DATABASE_URL, with an optional local override."""
     label = str(haifa_home() / "database.yaml")
     try:
         if url is None:

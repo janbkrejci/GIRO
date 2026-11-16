@@ -322,3 +322,23 @@ def test_lock_retry_rechecks_policy_only_for_automatic_starts(
         assert _start_with_lock_retry(start, repo=repo, automatic=False) == "claimed"
         assert calls == ["start", "start"]
     assert settings.read().auto_continue is False
+
+
+def test_one_selection_loads_the_run_config_once(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from aifactory.config import loader
+
+    setup_tasks(repo, [(T01, "src/a/"), (T02, "src/b/"), (T03, "src/c/")])
+    real = loader.load_config
+    loads: list[object] = []
+
+    def counting(*args: object, **kwargs: object) -> object:
+        loads.append(args[0])
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr("aifactory.config.run.load_config", counting)
+    start = FakeStart(repo)
+    start_factory(repo, start, max_parallel=3, pr_files=no_files)
+    assert start.calls == [T01, T02, T03]
+    assert len(loads) == 1

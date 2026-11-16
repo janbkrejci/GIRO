@@ -12,9 +12,9 @@ Every such write appends one JSON line to
 ``<git common dir>/haifa/main-writes.jsonl`` *after* the file was replaced: the
 checkout and path, the sha256 of the content before (``None`` when the file did
 not exist) and after the write, the mode of the file and ``run`` — the value of
-``HAIFA_RUN_ID`` in the writing process. The written content itself is kept by
+``GIRO_RUN_ID`` in the writing process. The written content itself is kept by
 digest under ``<git common dir>/haifa/main-writes/<sha256>`` so the guard can put
-it back when the agent overwrites it. A task run sets ``HAIFA_RUN_ID`` while its
+it back when the agent overwrites it. A task run sets ``GIRO_RUN_ID`` while its
 workflow runs; agents inherit it, and so does every ``factory`` command an agent
 starts, so an entry carrying the run's own id counts as a write of the agent.
 
@@ -27,13 +27,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from aifactory.environment import value
+from aifactory.oscompat import atomic_write
 from aifactory.run import backup, gitops
 from aifactory.run.basemoves import RUN_ENV
 
@@ -94,18 +94,7 @@ def _store(blobs: Path, digest: str, data: bytes) -> None:
     target = blobs / digest
     if target.is_file():
         return
-    blobs.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=blobs, prefix=".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-        os.replace(tmp, target)
-    except OSError:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    atomic_write(target, data)
 
 
 def record(

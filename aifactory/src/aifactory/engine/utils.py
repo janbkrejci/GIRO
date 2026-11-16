@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-# No load_dotenv() at import; `factory` loads $HAIFA_HOME/env at start (home.py)
+# No load_dotenv() at import; `factory` loads $GIRO_HOME/env at start (home.py)
 
 
 # Drain stderr while stdout streams, or a full stderr pipe stalls both sides.
@@ -111,15 +111,10 @@ def operator_env() -> dict[str, str]:
     same `python3` the engineer gets in their terminal. The ADW's own imports
     are unaffected; this env is only ever handed to child processes.
     """
-    from aifactory.environment import child_environment
+    from aifactory.environment import canonical, child_environment
 
     env = child_environment(os.environ, **_agent_environment.get() or {})
-    for channel in (
-        "GIRO_VALIDATE_FAKE",
-        "HAIFA_VALIDATE_FAKE",
-        "GIRO_VALIDATE_HIDDEN",
-        "HAIFA_VALIDATE_HIDDEN",
-    ):
+    for channel in (canonical("VALIDATE_FAKE"), canonical("VALIDATE_HIDDEN")):
         env.pop(channel, None)
     venv = env.pop("VIRTUAL_ENV", "")
     if not venv:

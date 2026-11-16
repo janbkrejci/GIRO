@@ -8,14 +8,14 @@ from pathlib import Path
 import pytest
 
 from aifactory import migration_guard
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 from aifactory.web import monitoring
 
 
 def test_startup_check_waits_until_migration_commits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     marker = tmp_path / migration_guard.MARKER
     marker.write_text(json.dumps({"state": "prepared"}))
     calls: list[str] = []

@@ -2,7 +2,7 @@
 merged from the dashboard alone, with no terminal.
 
 ``factory obs`` runs over a temporary repo (provider ``local``, fake harness, see
-``f3_repo``); Playwright drives the system Google Chrome (``HAIFA_E2E_CHANNEL``
+``f3_repo``); Playwright drives the system Google Chrome (``GIRO_E2E_CHANNEL``
 overrides it, an empty value uses Playwright's bundled chromium, ``just e2e-install``).
 Once the server is up the test never changes the repo itself: it only reads git for
 the final checks, so every change on ``main`` comes from the dashboard. Requests to
@@ -60,7 +60,7 @@ from playwright.sync_api import Error as PlaywrightError
 
 pytestmark = pytest.mark.xdist_group("e2e")
 
-CHANNEL_ENV = "HAIFA_E2E_CHANNEL"
+CHANNEL_ENV = "GIRO_E2E_CHANNEL"
 # pure UI: navigation, forms, dropdowns
 DEFAULT_TIMEOUT_MS = 15_000
 # the UI waits for the server's work with git (backlog commit, run check, merge, lists)

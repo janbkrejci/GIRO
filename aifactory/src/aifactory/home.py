@@ -1,4 +1,4 @@
-"""GIRO's machine home, with explicit HAIFA aliases and guarded legacy discovery.
+"""GIRO's machine home: explicit GIRO_HOME, else the default with guarded legacy discovery.
 
 Defaults use XDG_CONFIG_HOME/giro or ~/.config/giro (Path.home on Windows).
 Legacy-only defaults require confirmed migration; ambiguous directories fail closed.
@@ -18,7 +18,7 @@ from dotenv import dotenv_values
 
 from aifactory import oscompat
 
-HOME_ENV = "HAIFA_HOME"
+HOME_ENV = "GIRO_HOME"
 XDG_ENV = "XDG_CONFIG_HOME"
 ENV_FILE = "env"
 
@@ -29,10 +29,10 @@ def _env(environ: Mapping[str, str], name: str) -> str | None:
 
 
 def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
-    """Explicit GIRO_HOME/HAIFA_HOME, otherwise the guarded GIRO default."""
+    """Explicit GIRO_HOME, otherwise the guarded GIRO default."""
     env = os.environ if environ is None else environ
     from aifactory.environment import value
-    from aifactory.upgrade import UpgradeError
+    from aifactory.versioning import UpgradeError
 
     explicit = value("HOME", env)
     if explicit is not None:
@@ -56,9 +56,8 @@ def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
             )
         raise UpgradeError(
             "migration_required",
-            f"Legacy data found at {legacy}. Stop HAIFA and use its transition button, "
-            "or run giro migrate --confirm --haifa-bundle PATH to the verified last HAIFA ZIP. "
-            "Nothing has been written.",
+            f"Legacy HAIFA data found at {legacy}. Stop HAIFA, move the folder to {target} "
+            "or select GIRO_HOME explicitly. Nothing has been written.",
         )
     return target
 

@@ -21,7 +21,8 @@ from playwright.sync_api import Route, expect, sync_playwright
 from test_f3_browser import _launch
 
 from aifactory.codeprint import CodeWatch
-from aifactory.web import create_multi_app, machine
+from aifactory.web import machine
+from aifactory.web.app import create_multi_app
 from aifactory.web.limits import LimitsSource
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "check"))
@@ -239,7 +240,7 @@ def test_new_overview_tab_never_starts_a_server_check(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, previous_result: bool
 ) -> None:
     """Use the real API: both missing and invalidated caches must stay read-only."""
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     home = tmp_path / "home"
     app = create_multi_app(
         home=home,

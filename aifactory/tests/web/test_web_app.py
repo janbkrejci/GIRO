@@ -9,7 +9,7 @@ from web_repo import git_repo
 
 from aifactory import __version__
 from aifactory.skill import envelope_problems
-from aifactory.web import STATIC_DIR, create_app
+from aifactory.web.app import STATIC_DIR, create_app
 
 BASE = "http://127.0.0.1:4700"
 

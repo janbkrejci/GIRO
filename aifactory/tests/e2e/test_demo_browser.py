@@ -1,7 +1,7 @@
 """From the empty overview to a merged run of the sample repository, in a browser.
 
 ``factory obs`` starts with an empty registry over the fake harness (``f3_repo``). The test
-clicks "Vyzkoušet na ukázce": the dashboard creates the sample in ``$HAIFA_HOME/demo``, starts
+clicks "Vyzkoušet na ukázce": the dashboard creates the sample in ``$GIRO_HOME/demo``, starts
 ``DEMO-S01-T01`` with the first tested harness (``harness-tests.json`` says claude passed) and
 opens its backlog. The fake builder waits for a release file, so the run detail is seen while
 the build runs; then the fake tester plans the sample's real unittest suite, the run commits
@@ -109,7 +109,7 @@ def _demo_id(url: str) -> str:
 
 
 def test_demo_from_empty_overview_to_merge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     credentials = tmp_path / "claude-home"
     credentials.mkdir()
     (credentials / ".credentials.json").write_text("{}", encoding="utf-8")

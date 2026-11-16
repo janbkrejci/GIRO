@@ -24,7 +24,7 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.review import approve_task, resolve_task
 from aifactory.run import TaskRunResult, TaskRunStore, run_task
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from aifactory.web.review import _review_verdict
 from aifactory.workflow import EngineCodeRunner
 

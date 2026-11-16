@@ -264,10 +264,10 @@ def _git(cwd: Path, *args: str) -> str:
 
 @pytest.fixture
 def lib(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A library in the test's HAIFA_HOME, pushed to a bare remote on disk."""
+    """A library in the test's GIRO_HOME, pushed to a bare remote on disk."""
     for key, value in GIT_IDENTITY.items():
         monkeypatch.setenv(key, value)
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     bare = tmp_path / "remote.git"
     _git(tmp_path, "init", "--bare", "--quiet", "-b", "main", str(bare))
     init_library(remote=str(bare))

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from aifactory import __version__, oscompat
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 
 MARKER = "giro-migration.json"
 
@@ -214,8 +214,4 @@ def require_quiet(home: Path) -> None:
 
 def write_manifest(home: Path, manifest: dict[str, object]) -> None:
     path = home / MARKER
-    temporary = home / f".{MARKER}.{uuid.uuid4().hex}"
-    fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        json.dump(manifest, stream, indent=2)
-    os.replace(temporary, path)
+    oscompat.atomic_write(path, json.dumps(manifest, indent=2), mode=0o600)

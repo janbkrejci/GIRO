@@ -32,13 +32,13 @@ def _git(cwd: Path, *args: str) -> str:
 
 @pytest.fixture
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A fake user home with HAIFA_HOME inside it and a git identity."""
+    """A fake user home with GIRO_HOME inside it and a git identity."""
     user_home = tmp_path / "home"
     user_home.mkdir()
     monkeypatch.setenv("HOME", str(user_home))
     monkeypatch.setenv("USERPROFILE", str(user_home))  # Path.home() on Windows
-    monkeypatch.setenv("HAIFA_HOME", str(user_home / ".config" / "haifa"))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.setenv("GIRO_HOME", str(user_home / ".config" / "haifa"))
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")
@@ -103,7 +103,7 @@ def test_init_without_git_identity(
 
 def test_library_path_override(home: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch) -> None:
     other = home / "elsewhere"
-    monkeypatch.setenv("HAIFA_LIBRARY", str(other))
+    monkeypatch.setenv("GIRO_LIBRARY", str(other))
     data = _init(capsys)
     assert data["library"] == str(other) and (other / "library.yaml").is_file()
 

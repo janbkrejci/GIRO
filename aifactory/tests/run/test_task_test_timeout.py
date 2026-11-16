@@ -245,7 +245,7 @@ def test_task_run_only_takes_a_machine_wide_test_slot_when_configured(
     repo: Path, script: Script, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, slots: int
 ) -> None:
     """A task run's test step holds a slot in ``<HAIFA home>/test_slots`` (``test_slots``)."""
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     setup(repo, config_timeout=43)
     if slots:
         config_path = repo / ".factory/config.yaml"

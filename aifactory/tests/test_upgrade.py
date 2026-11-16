@@ -17,8 +17,10 @@ import pytest
 
 from aifactory import __version__, cli, upgrade
 from aifactory.cli import main
-from aifactory.library.remote import library_min_factory_version, version_key
+from aifactory.library import remote as library_remote
+from aifactory.library.remote import library_min_factory_version
 from aifactory.skill import ERROR_CODES, envelope_problems, render_skill
+from aifactory.versioning import UpgradeError, version_key
 from fake_exe import make_executable
 
 Capsys = pytest.CaptureFixture[str]
@@ -221,7 +223,7 @@ def test_same_version_is_up_to_date(tmp_path: Path, uv_log: Path, capsys: Capsys
 
 def test_published_version_must_match_wheel(tmp_path: Path, uv_log: Path) -> None:
     bundle = make_bundle(tmp_path / "dist")
-    with pytest.raises(upgrade.UpgradeError) as error:
+    with pytest.raises(UpgradeError) as error:
         upgrade.run_upgrade(str(bundle), expected_version="999.0.0")
     assert error.value.code == "bundle_invalid"
     assert not uv_log.exists()
@@ -341,7 +343,7 @@ def test_other_url_scheme_is_refused(url: str, uv_log: Path, capsys: Capsys) -> 
 def test_target_below_library_minimum_warns(
     tmp_path: Path, uv_log: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(upgrade, "library_min_factory_version", lambda _env=None: "999.0")
+    monkeypatch.setattr(library_remote, "library_min_factory_version", lambda _env=None: "999.0")
     bundle = make_bundle(tmp_path / "dist")
     code, obj = _run(capsys, str(bundle), "--dry-run")
     assert code == 0
@@ -385,8 +387,8 @@ def test_handoff_keeps_the_bundle_and_starts_the_script(tmp_path: Path, uv_log: 
         restart=["python.exe", "factory.exe", "obs"],
         environ={
             "PSModulePath": "C:/pwsh/Modules",
-            "HAIFA_OBS_RESTART": "1",
-            "HAIFA_HOME": os.environ["HAIFA_HOME"],
+            "GIRO_OBS_RESTART": "1",
+            "GIRO_HOME": os.environ["GIRO_HOME"],
         },
         spawn=_record(calls),
     )
@@ -394,7 +396,7 @@ def test_handoff_keeps_the_bundle_and_starts_the_script(tmp_path: Path, uv_log: 
     assert not uv_log.exists()  # nothing installed while this process runs
     [(argv, env)] = calls
     assert argv[:2] == ["powershell", "-NoProfile"] and "-File" in argv
-    assert "PSModulePath" not in env and env["HAIFA_OBS_RESTART"] == "1"
+    assert "PSModulePath" not in env and env["GIRO_OBS_RESTART"] == "1"
     script, plan_file = Path(argv[-2]), Path(argv[-1])
     assert script.read_bytes() == upgrade.HANDOFF_SCRIPT.read_bytes()
     text = script.read_text("utf-8")
@@ -455,7 +457,7 @@ def test_cli_on_windows_refuses_while_the_dashboard_runs(
     assert code == 2 and obj["error"]["code"] == "dashboard_running"
 
 
-def test_transition_explicitly_accepts_giro_zip_with_aifactory_wheel(tmp_path: Path) -> None:
+def test_giro_zip_with_aifactory_wheel_is_accepted(tmp_path: Path) -> None:
     bundle = make_bundle(tmp_path, version="1.0.1", brand="giro")
     result = upgrade.run_upgrade(
         str(bundle),
@@ -466,7 +468,7 @@ def test_transition_explicitly_accepts_giro_zip_with_aifactory_wheel(tmp_path: P
     )
     assert result.wheel == "aifactory-1.0.1-py3-none-any.whl"
     assert result.target_version == "1.0.1"
-    with pytest.raises(upgrade.UpgradeError) as error:
+    with pytest.raises(UpgradeError) as error:
         upgrade.run_upgrade(
             str(bundle),
             current="1.0.2",
@@ -477,9 +479,9 @@ def test_transition_explicitly_accepts_giro_zip_with_aifactory_wheel(tmp_path: P
     assert error.value.code == "up_to_date"
 
 
-def test_transition_rejects_legacy_root_and_renamed_distribution(tmp_path: Path) -> None:
+def test_giro_brand_rejects_legacy_root_and_renamed_distribution(tmp_path: Path) -> None:
     old_root = make_bundle(tmp_path / "legacy", version="1.0.1")
-    with pytest.raises(upgrade.UpgradeError, match="release identity"):
+    with pytest.raises(UpgradeError, match="release identity"):
         upgrade.run_upgrade(
             str(old_root), expected_version="1.0.1", bundle_brand="giro", dry_run=True
         )
@@ -496,13 +498,13 @@ def test_transition_rejects_legacy_root_and_renamed_distribution(tmp_path: Path)
                 name.replace("aifactory-1.0.1-py3-none-any.whl", "giro-1.0.1-py3-none-any.whl"),
                 content,
             )
-    with pytest.raises(upgrade.UpgradeError, match="exactly one aifactory wheel"):
+    with pytest.raises(UpgradeError, match="exactly one aifactory wheel"):
         upgrade.run_upgrade(
             str(bundle), expected_version="1.0.1", bundle_brand="giro", dry_run=True
         )
 
 
-def test_transition_install_never_reseeds_library_and_passes_environment(
+def test_install_without_refresh_never_reseeds_library_and_passes_environment(
     tmp_path: Path, uv_log: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("UV_EXIT", "1")

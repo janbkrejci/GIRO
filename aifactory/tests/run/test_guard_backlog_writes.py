@@ -1,7 +1,7 @@
 """The run guard and backlog writes made through the factory during an agent phase.
 
 Like ``test_guard_base_moves``: the fake harness runs agent effects in-process with
-``HAIFA_RUN_ID`` of the run under test; ``foreign()`` stands for a factory command
+``GIRO_RUN_ID`` of the run under test; ``foreign()`` stands for a factory command
 of another process (the operator's terminal, the dashboard).
 """
 
@@ -18,7 +18,7 @@ from test_guard_base_moves import foreign
 from aifactory.backlog import add_task, commit_backlog, edit_task, set_auto_continue
 from aifactory.cli import main
 from aifactory.run import run_task
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 STEP = "M01-S01"
 T02_PATH = "backlog/M01-core/S01-model/M01-S01-T02-loader.md"

@@ -12,7 +12,7 @@ import pytest
 from starlette.testclient import TestClient
 from web_repo import git_repo
 
-from aifactory.web import create_app, create_multi_app
+from aifactory.web.app import create_app, create_multi_app
 from aifactory.web.limits import (
     LimitsSource,
     _last_claude_windows,

@@ -234,7 +234,7 @@ def install_fake_az(
     )
     monkeypatch.setenv("AIFACTORY_FAKE_AZ_STATE", str(state_dir))
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
-    monkeypatch.delenv("AIFACTORY_AZ", raising=False)
+    monkeypatch.delenv("GIRO_AZ", raising=False)
     monkeypatch.delenv("AZURE_DEVOPS_EXT_PAT", raising=False)
     return AzLog(state_dir)
 

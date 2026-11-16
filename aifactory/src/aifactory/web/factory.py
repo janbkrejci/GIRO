@@ -634,8 +634,7 @@ def roster(root: Path) -> JsonDict:
     """
     from aifactory.config.loader import load_worktree_config
     from aifactory.config.roster import PRESETS, inherited_bindings
-    from aifactory.harness import canonical
-    from aifactory.harness.override import THINKING_LEVELS
+    from aifactory.harness import THINKING_LEVELS, canonical
     from aifactory.library.config_edit import _base_tasks, read_state
 
     with _core_errors():

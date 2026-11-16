@@ -21,7 +21,7 @@ pytestmark = [pytest.mark.browser, pytest.mark.xdist_group("e2e")]
 
 
 def test_factory_move_to_library_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
     monkeypatch.setenv("GIT_CONFIG_KEY_0", "commit.gpgsign")
     monkeypatch.setenv("GIT_CONFIG_VALUE_0", "false")
@@ -29,7 +29,7 @@ def test_factory_move_to_library_browser(tmp_path: Path, monkeypatch: pytest.Mon
         monkeypatch.setenv(f"GIT_{role}_NAME", "Test")
         monkeypatch.setenv(f"GIT_{role}_EMAIL", "test@example.com")
     home = tmp_path / "home"
-    init_library("test", {"HAIFA_HOME": str(home)})
+    init_library("test", {"GIRO_HOME": str(home)})
     lib = home / "library"
     library_head = git(lib, "rev-parse", "HEAD")
     # The repo's own copy of a library workflow, so the Library page lists it as an override.

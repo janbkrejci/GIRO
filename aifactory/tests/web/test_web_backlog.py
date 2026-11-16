@@ -28,7 +28,7 @@ import aifactory.backlog
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run.store import TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from aifactory.web.backlog import BOARD_STATES
 
 BASE = "http://127.0.0.1:4700"

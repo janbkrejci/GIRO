@@ -28,8 +28,8 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.run import TaskRunRow, TaskRunStore, members
 from aifactory.run.errors import TaskRunError
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
 from aifactory.web import launcher as launcher_module
+from aifactory.web.app import create_app
 from aifactory.web.launcher import DEFAULT_COMMAND, LaunchedRun, RunLauncher
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
@@ -65,7 +65,7 @@ class Stub:
 @pytest.fixture(name="stub")
 def stub_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Stub:
     stub = Stub(tmp_path / "stub.json")
-    monkeypatch.setenv("HAIFA_LAUNCH_STUB", str(stub.path))
+    monkeypatch.setenv("GIRO_LAUNCH_STUB", str(stub.path))
     return stub
 
 
@@ -187,14 +187,14 @@ def test_run_is_a_separate_process(
         assert record["sid"] == live.pid  # its own session
     assert Path(record["cwd"]).resolve() == repo
     assert record["stdin"] == ""
-    assert record["haifa_home"] == os.environ["HAIFA_HOME"]
+    assert record["haifa_home"] == os.environ["GIRO_HOME"]
     argv = record["argv"]
     assert argv[:3] == ["task", "run", T01]
     assert argv[3:6] == ["--repo", str(repo), "--json"]
     assert "--note=z UI" in argv
     assert "--force" not in argv
     logs = home.logs_dir()
-    assert logs == Path(os.environ["HAIFA_HOME"]) / "logs"
+    assert logs == Path(os.environ["GIRO_HOME"]) / "logs"
     files = sorted(logs.iterdir())
     assert sorted(p.suffix for p in files) == [".json", ".log"]
     assert {live.envelope_path, live.log_path} == set(files)
@@ -551,12 +551,12 @@ def test_command_prefix_is_configurable(repo: Path, stub: Stub) -> None:
 
 
 def test_haifa_home_resolution(tmp_path: Path) -> None:
-    assert home.haifa_home({"HAIFA_HOME": "/x/h", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/h")
-    assert home.haifa_home({"HAIFA_HOME": "", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/c/giro")
+    assert home.haifa_home({"GIRO_HOME": "/x/h", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/h")
+    assert home.haifa_home({"GIRO_HOME": "", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/c/giro")
     assert home.haifa_home({"XDG_CONFIG_HOME": "", "HOME": "/u"}) == Path("/u/.config/giro")
     assert home.haifa_home({"HOME": "/u"}) == Path("/u/.config/giro")
-    assert home.haifa_home() == Path(os.environ["HAIFA_HOME"])
-    logs = home.logs_dir({"HAIFA_HOME": str(tmp_path / "h")})
+    assert home.haifa_home() == Path(os.environ["GIRO_HOME"])
+    logs = home.logs_dir({"GIRO_HOME": str(tmp_path / "h")})
     assert logs == tmp_path / "h" / "logs"
     if sys.platform != "win32":  # Windows has no POSIX modes
         assert stat.S_IMODE(logs.stat().st_mode) == 0o700

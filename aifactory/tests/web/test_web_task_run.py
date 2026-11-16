@@ -1,7 +1,7 @@
 """Start a task run from the API: a real ``factory task run`` process over the fake harness.
 
 The launcher's command prefix is ``python -m validation.worker``; with
-``HAIFA_VALIDATE_FAKE`` the worker installs the scripted fake harness of
+``GIRO_VALIDATE_FAKE`` the worker installs the scripted fake harness of
 ``validation.fake`` in the run process. ``claude``, ``codex``, ``pi`` and ``gh`` point at a
 tripwire, so no test calls a model or the network. The launcher itself (stop,
 concurrency, errors, cleanup) is covered with a stub process in ``test_web_launcher``.
@@ -23,7 +23,7 @@ from starlette.testclient import TestClient
 
 from aifactory.run import TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from aifactory.web.launcher import RunLauncher
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
@@ -35,7 +35,7 @@ from fake_exe import make_executable
 BASE = "http://127.0.0.1:4700"
 AIFACTORY = Path(__file__).resolve().parents[2]
 WORKER = [sys.executable, "-m", "validation.worker"]
-TRIPWIRE_ENV = ("AIFACTORY_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH")
+TRIPWIRE_ENV = ("GIRO_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH")
 
 
 @dataclass
@@ -78,7 +78,7 @@ def worker_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
         f'#!/bin/sh\necho "$0 $*" >> "{marker}"\nexit 97\n', encoding="utf-8", newline="\n"
     )
     wire = make_executable(wire)
-    monkeypatch.setenv("HAIFA_VALIDATE_FAKE", str(script))
+    monkeypatch.setenv("GIRO_VALIDATE_FAKE", str(script))
     old = os.environ.get("PYTHONPATH")
     monkeypatch.setenv("PYTHONPATH", str(AIFACTORY) + (os.pathsep + old if old else ""))
     monkeypatch.setenv("UV_NO_SYNC", "1")
@@ -89,7 +89,7 @@ def worker_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
         monkeypatch.setenv(key, "test@example.com")
     for key in TRIPWIRE_ENV:
         monkeypatch.setenv(key, str(wire))
-    for key in ("HAIFA_VALIDATE_HIDDEN", "HAIFA_SANDBOX_REPO"):
+    for key in ("GIRO_VALIDATE_HIDDEN", "GIRO_SANDBOX_REPO"):
         monkeypatch.delenv(key, raising=False)
     worker = Worker(script, marker)
     yield worker

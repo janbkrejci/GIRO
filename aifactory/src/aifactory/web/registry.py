@@ -13,7 +13,7 @@ file with mode 0600.
 
 Writes hold ``flock`` on ``dashboard.lock`` next to the file, re-read the file under the
 lock, change the raw mapping (unknown keys, top-level or per entry, are kept) and replace
-the file atomically (temporary file in the same directory, ``os.replace``). A file that
+the file atomically (``oscompat.atomic_write``). A file that
 does not parse is never overwritten: writes fail with ``registry_invalid`` until it is
 fixed by hand. Reads (``Registry.snapshot``) reload the file when its mtime, size or inode
 changes; a broken file keeps the last valid state and returns a warning.
@@ -29,7 +29,6 @@ from __future__ import annotations
 import contextlib
 import os
 import re
-import tempfile
 import threading
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -252,15 +251,7 @@ class Registry:
 
     def _write(self, raw: JsonDict) -> None:
         text = yaml.safe_dump(raw, sort_keys=False, allow_unicode=True, default_flow_style=False)
-        fd, tmp = tempfile.mkstemp(prefix=f".{REGISTRY_FILE}.", suffix=".tmp", dir=self.home)
-        try:
-            oscompat.fchmod(fd, 0o600)
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
-                fh.write(text)
-            os.replace(tmp, self.path)
-        except BaseException:
-            Path(tmp).unlink(missing_ok=True)
-            raise
+        oscompat.atomic_write(self.path, text, mode=0o600)
 
     def _mutate(self, fn: Callable[[JsonDict, RegistryState], bool]) -> RegistryState:
         """Apply ``fn`` to the raw mapping under the lock; write when it returns True."""

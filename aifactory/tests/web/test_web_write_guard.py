@@ -12,7 +12,7 @@ from web_repo import git_repo
 from aifactory.run.errors import TaskRunError
 from aifactory.skill import envelope_problems
 from aifactory.skill.codes import ERROR_CODES
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 EVIL = "http://evil.example"

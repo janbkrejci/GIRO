@@ -3,7 +3,7 @@
 Writes ``.factory/config.yaml``, the backlog directory and the runtime lines of
 ``.gitignore``. Agents, workflows, skills and extensions are not copied: a run inherits
 them from the library (``aifactory.library.inherit``). Nothing is committed and nothing is
-written to the library or ``$HAIFA_HOME``.
+written to the library or ``$GIRO_HOME``.
 
 A repo whose ``config.yaml`` is committed (HEAD or base) is installed
 (``already_installed``); a repo with an sssf installation is refused (``existing_config``).

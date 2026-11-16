@@ -19,7 +19,7 @@ from aifactory import oscompat
 from aifactory.run import TaskRunStore
 from aifactory.run.stop import StopResult
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 
@@ -666,7 +666,7 @@ def test_local_off_during_fake_worker_keeps_accepted_run_and_blocks_next(
     from aifactory.run.policy import acceptance
 
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     root = make_repo(tmp_path / "repo")
     accepted = threading.Event()
     finish = threading.Event()

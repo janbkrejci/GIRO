@@ -170,7 +170,7 @@ def test_old_reader_preserves_operating_values_after_edits_and_completion(repo: 
 def test_cli_preview_and_explicit_import(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     args = ["--repo", str(repo), "--json"]
     code, preview = run_json(capsys, ["config", "local", "legacy", *args])
     assert code == 0 and preview["data"]["proposals"]["auto_merge"]["value"] is True

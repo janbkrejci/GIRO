@@ -58,8 +58,8 @@ from aifactory.config.loader import write_prompts
 from aifactory.engine.quality import DEFAULT_TEST_TIMEOUT
 from aifactory.engine.slots import TestSlots, default_slots_dir
 from aifactory.engine.utils import new_id
+from aifactory.harness import THINKING_LEVELS
 from aifactory.harness.config import SSSFConfig
-from aifactory.harness.override import THINKING_LEVELS
 from aifactory.library.inherit import copy_library_items
 from aifactory.providers import GitProvider, ProviderError, get_provider
 from aifactory.providers import git as provider_git
@@ -1021,12 +1021,12 @@ def _execute_job(
     failure_kind: str | None = None  # decided where the failure arose (aifactory.failure)
     failure_detail: dict[str, Any] = {}
     prev = Path.cwd()
-    saved_run_env = {key: os.environ.get(key) for key in ("GIRO_RUN_ID", "HAIFA_RUN_ID")}
+    saved_run_env = {"GIRO_RUN_ID": os.environ.get("GIRO_RUN_ID")}
 
     try:
         try:
             os.chdir(worktree)
-            os.environ["GIRO_RUN_ID"] = os.environ["HAIFA_RUN_ID"] = row.run_id
+            os.environ["GIRO_RUN_ID"] = row.run_id
             with _signals_restored(), agent_workdir(job.workdir):
                 baseline = retry.baseline if retry is not None else None
                 if retry is not None and retry.onto is not None:
