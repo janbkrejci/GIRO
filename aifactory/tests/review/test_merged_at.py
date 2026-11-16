@@ -11,7 +11,7 @@ from aifactory.providers import MERGED, GitProvider, PrStatus, PullRequest
 from aifactory.review import flow, sync
 from aifactory.review.flow import _Ctx, _record_state
 from aifactory.review.sync import SyncResult, _refresh_sync_prs
-from aifactory.run.store import TaskPrRow
+from aifactory.run.store import SyncPrRow, TaskPrRow
 
 MERGED_AT = "2026-09-27T11:00:05.000+00:00"
 NOW = "2026-10-15T08:00:00.000+00:00"
@@ -71,7 +71,8 @@ def test_refresh_sync_prs_uses_provider_merge_time(merged_at: str | None, expect
     store = _Store()
     status = PrStatus(MERGED, merge_sha="m", merged_at=merged_at)
     result = SyncResult(pr=None, created=False, updated=False)
-    _refresh_sync_prs(_ctx(store, status), result)
+    rows = cast(list[SyncPrRow], store.open_sync_prs())
+    _refresh_sync_prs(_ctx(store, status), result, rows, {"7": status})
     assert store.updates == [
         {"branch": _Row.branch, "state": MERGED, "merged_at": expected, "merge_sha": "m"}
     ]
