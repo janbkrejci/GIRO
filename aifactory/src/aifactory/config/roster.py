@@ -89,7 +89,7 @@ def _render(text: str, raw: dict[str, Any], updated: dict[str, Any]) -> tuple[st
     Flow mappings/aliases fall back to the existing YAML serializer, with a warning.
     Always verify the patched document has exactly the intended data before using it.
     """
-    root = yaml.compose(text)
+    root = yamlload.compose(text)
     edits: list[tuple[int, int, str]] = []
 
     def patch(node: MappingNode, before: dict[str, Any], after: dict[str, Any]) -> None:

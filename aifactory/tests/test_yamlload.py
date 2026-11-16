@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import ast
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -31,3 +36,47 @@ def test_empty_input_is_none(stream: str | bytes) -> None:
 def test_rejects_python_tags() -> None:
     with pytest.raises(yaml.YAMLError):
         yamlload.safe_load("!!python/object/apply:os.system [x]")
+
+
+def test_compose_keeps_marks() -> None:
+    node = yamlload.compose(DOCUMENT)
+    assert isinstance(node, yaml.MappingNode)
+    assert node.value[1][0].start_mark.line == 1
+
+
+def test_yaml_is_read_only_through_yamlload() -> None:
+    """Every YAML read in the package goes through the libyaml loader of ``yamlload``."""
+    readers = {"safe_load", "load", "full_load", "unsafe_load", "compose", "parse", "scan"}
+    readers |= {f"{name}_all" for name in readers}
+    package = Path(yamlload.__file__).parent
+    offenders = []
+    for path in sorted(package.rglob("*.py")):
+        if path.name == "yamlload.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            called = (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "yaml"
+                and node.attr in readers
+            )
+            imported = (
+                isinstance(node, ast.ImportFrom)
+                and node.module == "yaml"
+                and any(alias.name in readers for alias in node.names)
+            )
+            if (called or imported) and isinstance(node, ast.expr | ast.stmt):
+                offenders.append(f"{path.relative_to(package)}:{node.lineno}")
+    assert offenders == []
+
+
+def test_yamledit_imports_ruamel_only_when_editing() -> None:
+    code = (
+        "import sys\n"
+        "import aifactory.config.yamledit as yamledit\n"
+        "assert 'ruamel' not in sys.modules\n"
+        "assert 'b: 2' in yamledit.edit_yaml('a: 1\\n', lambda doc: doc.update(b=2))\n"
+        "assert 'ruamel.yaml' in sys.modules\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)

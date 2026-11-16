@@ -16,3 +16,9 @@ LOADER: type[yaml.SafeLoader] = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 def safe_load(stream: str | bytes) -> Any:
     """``yaml.safe_load`` through the fastest available safe loader."""
     return yaml.load(stream, Loader=LOADER)  # noqa: S506 - LOADER is a safe loader
+
+
+def compose(stream: str | bytes) -> yaml.Node | None:
+    """``yaml.compose`` (the node tree with marks) through the fastest available safe loader."""
+    node: yaml.Node | None = yaml.compose(stream, Loader=LOADER)
+    return node
