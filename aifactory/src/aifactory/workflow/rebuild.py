@@ -11,20 +11,20 @@ A build may change files only inside the outputs it rebuilds. Any other path
 it changes fails the step (the resolve run then restores the branch). Without
 a conflicted generated output the step does nothing.
 
-Plain git through ``subprocess``: the workflow package must not depend on
+Plain git through ``aifactory.gitrun``: the workflow package must not depend on
 ``aifactory.run`` or ``aifactory.config``; the outputs come in as ``Generated``.
 """
 
 from __future__ import annotations
 
 import hashlib
-import subprocess
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import Field
 
+from aifactory import gitrun
 from aifactory.engine import data_types as dt
 
 __all__ = ["Generated", "RebuildOutput", "covered", "covers", "rebuild_generated", "to_rebuild"]
@@ -73,12 +73,7 @@ def to_rebuild(outputs: Sequence[Generated], files: Iterable[str]) -> list[Gener
 
 def _state(root: Path) -> dict[str, str | None]:
     """Every path git reports as changed or untracked, with a hash of its content."""
-    proc = subprocess.run(
-        ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
-        cwd=root,
-        capture_output=True,
-        check=True,
-    )
+    proc = gitrun.run(root, "status", "--porcelain=v1", "-z", "--untracked-files=all", check=True)
     entries = proc.stdout.decode("utf-8", errors="surrogateescape").split("\0")
     paths: list[str] = []
     skip = False

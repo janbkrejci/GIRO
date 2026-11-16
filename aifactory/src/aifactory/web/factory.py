@@ -101,6 +101,7 @@ STATUS: dict[str, int] = {
     "pull_failed": 502,
     "gh_failed": 502,
     "gh_missing": 502,
+    "gh_timeout": 502,
     "az_failed": 502,
     "az_missing": 502,
     "az_not_logged_in": 502,

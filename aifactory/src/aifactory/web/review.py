@@ -28,7 +28,6 @@ from __future__ import annotations
 import contextlib
 import json
 import sqlite3
-import subprocess
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,7 +35,7 @@ from typing import Any
 
 import aifactory.review as review_core
 from aifactory import backlog as core
-from aifactory import database
+from aifactory import database, gitrun
 from aifactory.backlog import Backlog, Container, Task
 from aifactory.config import ConfigError, RunConfig, load_run_config
 from aifactory.engine.tracer import BUSY_TIMEOUT
@@ -262,18 +261,7 @@ def review_list(repo: Path, include_done: bool = False) -> tuple[JsonDict, list[
 
 
 def _git(main: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=main,
-        capture_output=True,
-        text=True,
-        errors="replace",
-        check=False,
-        encoding="utf-8",
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
-    return proc.stdout
+    return gitrun.run(main, *args, check=True).text
 
 
 def _fields(text: str) -> list[str]:

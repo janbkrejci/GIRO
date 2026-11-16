@@ -194,6 +194,14 @@ def _fast_test_env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _fresh_git_caches() -> None:
+    """Every test starts without the per-process git answers of the previous one."""
+    from aifactory import gitquery
+
+    gitquery.clear_caches()
+
+
+@pytest.fixture(autouse=True)
 def _no_ci_wait(monkeypatch: pytest.MonkeyPatch) -> None:
     """Approve reads a hosting's CI checks as they are (``review.ci``); no test waits 90 s."""
     from aifactory.review import ci

@@ -119,8 +119,12 @@ class GhError(ProviderError):
         super().__init__("gh_failed", f"gh {' '.join(args[:2])}: {detail}")
 
 
+# Seconds one ``gh`` command may run (as ``AZ_TIMEOUT`` for ``az``).
+GH_TIMEOUT = 120
+
+
 class GhCli:
-    """The one place that runs ``gh``."""
+    """The one place that runs ``gh``; a command running past ``GH_TIMEOUT`` is stopped."""
 
     def __init__(self, cwd: Path, executable: str | None = None) -> None:
         self.cwd = cwd
@@ -136,9 +140,14 @@ class GhCli:
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
+                timeout=GH_TIMEOUT,
             )
         except FileNotFoundError as exc:
             raise ProviderError("gh_missing", "gh is not installed or not on PATH") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise ProviderError(
+                "gh_timeout", f"gh {' '.join(args[:2])} exceeded {GH_TIMEOUT}s; retry"
+            ) from exc
         if result.returncode != 0:
             raise GhError(args, result.returncode, result.stderr)
         return result.stdout

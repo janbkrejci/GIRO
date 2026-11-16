@@ -257,16 +257,11 @@ def test_inspect_runs_only_read_git(
     _add(client, other)
     index = root / ".git" / "index"
     before = index.stat().st_mtime_ns
-    calls: list[list[str]] = []
-    real_run = subprocess.run
+    from gitspy import spy_git
 
-    def spy(argv: Any, *args: Any, **kwargs: Any) -> Any:
-        if isinstance(argv, list | tuple) and argv and argv[0] == "git":
-            calls.append([str(a) for a in argv[1:]])
-        return real_run(argv, *args, **kwargs)
-
-    monkeypatch.setattr(subprocess, "run", spy)
+    spied = spy_git(monkeypatch)
     assert _inspect(client, root / "sub")["data"]["addable"] is True
+    calls = [call.argv[1:] for call in spied]
     assert calls
 
     def subcommand(args: list[str]) -> list[str]:
@@ -833,15 +828,17 @@ def test_repo_git_read_has_useful_budget(tmp_path: Path, monkeypatch: pytest.Mon
     from aifactory import procrun
     from aifactory.web import repos
 
+    from aifactory import gitrun
+
     calls: list[object] = []
 
-    def run(argv: object, timeout: float, **kwargs: object) -> procrun.Finished:
-        calls.append(argv)
-        assert timeout == 10.0
-        assert kwargs["cwd"] == tmp_path
-        return procrun.Finished(0, "head\n", "")
+    def run(cwd: object, *args: str, **kwargs: object) -> gitrun.Result:
+        calls.append(["git", *args])
+        assert kwargs["timeout"] == 10.0 and kwargs["read_only"] is True
+        assert cwd == tmp_path
+        return gitrun.Result(("git", *args), 0, b"head\n", b"")
 
-    monkeypatch.setattr(procrun, "run", run)
+    monkeypatch.setattr(gitrun, "run", run)
     with procrun.budget(10):
         assert repos.read_git(tmp_path, "rev-parse", "HEAD") == "head"
     assert calls == [["git", "rev-parse", "HEAD"]]

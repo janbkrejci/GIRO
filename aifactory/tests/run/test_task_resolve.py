@@ -501,6 +501,7 @@ def test_resolve_requires_current_remote_base_before_removing_old_checkout(
 def test_resolve_preserves_remainder_after_partial_worktree_remove(
     repo: Path, script: Script, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from aifactory import gitrun
     from aifactory.providers import ProviderError
     from aifactory.providers import git as pgit
 
@@ -518,7 +519,7 @@ def test_resolve_preserves_remainder_after_partial_worktree_remove(
     def partial_remove(cwd: Path, args: tuple[str, ...], input: str | None) -> Any:
         if args[:2] == ("worktree", "remove"):
             shutil.rmtree(metadata)
-            return subprocess.CompletedProcess(args, 1, "", "Invalid argument")
+            return gitrun.Result(("git", *args), 1, b"", b"Invalid argument")
         return original_run(cwd, args, input)
 
     with monkeypatch.context() as patch:

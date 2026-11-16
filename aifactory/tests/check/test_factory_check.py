@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import os
-import subprocess
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -417,16 +416,11 @@ def test_check_changes_nothing(repo: Path, tmp_path: Path, offline: bool) -> Non
 def test_config_git_reads_without_optional_locks(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    seen: list[dict[str, str]] = []
-    real: Callable[..., Any] = subprocess.run
+    from gitspy import spy_git
 
-    def spy(*args: Any, **kwargs: Any) -> Any:
-        seen.append(dict(kwargs.get("env") or {}))
-        return real(*args, **kwargs)
-
-    monkeypatch.setattr("aifactory.config.source.subprocess.run", spy)
+    spied = spy_git(monkeypatch)
     config_changes(repo, git(repo, "rev-parse", "HEAD").strip())
-    assert seen and all(env.get("GIT_OPTIONAL_LOCKS") == "0" for env in seen)
+    assert spied and all((c.env or {}).get("GIT_OPTIONAL_LOCKS") == "0" for c in spied)
 
 
 # -- repo skills mirror and harness isolation (HAIFA-S05-T05) --

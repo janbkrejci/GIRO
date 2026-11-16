@@ -10,19 +10,18 @@ changes at once: every conflict is then in the tree with its markers, so the
 resolver settles them in one step and code commits them as one commit (the
 default merge strategy is squash anyway, D9).
 
-Plain git through ``subprocess``: the workflow package must not depend on
+Plain git through ``aifactory.gitrun``: the workflow package must not depend on
 ``aifactory.run``. Every call runs with ``GIT_EDITOR=true`` so git never waits
 for an editor.
 """
 
 from __future__ import annotations
 
-import os
-import subprocess
 from pathlib import Path
 
 from pydantic import Field
 
+from aifactory import gitrun
 from aifactory.engine import data_types as dt
 
 __all__ = ["RebaseOutput", "conflict_markers", "rebase_onto", "unmerged_files"]
@@ -41,24 +40,16 @@ class RebaseOutput(dt.EnvelopeBase):
     squashed: bool = False
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    env = {**os.environ, "GIT_EDITOR": "true"}
-    return subprocess.run(
-        ["git", "-c", "core.editor=true", *args],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        env=env,
-        encoding="utf-8",
-    )
+def _git(root: Path, *args: str) -> gitrun.Result:
+    return gitrun.run(root, "-c", "core.editor=true", *args, env={"GIT_EDITOR": "true"})
 
 
 def _must(root: Path, *args: str) -> str:
     proc = _git(root, *args)
     if proc.returncode != 0:
-        detail = proc.stderr.strip() or proc.stdout.strip()
+        detail = proc.error or proc.out
         raise RuntimeError(f"git {' '.join(args)} failed: {detail}")
-    return proc.stdout.strip()
+    return proc.out
 
 
 def unmerged_files(root: Path) -> list[str]:
@@ -133,7 +124,7 @@ def rebase_onto(root: Path, onto: str, upstream: str | None = None) -> RebaseOut
     merge = _git(root, "merge", "--squash", before)
     files = unmerged_files(root)
     if merge.returncode != 0 and not files:
-        detail = merge.stderr.strip() or merge.stdout.strip()
+        detail = merge.error or merge.out
         raise RuntimeError(f"git merge --squash {before[:7]} failed: {detail}")
     if not files:
         if _git(root, "diff", "--cached", "--quiet").returncode != 0:

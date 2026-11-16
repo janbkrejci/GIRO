@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -34,19 +33,19 @@ def test_1655_files_use_one_batch_and_no_python_file_io(
         write(root, f"factory/backlog/P/S/T{i}.md", task_md(f"P-S-T{i}"))
     write(root, "outside.md", "must not be included")
     sha = commit(root)
-    calls: list[list[str]] = []
-    run = subprocess.run
+    from gitspy import GitCall, spy_git
 
-    def spy(argv: list[str], **kwargs: Any) -> Any:
-        calls.append(argv)
-        assert "archive" not in argv
-        return run(argv, **kwargs)
+    calls: list[list[str]] = []
+
+    def spy(call: GitCall) -> None:
+        calls.append(call.argv)
+        assert "archive" not in call.argv
 
     def forbidden(*args: Any, **kwargs: Any) -> Any:
         pytest.fail("committed backlog must not open or create filesystem paths")
 
     with monkeypatch.context() as patch:
-        patch.setattr(subprocess, "run", spy)
+        spy_git(patch, spy)
         patch.setattr(Path, "open", forbidden)
         patch.setattr(Path, "mkdir", forbidden)
         backlog = load_backlog_at(root, sha, ProjectSettings())

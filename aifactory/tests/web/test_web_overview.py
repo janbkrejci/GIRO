@@ -358,16 +358,11 @@ def test_git_reads_without_optional_locks_and_no_fetch(
     register(home, repo_a)
     if dirty:
         write(repo_a, "backlog/new.md", "New backlog file\n")
-    calls: list[tuple[list[str], dict[str, str] | None]] = []
-    real_run = subprocess.run
+    from gitspy import spy_git
 
-    def record(args: Any, *rest: Any, **kwargs: Any) -> Any:
-        if isinstance(args, list | tuple) and args and args[0] == "git":
-            calls.append(([str(a) for a in args], kwargs.get("env")))
-        return real_run(args, *rest, **kwargs)
-
-    monkeypatch.setattr(subprocess, "run", record)
+    spied = spy_git(monkeypatch)
     item = _get(_client(home, tmp_path))["repos"][0]
+    calls = [(call.argv, call.env) for call in spied]
     assert item["backlog"] == {
         "state": "dirty" if dirty else "clean",
         "count": int(dirty),

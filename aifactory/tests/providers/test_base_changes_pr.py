@@ -145,3 +145,21 @@ def test_github_without_admin_rights_keeps_the_pr_open(tmp_path: Path) -> None:
     with pytest.raises(MergeFailed) as info:
         provider.merge_own(PR_7, "h", "factory: x")
     assert "with --admin" in info.value.message
+
+
+@pytest.mark.parametrize("merge", ["manual", "auto"])
+def test_backlog_pr_git_processes_do_not_grow_with_the_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, merge: str
+) -> None:
+    from gitcount import count_git
+
+    totals = []
+    for n in (1, 6):
+        repo = _repo(tmp_path / f"n{n}", merge)
+        for i in range(n):
+            add_task(repo, "M01-S01", f"Úkol {i}")
+        with count_git(monkeypatch, tmp_path / f"trace{n}") as count:
+            result = commit_backlog(repo)
+        assert result.committed and len(result.paths) >= n
+        totals.append(count.total)
+    assert totals[0] == totals[1], totals

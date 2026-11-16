@@ -22,7 +22,6 @@ import hashlib
 import os
 import shutil
 import stat
-import subprocess
 import tempfile
 import uuid
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -32,7 +31,7 @@ from typing import Any
 
 import yaml
 
-from aifactory import __version__, oscompat, yamlload
+from aifactory import __version__, gitrun, oscompat, yamlload
 from aifactory.engine.role_registry import Issue
 from aifactory.environment import value
 from aifactory.home import haifa_home
@@ -149,10 +148,8 @@ def _dirty(root: Path) -> list[str]:
 def _identity_value(cwd: Path, key: str, envs: tuple[str, str]) -> bool:
     if all(os.environ.get(e) for e in envs):
         return True
-    proc = subprocess.run(
-        ["git", "config", "--get", key], cwd=cwd, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.returncode == 0 and bool(proc.stdout.strip())
+    proc = gitrun.run(cwd, "config", "--get", key)
+    return proc.ok and bool(proc.out)
 
 
 def check_identity(cwd: Path) -> None:
@@ -360,7 +357,7 @@ def current_branch(root: Path) -> str:
     return name if proc.returncode == 0 and name else BRANCH
 
 
-def _git_detail(proc: subprocess.CompletedProcess[bytes], url: str | None = None) -> str:
+def _git_detail(proc: gitrun.Result, url: str | None = None) -> str:
     detail = proc.stderr.decode("utf-8", "replace").strip() or "failed"
     return detail.replace(url, git.redact_url(url)) if url else detail
 

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from aifactory import procrun
+from aifactory import gitrun, procrun
 from aifactory.config import ConfigError
 from aifactory.config.repo_state import RepoState, repo_state
 from aifactory.config.settings import load_local
@@ -56,13 +56,7 @@ def read_git(path: Path, *args: str) -> str | None:
     require_git_budget()
     if procrun.remaining() is None:
         return _read_git(path, *args)
-    proc = procrun.run(
-        ["git", *args],
-        10.0,
-        cwd=path,
-        env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
-    )
-    return proc.stdout.strip() if proc.returncode == 0 else None
+    return gitrun.try_out(path, *args, read_only=True, timeout=10.0)
 
 
 def _input_path(raw: object) -> Path:

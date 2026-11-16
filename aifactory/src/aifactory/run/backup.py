@@ -21,7 +21,6 @@ import json
 import os
 import shutil
 import stat
-import subprocess
 import sys
 import tempfile
 import time
@@ -30,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from aifactory import gitrun
 from aifactory.run import gitops
 
 INDEX = "(index)"
@@ -90,10 +90,8 @@ def _sha(data: bytes) -> str:
 
 
 def _z(root: Path, *args: str) -> list[str]:
-    proc = subprocess.run(["git", *args], cwd=root, capture_output=True)
-    if proc.returncode != 0:
-        return []
-    return [p for p in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if p]
+    proc = gitrun.run(root, *args)
+    return proc.z() if proc.ok else []
 
 
 def dirty_paths(root: Path, patterns: tuple[str, ...] = ()) -> set[str]:
@@ -119,14 +117,8 @@ def state_of(root: Path, path: str) -> FileState:
 
 
 def _index_path(root: Path) -> Path | None:
-    proc = subprocess.run(
-        ["git", "rev-parse", "--path-format=absolute", "--git-path", "index"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return Path(proc.stdout.strip()) if proc.returncode == 0 and proc.stdout.strip() else None
+    proc = gitrun.run(root, "rev-parse", "--path-format=absolute", "--git-path", "index")
+    return Path(proc.out) if proc.ok and proc.out else None
 
 
 def _write_tree(root: Path) -> str | None:
@@ -140,7 +132,7 @@ def _write_tree(root: Path) -> str | None:
     index = _index_path(root)
     for attempt in range(20):
         with tempfile.TemporaryDirectory(prefix="haifa-index-") as tmp:
-            env = None
+            env: dict[str, str] | None = None
             if index is not None:
                 copy = Path(tmp) / "index"
                 try:
@@ -148,18 +140,11 @@ def _write_tree(root: Path) -> str | None:
                 except FileNotFoundError:
                     pass
                 else:
-                    env = {**os.environ, "GIT_INDEX_FILE": str(copy)}
-            proc = subprocess.run(
-                ["git", "write-tree"],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                env=env,
-                encoding="utf-8",
-            )
-        if proc.returncode == 0:
-            return proc.stdout.strip()
-        if "index.lock" not in proc.stderr:
+                    env = {"GIT_INDEX_FILE": str(copy)}
+            proc = gitrun.run(root, "write-tree", env=env)
+        if proc.ok:
+            return proc.out
+        if "index.lock" not in proc.error:
             return None
         time.sleep(0.05 * (attempt + 1))
     return None
@@ -246,7 +231,7 @@ def _head_entry(root: Path, head: str | None, path: str) -> tuple[str, bytes] | 
     # Journal entries hash bytes on disk, including Git's checkout conversion
     # (notably CRLF on Windows). Symlink targets are stored verbatim.
     args = ["blob", meta[2]] if meta[0] == "120000" else ["--filters", f"--path={path}", meta[2]]
-    proc = subprocess.run(["git", "cat-file", *args], cwd=root, capture_output=True)
+    proc = gitrun.run(root, "cat-file", *args)
     if proc.returncode != 0:
         return None
     return meta[0], proc.stdout
