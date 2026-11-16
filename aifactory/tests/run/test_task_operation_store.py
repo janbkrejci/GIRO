@@ -290,3 +290,67 @@ def test_member_operation_handoff_and_timeout(
         assert store.conn.execute("SELECT COUNT(*) FROM task_operations").fetchone()[0] == 0
     finally:
         store.close()
+
+
+def test_member_claim_loop_does_not_run_git_per_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    from run_repo import make_run_repo
+
+    from aifactory.run import gitops, members
+
+    repo = make_run_repo(tmp_path / "repo")
+    row = TaskRunRow(
+        run_id="claimed",
+        task_id="T01",
+        branch="b",
+        worktree="",
+        base="main",
+        base_sha="a",
+        head_sha=None,
+        state="running",
+        started_at="2026-01-01",
+        pid=os.getpid(),
+    )
+
+    class Process:
+        pid = os.getpid()
+
+        def poll(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        members, "subprocess", SimpleNamespace(Popen=lambda *args, **kwargs: Process(), DEVNULL=-3)
+    )
+    real_run = subprocess.run
+    git_calls: list[tuple[str, ...]] = []
+
+    def counting_run(args: list[str], *rest: object, **kwargs: object) -> object:
+        if args and args[0] == "git":
+            git_calls.append(tuple(args))
+        return real_run(args, *rest, **kwargs)  # type: ignore[call-overload]
+
+    monkeypatch.setattr(gitops.subprocess, "run", counting_run)
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        if len(sleeps) == 20:
+            store = TaskRunStore(repo / ".factory" / "trace.db")
+            try:
+                store.claim(row)
+            finally:
+                store.close()
+
+    monkeypatch.setattr(
+        members,
+        "time",
+        SimpleNamespace(strftime=lambda *args: "clock", monotonic=lambda: 0.0, sleep=sleep),
+    )
+    assert members.ProcessRunner(repo, poll=0.01).start("T01").run_id == "claimed"
+    # Starting resolves the repository a fixed number of times, never once per check.
+    assert len(git_calls) < 10, len(git_calls)
+    assert sleeps == [members.CLAIM_POLL] * 20
