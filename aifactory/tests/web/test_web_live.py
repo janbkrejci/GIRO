@@ -87,6 +87,29 @@ def test_file_change_is_an_event(repo: Path) -> None:
         watcher.close()
 
 
+def test_added_and_removed_files_are_events(repo: Path) -> None:
+    added_task = "backlog/M01-core/S02-new/M01-S02-T01-new.md"
+    added_factory = ".factory/prompts/extra.md"
+    watcher = LiveWatcher(repo)
+    try:
+        assert watcher.poll() == []
+        _append(repo / added_task, "# New\n")
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["backlog"], "paths": [added_task], "truncated": False}
+        _append(repo / added_factory, "prompt\n")
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["factory"], "paths": [added_factory], "truncated": False}
+        (repo / added_factory).unlink()
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["factory"], "paths": [added_factory], "truncated": False}
+        (repo / added_task).unlink()
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["backlog"], "paths": [added_task], "truncated": False}
+        assert watcher.poll() == []
+    finally:
+        watcher.close()
+
+
 def test_worktrees_data_and_trace_db_are_not_file_events(repo: Path) -> None:
     watcher = LiveWatcher(repo)
     try:

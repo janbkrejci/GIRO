@@ -8,8 +8,9 @@ its events out to the ``/api/live`` Server-Sent Events streams. The multi-repo a
 one hub per repository (``/api/repos/{id}/live``) and closes it when the repository leaves
 the registry; ``aclose`` may be called more than once.
 
-Only the standard library watches: polling every 0.5 s keeps changes under the 2 s the
-screens promise. ``.factory/worktrees``, ``.factory/data`` and the trace DB files are not
+Only the standard library watches: polling every 1 s keeps changes under the 2 s the
+screens promise. The scan uses ``os.scandir`` so that ``DirEntry.stat()`` reuses the
+directory listing (on Windows no extra file open per file). ``.factory/worktrees``, ``.factory/data`` and the trace DB files are not
 watched as files (checkouts and logs of the runs themselves).
 """
 
@@ -141,21 +142,34 @@ class LiveWatcher:
         for area, top in self._roots:
             if not top.is_dir():
                 continue
-            for dirpath, dirnames, filenames in os.walk(top):
-                current = Path(dirpath)
-                dirnames[:] = [
-                    d
-                    for d in dirnames
-                    if d not in _IGNORED_DIRS and (current / d) not in self._skip_dirs
-                ]
-                for name in filenames:
+            pending = [top]
+            while pending:
+                current = pending.pop()
+                try:
+                    with os.scandir(current) as entries:
+                        listed = list(entries)
+                except OSError:
+                    continue
+                for entry in listed:
+                    name = entry.name
+                    try:
+                        is_dir = entry.is_dir(follow_symlinks=True)
+                    except OSError:
+                        continue
+                    if is_dir:
+                        if entry.is_symlink():
+                            continue  # os.walk does not descend into symlinked dirs
+                        path = current / name
+                        if name not in _IGNORED_DIRS and path not in self._skip_dirs:
+                            pending.append(path)
+                        continue
                     if name.endswith(_IGNORED_SUFFIXES):
                         continue
                     path = current / name
                     if path in self._skip_files:
                         continue
                     try:
-                        st = path.stat()
+                        st = entry.stat()
                     except OSError:
                         continue
                     try:
@@ -365,7 +379,7 @@ class LiveHub:
     ``resync`` event, so a slow client never holds the others up.
     """
 
-    def __init__(self, repo: Path, *, interval: float = 0.5) -> None:
+    def __init__(self, repo: Path, *, interval: float = 1.0) -> None:
         self.repo = repo
         self.interval = interval
         self._queues: set[asyncio.Queue[LiveEvent | None]] = set()
