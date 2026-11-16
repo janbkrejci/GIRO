@@ -16,7 +16,8 @@ from trace_fixture import make_trace_db
 from aifactory.run.errors import TaskRunError
 from aifactory.run.task import session_dir_of
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app, runs
+from aifactory.web import runs
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 

@@ -58,8 +58,8 @@ from aifactory.config.loader import write_prompts
 from aifactory.engine.quality import DEFAULT_TEST_TIMEOUT
 from aifactory.engine.slots import TestSlots, default_slots_dir
 from aifactory.engine.utils import new_id
+from aifactory.harness import THINKING_LEVELS
 from aifactory.harness.config import SSSFConfig
-from aifactory.harness.override import THINKING_LEVELS
 from aifactory.library.inherit import copy_library_items
 from aifactory.providers import GitProvider, ProviderError, get_provider
 from aifactory.providers import git as provider_git

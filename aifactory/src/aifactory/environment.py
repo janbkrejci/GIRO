@@ -62,20 +62,7 @@ def resolve(
                 )
             candidate = layer.get(new) or layer.get(old)
             if selected is None and candidate:
-                # A migrated HAIFA default must never send GIRO back to HAIFA releases.
-                if (
-                    suffix == "UPDATE_REPO"
-                    and not layer.get(new)
-                    and candidate == "janbkrejci/HAIFA"
-                ):
-                    print(
-                        "giro: warning: ignoring HAIFA_UPDATE_REPO pointing "
-                        "to the retired HAIFA release source",
-                        file=out,
-                    )
-                    selected = "janbkrejci/GIRO"
-                else:
-                    selected = candidate
+                selected = candidate
         if selected is not None:
             result[new] = result[old] = selected
     return result

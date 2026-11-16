@@ -21,8 +21,8 @@ from aifactory.config import load_local
 from aifactory.library import store
 from aifactory.run.store import RUNNING, TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
 from aifactory.web import factory as web_factory
+from aifactory.web.app import create_app
 from aifactory.web.repos import trace_db_of
 from fake_exe import make_executable
 

@@ -19,7 +19,8 @@ from starlette.testclient import TestClient
 
 from aifactory import review
 from aifactory.review.flow import CleanResult
-from aifactory.web import create_multi_app, system
+from aifactory.web import system
+from aifactory.web.app import create_multi_app
 from aifactory.web.registry import Registry, RegistryState, RepoEntry
 from aifactory.workflow import adaptive
 

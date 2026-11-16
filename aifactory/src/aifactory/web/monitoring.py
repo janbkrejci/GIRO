@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from aifactory.home import haifa_home
 from aifactory.migration_guard import check_home
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 
 log = logging.getLogger(__name__)
 

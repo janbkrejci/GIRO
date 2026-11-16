@@ -22,8 +22,7 @@ from aifactory import yamlload
 from aifactory.config.errors import ConfigError, ConfigIssue
 from aifactory.config.loader import AGENTS_FILE, load_config
 from aifactory.config.source import OverlaySource, WorktreeSource, repo_root
-from aifactory.harness import canonical, load
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS, canonical, load
 
 PRESETS = {
     "codex": {"harness": "codex", "model": "gpt-6.1-sol", "thinking": "medium"},
@@ -90,7 +89,7 @@ def _render(text: str, raw: dict[str, Any], updated: dict[str, Any]) -> tuple[st
     Flow mappings/aliases fall back to the existing YAML serializer, with a warning.
     Always verify the patched document has exactly the intended data before using it.
     """
-    root = yaml.compose(text)
+    root = yamlload.compose(text)
     edits: list[tuple[int, int, str]] = []
 
     def patch(node: MappingNode, before: dict[str, Any], after: dict[str, Any]) -> None:

@@ -347,7 +347,7 @@ def _check_harness(value: str) -> str:
 
 
 def _check_thinking(value: str) -> str:
-    from aifactory.harness.override import THINKING_LEVELS
+    from aifactory.harness import THINKING_LEVELS
 
     if value not in THINKING_LEVELS:
         raise LibraryStoreError(

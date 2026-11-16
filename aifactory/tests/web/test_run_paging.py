@@ -11,7 +11,8 @@ from starlette.testclient import TestClient
 from trace_fixture import T1, make_trace_db
 
 from aifactory.run.store import TaskRunRow, TaskRunStore
-from aifactory.web import create_app, runs
+from aifactory.web import runs
+from aifactory.web.app import create_app
 from aifactory.web.live import LiveWatcher
 
 

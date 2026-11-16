@@ -23,7 +23,7 @@ from starlette.testclient import TestClient
 
 from aifactory.run import TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from aifactory.web.launcher import RunLauncher
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))

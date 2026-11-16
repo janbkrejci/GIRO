@@ -69,7 +69,7 @@ Complete sign-in when first running `claude`. Other harnesses: `codex login`, `p
 
 ## Installing the bundle <!-- section:instalace-balicku -->
 
-The `giro-<version>.zip` bundle is published on the [GIRO releases page](https://github.com/janbkrejci/GIRO/releases/latest). Existing installations transition through the [last HAIFA release](https://github.com/janbkrejci/HAIFA/releases/latest), whose bundle is `haifa-H.zip` (H is the last HAIFA 0.1 version). For a fresh installation, extract the GIRO bundle and run the installer:
+The `giro-<version>.zip` bundle is published on the [GIRO releases page](https://github.com/janbkrejci/GIRO/releases/latest). Extract it and run the installer:
 
 ```bash
 unzip giro-<version>.zip
@@ -124,7 +124,7 @@ In the extracted bundle, run `uninstall.bat` (Windows) or `./uninstall.sh` (macO
 
 Without the bundle, use `uv tool uninstall aifactory`. Dependencies (git, uv, gh, Node.js, harnesses), repository configuration (`.factory/`) and the backlog remain.
 
-To move from older HAIFA, first update to the last HAIFA with the “HAIFA is becoming GIRO” alert. Once GIRO is released, click the migration action: it verifies the bundle, preserves a backup and restores the dashboard at the same address. Successful GIRO shows no migration alert and uses the new repository for normal updates. Backups are never automatically deleted. Standalone startup with old data may return `migration_required`; after stopping all processes, use `giro migrate --confirm --haifa-bundle /path/haifa-H.zip` with the verified last HAIFA bundle. Two distinct unmarked homes block startup. For rollback, stop all writes, preserve the new state too, then restore every original path and the software from the verified backup; do not remove the marker to bypass recovery. The source repository documents the full protocol in `docs/rebranding/release.md`.
+If startup finds only the old HAIFA home (`~/.config/haifa`), it stops with `migration_required` and writes nothing. Stop HAIFA and move the folder to `~/.config/giro`, or set `GIRO_HOME`. Do not bypass the marker of an earlier migration.
 
 `factory` remains a compatibility alias of `giro`; `HAIFA_*` are legacy aliases of `GIRO_*`. A nonempty new name wins within a layer; process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Browser preferences keep their storage keys at the same origin. Purging a marked migration home is refused; use `--keep-data` / `-KeepData` to preserve data.
 

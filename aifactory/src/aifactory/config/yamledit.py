@@ -15,13 +15,15 @@ from __future__ import annotations
 import io
 import re
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from aifactory import yamlload
+
+if TYPE_CHECKING:
+    from ruamel.yaml import YAML
+    from ruamel.yaml.comments import CommentedMap
 
 _SEQ_LINE = re.compile(r"^( *)- ", re.MULTILINE)
 _FIRST = ("name", "purpose", "harness", "model", "thinking")
@@ -39,6 +41,9 @@ def _indent(text: str) -> tuple[int, int, int]:
 
 def load_rt(text: str) -> tuple[YAML, Any]:
     """A round-trip loader configured for `text` and the document (an empty map if none)."""
+    from ruamel.yaml import YAML
+    from ruamel.yaml.comments import CommentedMap
+
     rt = YAML(typ="rt")
     rt.preserve_quotes = True
     rt.width = 4096
@@ -72,6 +77,8 @@ def edit_yaml(text: str, change: Callable[[Any], None]) -> str:
 
 
 def _agents(doc: Any) -> Any:
+    from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
     if not isinstance(doc, CommentedMap):
         raise ValueError("agents.yaml must be a mapping")
     agents = doc.get("agents")
@@ -84,6 +91,8 @@ def _agents(doc: Any) -> Any:
 
 
 def _entry(doc: Any, slot: str) -> CommentedMap:
+    from ruamel.yaml.comments import CommentedMap
+
     for entry in _agents(doc):
         if isinstance(entry, CommentedMap) and entry.get("name") == slot:
             return entry
@@ -91,6 +100,8 @@ def _entry(doc: Any, slot: str) -> CommentedMap:
 
 
 def _value(value: Any) -> Any:
+    from ruamel.yaml.comments import CommentedSeq
+
     if isinstance(value, list | tuple):
         return CommentedSeq(list(value))
     return value
@@ -98,6 +109,8 @@ def _value(value: Any) -> Any:
 
 def roster_add(doc: Any, entry: Mapping[str, Any]) -> None:
     """Append a roster entry; key order name, purpose, harness, model, thinking, the rest."""
+    from ruamel.yaml.comments import CommentedMap
+
     new = CommentedMap()
     for key in (*[k for k in _FIRST if k in entry], *[k for k in entry if k not in _FIRST]):
         new[key] = _value(entry[key])

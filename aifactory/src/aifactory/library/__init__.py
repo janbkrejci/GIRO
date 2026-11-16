@@ -3,34 +3,86 @@
 Each item has a format, a content version and an origin; the seed ships in the package.
 """
 
-from aifactory.library.agent import expand_writes, roster_entry
-from aifactory.library.load import (
-    check_library_item,
-    check_repo_item,
-    load_library_item,
-    load_repo_item,
-    validate_item,
+from typing import TYPE_CHECKING
+
+from aifactory.lazyexports import lazy_exports
+
+if TYPE_CHECKING:
+    from aifactory.library.agent import expand_writes, roster_entry
+    from aifactory.library.load import (
+        check_library_item,
+        check_repo_item,
+        load_library_item,
+        load_repo_item,
+        validate_item,
+    )
+    from aifactory.library.model import (
+        ITEM_TYPES,
+        MAX_ITEM_BYTES,
+        MAX_ITEM_FILES,
+        NAME_RE,
+        AgentDefaults,
+        Item,
+        ItemFile,
+        ItemType,
+        LibraryError,
+    )
+    from aifactory.library.seed import (
+        SEED_AGENTS,
+        SEED_DIR,
+        seed_agent_names,
+        seed_extension_names,
+        seed_items,
+        seed_workflow_names,
+    )
+    from aifactory.library.version import (
+        agent_version,
+        item_version,
+        tree_version,
+        workflow_version,
+    )
+
+__getattr__, __dir__ = lazy_exports(
+    __name__,
+    {
+        "aifactory.library.agent": (
+            "expand_writes",
+            "roster_entry",
+        ),
+        "aifactory.library.load": (
+            "check_library_item",
+            "check_repo_item",
+            "load_library_item",
+            "load_repo_item",
+            "validate_item",
+        ),
+        "aifactory.library.model": (
+            "ITEM_TYPES",
+            "MAX_ITEM_BYTES",
+            "MAX_ITEM_FILES",
+            "NAME_RE",
+            "AgentDefaults",
+            "Item",
+            "ItemFile",
+            "ItemType",
+            "LibraryError",
+        ),
+        "aifactory.library.seed": (
+            "SEED_AGENTS",
+            "SEED_DIR",
+            "seed_agent_names",
+            "seed_extension_names",
+            "seed_items",
+            "seed_workflow_names",
+        ),
+        "aifactory.library.version": (
+            "agent_version",
+            "item_version",
+            "tree_version",
+            "workflow_version",
+        ),
+    },
 )
-from aifactory.library.model import (
-    ITEM_TYPES,
-    MAX_ITEM_BYTES,
-    MAX_ITEM_FILES,
-    NAME_RE,
-    AgentDefaults,
-    Item,
-    ItemFile,
-    ItemType,
-    LibraryError,
-)
-from aifactory.library.seed import (
-    SEED_AGENTS,
-    SEED_DIR,
-    seed_agent_names,
-    seed_extension_names,
-    seed_items,
-    seed_workflow_names,
-)
-from aifactory.library.version import agent_version, item_version, tree_version, workflow_version
 
 __all__ = [
     "ITEM_TYPES",

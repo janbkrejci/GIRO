@@ -22,8 +22,7 @@ from aifactory.config.loader import write_prompts
 from aifactory.config.settings import load_local
 from aifactory.config.source import LOCAL_FILE, git_try
 from aifactory.config.status import change_summary
-from aifactory.harness import unenforced_disallowed
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS, unenforced_disallowed
 from aifactory.harness.repo_skills import MIRROR, SOURCE, commit_snapshot, diff_snapshots
 from aifactory.run.errors import TaskRunError
 from aifactory.run.task import FACTORY_DATA_DIR, named_workflow

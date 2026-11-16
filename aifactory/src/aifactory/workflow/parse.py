@@ -28,8 +28,7 @@ from aifactory.engine.role_registry import (
     check_description,
     load_roles,
 )
-from aifactory.harness import ALIASES, HARNESSES, canonical
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import ALIASES, HARNESSES, THINKING_LEVELS, canonical
 from aifactory.workflow.conditions import Condition, ConditionError, parse_condition, refs
 from aifactory.workflow.model import (
     DEFAULT_COMMAND_TIMEOUT,

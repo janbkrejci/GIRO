@@ -9,7 +9,7 @@ import yaml
 from test_web_factory import AGENTS, Api, api, git, home, install
 
 from aifactory.config.roster import PRESETS
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS
 from aifactory.workflow import DEFAULT_WORKFLOWS_DIR
 
 __all__ = ["api", "home"]

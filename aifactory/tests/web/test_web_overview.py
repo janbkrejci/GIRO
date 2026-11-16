@@ -33,7 +33,8 @@ from starlette.testclient import TestClient
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run.store import SyncPrRow, TaskPrRow, TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app, overview
+from aifactory.web import overview
+from aifactory.web.app import create_multi_app
 from aifactory.web.backlog import BOARD_STATES
 from aifactory.web.overview import CONFIG_TTL, PROCESS_ENDED, TASKS_TTL, Overview
 from aifactory.web.registry import Registry, RepoEntry

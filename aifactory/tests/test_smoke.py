@@ -41,7 +41,7 @@ def test_subcommands_not_implemented(capsys: pytest.CaptureFixture[str]) -> None
             "skills",
             "learn",
         )
-        setup = ("init", "try", "update", "library", "obs", "upgrade", "migrate")
+        setup = ("init", "try", "update", "library", "obs", "upgrade")
         if name in (*implemented, *setup):
             continue
         assert main([name]) == 2

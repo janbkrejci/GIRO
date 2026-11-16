@@ -2,11 +2,11 @@
 
 * ``publish``: after a run meets ``accept`` its branch is pushed and the PR is
   opened (or its body updated) with the task, agent summaries, gate and test
-  results, the reviewer's verdict and the costs (``prbody``); the PR is a row in
+  results, the reviewer"s verdict and the costs (``prbody``); the PR is a row in
   ``task_prs``.
 * ``approve_task`` (``factory task approve``): one commit on the PR branch with
   ``status: done`` and a line in ``## Běhy``, then the merge; ``base`` is caught
-  up with the remote and the branch's worktrees are removed. Before the merge the
+  up with the remote and the branch"s worktrees are removed. Before the merge the
   provider sends a host approval where it can: an Azure vote, or a GitHub APPROVE
   review as ``github_approver`` when that is set.
 * ``try_auto_merge`` (``automerge``): with repository-local ``auto_merge`` the PR of a
@@ -34,28 +34,68 @@ A PR the provider reports as closed or merged is recorded so in ``task_prs``;
 approving or returning it fails with ``pr_not_open``.
 """
 
-from aifactory.review.automerge import (
-    AutoMergeResult,
-    auto_merge_enabled,
-    hosting_blocker,
-    last_review,
-    review_blocker,
-    try_auto_merge,
-    workflow_has_review,
+from typing import TYPE_CHECKING
+
+from aifactory.lazyexports import lazy_exports
+
+if TYPE_CHECKING:
+    from aifactory.review.automerge import (
+        AutoMergeResult,
+        auto_merge_enabled,
+        hosting_blocker,
+        last_review,
+        review_blocker,
+        try_auto_merge,
+        workflow_has_review,
+    )
+    from aifactory.review.errors import ReviewError
+    from aifactory.review.flow import (
+        ApproveResult,
+        CleanResult,
+        approve_task,
+        clean_worktrees,
+        publish_task,
+        resolve_task,
+        return_task,
+    )
+    from aifactory.review.prbody import pr_body, pr_title
+    from aifactory.review.publish import PublishResult
+    from aifactory.review.sync import SyncResult, refresh_prs, sync_backlog
+
+__getattr__, __dir__ = lazy_exports(
+    __name__,
+    {
+        "aifactory.review.automerge": (
+            "AutoMergeResult",
+            "auto_merge_enabled",
+            "hosting_blocker",
+            "last_review",
+            "review_blocker",
+            "try_auto_merge",
+            "workflow_has_review",
+        ),
+        "aifactory.review.errors": ("ReviewError",),
+        "aifactory.review.flow": (
+            "ApproveResult",
+            "CleanResult",
+            "approve_task",
+            "clean_worktrees",
+            "publish_task",
+            "resolve_task",
+            "return_task",
+        ),
+        "aifactory.review.prbody": (
+            "pr_body",
+            "pr_title",
+        ),
+        "aifactory.review.publish": ("PublishResult",),
+        "aifactory.review.sync": (
+            "SyncResult",
+            "refresh_prs",
+            "sync_backlog",
+        ),
+    },
 )
-from aifactory.review.errors import ReviewError
-from aifactory.review.flow import (
-    ApproveResult,
-    CleanResult,
-    approve_task,
-    clean_worktrees,
-    publish_task,
-    resolve_task,
-    return_task,
-)
-from aifactory.review.prbody import pr_body, pr_title
-from aifactory.review.publish import PublishResult, publish
-from aifactory.review.sync import SyncResult, refresh_prs, sync_backlog
 
 __all__ = [
     "ApproveResult",
@@ -71,7 +111,6 @@ __all__ = [
     "last_review",
     "pr_body",
     "pr_title",
-    "publish",
     "publish_task",
     "refresh_prs",
     "resolve_task",

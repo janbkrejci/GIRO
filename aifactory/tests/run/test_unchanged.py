@@ -31,7 +31,7 @@ from aifactory.run import unchanged as unchanged_mod
 from aifactory.run.retry import retry_run
 from aifactory.run.store import FAILED, SUCCEEDED
 from aifactory.run.unchanged import finish_nothing_to_do
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 

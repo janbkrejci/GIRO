@@ -11,7 +11,7 @@ from starlette.testclient import TestClient
 from advice_fixture import make_repo
 from aifactory import backlog as core
 from aifactory.errors import UsageError
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from aifactory.web.workflow_advice import AdviceManager
 from aifactory.workflow.adaptive import context
 from aifactory.workflow.task_advice import TaskRecommendationOutput, validate_task

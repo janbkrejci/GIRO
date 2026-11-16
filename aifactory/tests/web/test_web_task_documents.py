@@ -11,7 +11,7 @@ from backlog_fixture import A3, git, make_backlog_repo
 from starlette.testclient import TestClient
 
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 

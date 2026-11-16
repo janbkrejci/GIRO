@@ -36,6 +36,7 @@ CLI_BINARIES: dict[str, tuple[str, str]] = {
     "codex": ("CODEX_PATH", "codex"),
     "pi": ("PI_PATH", "pi"),
 }
+THINKING_LEVELS = ("off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
 REQUIRED_API = ("run", "resolve_model", "context_window", "ToolCallTracker")
 HarnessName = Literal["claude", "codex", "pi"]
 

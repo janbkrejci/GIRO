@@ -59,6 +59,7 @@ from aifactory.backlog.derived import is_human
 from aifactory.backlog.loader import iter_containers, load_backlog
 from aifactory.backlog.model import (
     ASSIGNEES,
+    CONTAINER_KEYS,
     HARNESS_KEYS,
     INDEX_FILE,
     Backlog,
@@ -761,19 +762,6 @@ def _set_container_flag(
 
 # ── projects and steps (containers): add and edit index.md ───────────────────
 
-# keys of a container's index.md that ``edit_container`` sets or removes
-CONTAINER_KEYS: tuple[str, ...] = (
-    "archived",
-    "harness",
-    "model",
-    "thinking",
-    "workflow",
-    "writes",
-    "auto_continue",
-    "auto_heal",
-    "quota_switch",
-    "quota_switch_back",
-)
 _STR_KEYS = (
     "workflow",
     "harness",

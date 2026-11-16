@@ -10,7 +10,7 @@ from starlette.testclient import TestClient
 from test_harness_settings import choices
 
 from aifactory.harness import load, probe, settings
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 
 
 @pytest.mark.parametrize(

@@ -13,7 +13,7 @@ from aifactory.engine.utils import now_iso
 from aifactory.run import TaskRunStore
 from aifactory.run.store import TaskChainRow
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 
