@@ -300,7 +300,7 @@ def test_member_claim_loop_does_not_run_git_per_check(
 
     from run_repo import make_run_repo
 
-    from aifactory.run import gitops, members
+    from aifactory.run import members
 
     repo = make_run_repo(tmp_path / "repo")
     row = TaskRunRow(
@@ -333,7 +333,7 @@ def test_member_claim_loop_does_not_run_git_per_check(
             git_calls.append(tuple(args))
         return real_run(args, *rest, **kwargs)  # type: ignore[call-overload]
 
-    monkeypatch.setattr(gitops.subprocess, "run", counting_run)
+    monkeypatch.setattr(subprocess, "run", counting_run)
     sleeps: list[float] = []
 
     def sleep(seconds: float) -> None:
