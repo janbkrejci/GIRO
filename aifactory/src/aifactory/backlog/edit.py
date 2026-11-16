@@ -6,7 +6,7 @@ and validated with ``check_backlog``. A change that would add a new problem (a c
 an unknown reference, a duplicate id, ...) is rejected and the real tree stays
 untouched. Problems that were in the backlog before do not block a write. Files are
 replaced atomically and only files under a backlog root are ever written. Every
-written file is recorded in the journal of ``run/mainwrites.py``, so the guard of a
+written file is recorded in the journal of ``aifactory/mainwrites.py``, so the guard of a
 concurrent task run does not take the write for one of its agent.
 
 Stable error codes (``TaskEditError.code`` / ``errors()[i]["code"]``):
@@ -54,6 +54,7 @@ from functools import wraps
 from pathlib import Path
 from typing import ParamSpec, TypeVar
 
+from aifactory import mainwrites
 from aifactory.backlog.derived import is_human
 from aifactory.backlog.loader import iter_containers, load_backlog
 from aifactory.backlog.model import (
@@ -77,6 +78,7 @@ from aifactory.backlog.taskfile import (
     set_field,
 )
 from aifactory.backlog.validate import check_backlog
+from aifactory.locks import path_lock
 from aifactory.oscompat import atomic_write
 
 EDITABLE_STATUSES: tuple[str, ...] = ("todo", "cancelled")
@@ -127,12 +129,11 @@ R = TypeVar("R")
 @contextlib.contextmanager
 def write_lock(root: Path, operation: str = "backlog") -> Iterator[None]:
     from aifactory.home import giro_home
-    from aifactory.run.store import _path_lock
 
     key = hashlib.sha256(str(root.resolve()).encode()).hexdigest()
     path = giro_home() / f"{operation}-locks" / f"{key}.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
-    with _path_lock(path).hold(30):
+    with path_lock(path).hold(30):
         yield
 
 
@@ -251,7 +252,6 @@ def _write_checked(
                 issues=new,
             )
         from aifactory.database.backlog import publish
-        from aifactory.run import mainwrites
 
         publish(root, pending)
 

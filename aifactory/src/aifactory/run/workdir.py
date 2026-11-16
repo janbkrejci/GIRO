@@ -8,11 +8,10 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
-from aifactory import harness
+from aifactory import gitops, harness
 from aifactory.config import ProjectSettings, check_relative_dir
 from aifactory.engine.data_types import AgentRequest
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 
 _agent_cwd: ContextVar[Path | None] = ContextVar("project_agent_cwd", default=None)
 

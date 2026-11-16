@@ -17,6 +17,7 @@ import pytest
 
 from aifactory.backlog import Task, load_backlog
 from aifactory.config import load_run_config
+from aifactory.errors import TaskRunError
 from aifactory.providers import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -33,7 +34,6 @@ from aifactory.providers.local import LocalProvider
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import ReviewError, approve_task, ci, try_auto_merge
 from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore, run_task
-from aifactory.run.errors import TaskRunError
 from aifactory.run.store import MERGED_BY_AUTO, MERGED_BY_OPERATOR
 from aifactory.run.task import TaskRunResult
 

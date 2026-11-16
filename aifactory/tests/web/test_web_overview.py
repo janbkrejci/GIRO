@@ -30,6 +30,7 @@ from overview_fixture import (
 )
 from starlette.testclient import TestClient
 
+from aifactory.registry import Registry, RepoEntry
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run.store import SyncPrRow, TaskPrRow, TaskRunStore
 from aifactory.skill import envelope_problems
@@ -37,7 +38,6 @@ from aifactory.web import overview
 from aifactory.web.app import create_multi_app
 from aifactory.web.backlog import BOARD_STATES
 from aifactory.web.overview import PROCESS_ENDED, TASKS_TTL, Overview
-from aifactory.web.registry import Registry, RepoEntry
 from aifactory.web.repostate import RepoSnapshot
 from gitcount import count_git
 

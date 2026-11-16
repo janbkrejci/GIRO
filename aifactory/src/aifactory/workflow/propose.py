@@ -37,19 +37,19 @@ from aifactory import backlog as core
 from aifactory import gitrun, yamlload
 from aifactory.backlog import Issue, NewTask, TaskEditError
 from aifactory.config import load_run_config
+from aifactory.config.runtime import apply_agents_override, main_ignored, prepare_cfg
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentCall, EnvelopeBase, PhaseParams
 from aifactory.engine.runner import Run
 from aifactory.engine.tracer import Tracer
+from aifactory.errors import TaskRunError
 from aifactory.failure import AgentReportedFail, InvalidOutput
+from aifactory.guard import TaskWriteGuard
 from aifactory.harness import canonical, install
 from aifactory.harness.check import check_harness
 from aifactory.harness.settings import context_binding, ensure_enabled
 from aifactory.providers.git import PARALLEL_CHECKOUT
-from aifactory.run.errors import TaskRunError
-from aifactory.run.guard import TaskWriteGuard
-from aifactory.run.scope import TaskScope
-from aifactory.run.task import _main_ignored, apply_agents_override, prepare_cfg
+from aifactory.scope import TaskScope
 from aifactory.workflow import DEFAULT_WORKFLOWS_DIR, propose_check
 from aifactory.workflow.adaptive import advice_dir
 from aifactory.workflow.propose_check import DONE_HEADING, Candidate, Finding
@@ -715,7 +715,7 @@ def run_proposer(
                 repo,
                 isolated,
                 TaskScope(job_id, (), ()),
-                (*_main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
+                (*main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
             )
             try:
                 with run.phase(

@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from aifactory import gitops
 from aifactory.config.errors import ConfigError, ConfigIssue
 from aifactory.config.loader import load_config
 from aifactory.config.run import worktree_base
@@ -28,11 +29,11 @@ from aifactory.config.settings import CONFIG_FILE, ProjectSettings, load_local
 from aifactory.config.settings import parse_project_settings as _parse_settings
 from aifactory.config.source import CommitSource, WorktreeSource
 from aifactory.config.status import config_changes
+from aifactory.errors import TaskRunError
 
 if TYPE_CHECKING:
     from aifactory.providers.base import PullRequest
-    from aifactory.providers.publish import PublishPlan, PullResult
-    from aifactory.run.store import TaskRunStore
+    from aifactory.providers.publish import PublishPlan, PullResult, RunStore
 
 CONFIG_BRANCH_PREFIX = "factory-config/"
 
@@ -100,8 +101,6 @@ def _issue_dicts(issues: list[ConfigIssue]) -> list[dict[str, Any]]:
 
 
 def _main(repo: Path) -> Path:
-    from aifactory.run import gitops
-    from aifactory.run.errors import TaskRunError
 
     try:
         return gitops.main_root(repo)
@@ -138,8 +137,7 @@ def _context(repo: Path) -> _Context:
     return _Context(main, settings or ProjectSettings(base=worktree_base(main)), issues)
 
 
-def _store(main: Path) -> TaskRunStore:
-    from aifactory.run.errors import TaskRunError
+def _store(main: Path) -> RunStore:
     from aifactory.run.store import TaskRunStore
 
     try:

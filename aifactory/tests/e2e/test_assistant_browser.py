@@ -21,8 +21,8 @@ from advice_fixture import git, make_repo
 from aifactory.codeprint import CodeWatch
 from aifactory.engine import agent_cc
 from aifactory.engine.data_types import AgentResult
+from aifactory.registry import Registry
 from aifactory.web.app import create_multi_app
-from aifactory.web.registry import Registry
 
 pytestmark = [pytest.mark.browser, pytest.mark.xdist_group("e2e")]
 

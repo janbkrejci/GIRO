@@ -20,16 +20,16 @@ from pathlib import Path
 
 from aifactory import database
 from aifactory.config import ConfigError
+from aifactory.errors import TaskRunError
+from aifactory.gitops import repo_layout
+from aifactory.registry import Registry
+from aifactory.repo_vet import trace_db_of
 from aifactory.review import sync as review_sync
 from aifactory.review.errors import ReviewError
 from aifactory.review.sync import SyncResult
-from aifactory.run.errors import TaskRunError
-from aifactory.run.gitops import repo_layout
 from aifactory.run.queue import continue_after_merge
 from aifactory.run.store import TaskRunRow
 from aifactory.web.launcher import Launcher
-from aifactory.web.registry import Registry
-from aifactory.web.repos import trace_db_of
 
 PR_REFRESH_INTERVAL = 120.0  # s, background refresh of open task PRs from the provider
 

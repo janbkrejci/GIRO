@@ -224,7 +224,7 @@ class HomeMachine:
 
 def _registered(home: Path) -> list[Any]:
     """The registered repositories of ``home``; none when the registry is missing or bad."""
-    from aifactory.web.registry import RepoError, parse_registry, registry_path
+    from aifactory.registry import RepoError, parse_registry, registry_path
 
     path = registry_path(home)
     try:
@@ -492,7 +492,7 @@ def _harness_repos(home: Path, machine: Machine | None, state: GlobalState) -> d
         from aifactory.library.store import library_root
 
         try:
-            from aifactory.web.repos import require_git_budget
+            from aifactory.repo_vet import require_git_budget
 
             require_git_budget()
             library_key = (str(library_root()), library_head(library_root()))

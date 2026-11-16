@@ -22,7 +22,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from aifactory.run.scope import literal_prefix, matches, normalize, paths_overlap
+from aifactory.scope import literal_prefix, matches, normalize, paths_overlap
 
 DONE_HEADING = "Hotovo znamená"
 

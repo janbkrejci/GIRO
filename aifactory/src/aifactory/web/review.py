@@ -35,16 +35,15 @@ from typing import Any
 
 import aifactory.review as review_core
 from aifactory import backlog as core
-from aifactory import database, gitrun
+from aifactory import database, gitops, gitrun
 from aifactory.backlog import Backlog, Container, Task
 from aifactory.config import ConfigError, RunConfig, load_run_config
 from aifactory.engine.tracer import BUSY_TIMEOUT
+from aifactory.errors import TaskRunError
 from aifactory.providers import OPEN, UNKNOWN, GitProvider, ProviderError, get_provider
 from aifactory.review import ci
 from aifactory.review.errors import ReviewError
 from aifactory.review.prbody import branch_cost, run_checks, run_cost
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
 from aifactory.run.stack import open_stack
 from aifactory.run.store import SUCCEEDED, TaskPrRow, TaskRunRow, TaskRunStore
 from aifactory.run.task import existing_store

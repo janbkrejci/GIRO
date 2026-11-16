@@ -18,9 +18,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 import aifactory.review as review_core
+from aifactory.errors import TaskRunError
 from aifactory.review.errors import ReviewError
 from aifactory.run import queue as run_queue
-from aifactory.run.errors import TaskRunError
 from aifactory.run.store import TaskRunRow
 from aifactory.web.launcher import LaunchedRun, _new_row, _run_ids, retried_row
 

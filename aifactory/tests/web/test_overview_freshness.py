@@ -13,11 +13,11 @@ from overview_fixture import T_RUN, make_installed_repo, make_overview_repo
 
 from aifactory import database
 from aifactory.backlog.edit import load_for_edit
+from aifactory.registry import Registry, RepoEntry
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run.store import TaskRunStore
 from aifactory.web import overview
 from aifactory.web.overview import Overview
-from aifactory.web.registry import Registry, RepoEntry
 
 
 def entry(root: Path) -> RepoEntry:

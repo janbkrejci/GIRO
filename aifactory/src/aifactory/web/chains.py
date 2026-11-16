@@ -18,9 +18,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from aifactory import gitops
 from aifactory.config.settings import CONFIG_FILE, parse_project_settings
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.queue import Slots
 from aifactory.run.store import RUNNING, TaskChainRow, TaskRunRow, TaskRunStore
 from aifactory.run.task import existing_store

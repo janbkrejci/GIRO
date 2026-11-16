@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from aifactory.gitops import git
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.gitops import git
 from cli_json import run_json
 
 

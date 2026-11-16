@@ -9,10 +9,10 @@ from types import SimpleNamespace
 import pytest
 
 from aifactory.config import load_run_config
+from aifactory.config.runtime import prepare_cfg
 from aifactory.engine import agents
-from aifactory.run.guard import TaskWriteGuard
-from aifactory.run.scope import TaskScope
-from aifactory.run.task import prepare_cfg
+from aifactory.guard import TaskWriteGuard
+from aifactory.scope import TaskScope
 from gitcount import count_git
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -56,7 +56,7 @@ def test_git_processes_per_phase_do_not_grow_with_changed_files(
 def test_backup_reads_head_of_many_paths_in_constant_processes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from aifactory.run import backup
+    from aifactory import backup
 
     totals = []
     for n in (1, 10):

@@ -33,19 +33,41 @@ import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal, Protocol
 
-from aifactory import gitquery, gitrun
+from aifactory import basemoves, gitops, gitquery, gitrun
 from aifactory.config.settings import ProjectSettings
 from aifactory.providers import git
 from aifactory.providers.base import GitProvider, ProviderError, PullRequest
 
-if TYPE_CHECKING:
-    from aifactory.run.store import TaskRunRow, TaskRunStore
-
 DIRECT, PR = "direct", "pr"
 Action = Literal["create", "modify", "delete"]
 _READ_ENV = {"GIT_OPTIONAL_LOCKS": "0"}
+
+
+class LiveRun(Protocol):
+    """A running task run as publishing reports it (``run.store.TaskRunRow``)."""
+
+    @property
+    def run_id(self) -> str: ...
+
+    @property
+    def task_id(self) -> str: ...
+
+    @property
+    def pid(self) -> int | None: ...
+
+
+class RunStore(Protocol):
+    """What publishing needs of the trace store (``run.store.RunStore``)."""
+
+    def serialized(self) -> contextlib.AbstractContextManager[None]: ...
+
+    def live_runs_locked(self) -> Sequence[LiveRun]: ...
+
+    def live_runs(self) -> Sequence[LiveRun]: ...
+
+    def close(self) -> None: ...
 
 
 def _file_mode(path: Path, base_mode: str | None = None) -> str:
@@ -282,13 +304,12 @@ def direct_blockers(
     remote: str,
     base: str,
     base_sha: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     check_remote: bool,
 ) -> tuple[list[Blocker], list[str]]:
     """Blockers of a direct commit to base: ``not_on_base``, ``run_in_progress`` and,
     with `check_remote` and a remote, ``base_behind``/``base_diverged`` (raises
     ``fetch_failed``). Without a store no run can be in progress."""
-    from aifactory.run import gitops
 
     blockers: list[Blocker] = []
     warnings: list[str] = []
@@ -308,11 +329,11 @@ def direct_blockers(
     return blockers, warnings
 
 
-def _run_message(row: TaskRunRow) -> str:
+def _run_message(row: LiveRun) -> str:
     return f"run {row.run_id} of {row.task_id} (pid {row.pid}) is running"
 
 
-def run_blocker(store: TaskRunStore) -> Blocker | None:
+def run_blocker(store: RunStore) -> Blocker | None:
     """``run_in_progress`` when a run with a live process is in progress."""
     live = store.live_runs()
     if not live:
@@ -353,11 +374,11 @@ def finish_pr(
     plan: PublishPlan,
     result: PublishResult,
     message: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     materialize: bool = False,
     command: str = "config commit",
 ) -> PublishResult:
-    from aifactory.run.followups import publication_lock
+    from aifactory.backlog.followup_ids import publication_lock
 
     with publication_lock(root):
         return _finish_pr(
@@ -381,7 +402,7 @@ def _finish_pr(
     plan: PublishPlan,
     result: PublishResult,
     message: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     materialize: bool,
     command: str,
 ) -> PublishResult:
@@ -401,7 +422,7 @@ def _finish_pr(
     local_base = git.rev_parse(root, f"refs/heads/{base}")
     repaired = False
     try:
-        from aifactory.run.followups import advance_pr, reconcile_ids
+        from aifactory.backlog.followup_ids import advance_pr, reconcile_ids
 
         head, renamed = reconcile_ids(root, result.commit, base, settings)
         if head != result.commit:
@@ -515,7 +536,7 @@ def _advance(
     sha: str,
     old: str,
     files: Sequence[PlannedFile],
-    store: TaskRunStore | None,
+    store: RunStore | None,
     *,
     materialize: bool = False,
     command: str = "config commit",
@@ -536,7 +557,6 @@ def _advance(
         if where is not None:
             _stage_matching(where, files, warnings, materialize=materialize)
         git.git(root, "update-ref", f"refs/heads/{base}", sha, old)
-        from aifactory.run import basemoves
 
         basemoves.record(root, f"refs/heads/{base}", old, sha, checkout=where, command=command)
     return warnings
@@ -548,7 +568,7 @@ def publish_direct(
     settings: ProjectSettings,
     plan: PublishPlan,
     message: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     materialize: bool = False,
     command: str = "config commit",
 ) -> PublishResult:
@@ -804,7 +824,7 @@ def _stage_brought(checkout: Path, files: Sequence[PlannedFile]) -> None:
         git.git(checkout, "update-index", "--force-remove", "--", *remove)
 
 
-def plan_pull_base(root: Path, *, settings: ProjectSettings, store: TaskRunStore) -> dict[str, Any]:
+def plan_pull_base(root: Path, *, settings: ProjectSettings, store: RunStore) -> dict[str, Any]:
     """Fetch and review a fast-forward without moving a checkout or local branch."""
     base, remote = settings.base, settings.remote
     blockers: list[Blocker] = []
@@ -847,7 +867,7 @@ def plan_pull_base(root: Path, *, settings: ProjectSettings, store: TaskRunStore
 
 
 def pull_base(
-    root: Path, *, settings: ProjectSettings, store: TaskRunStore, expect: str | None = None
+    root: Path, *, settings: ProjectSettings, store: RunStore, expect: str | None = None
 ) -> PullResult:
     """Fast-forward local base to the remote one, when nothing runs; else change nothing."""
     if expect is not None:

@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 
 DISABLED = "auto_continue_disabled"
 DISABLED_MESSAGE = (

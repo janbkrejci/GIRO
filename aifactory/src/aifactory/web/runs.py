@@ -22,8 +22,8 @@ from pathlib import Path
 from typing import Any
 
 from aifactory.engine.quality import TEST_SLOT_EVENT
+from aifactory.errors import TaskRunError
 from aifactory.harness.agent_dirs import remove_agent_dirs
-from aifactory.run.errors import TaskRunError
 from aifactory.run.store import TaskRunRow, TaskRunStore
 from aifactory.run.task import existing_store, session_dir_of
 
@@ -524,7 +524,7 @@ def start_retry(
 def allow_writes_plan(repo: Path, run_id: str) -> JsonDict:
     """What „Povolit tyto cesty a pokračovat“ adds to the task's writes and what it refuses."""
     from aifactory.run.allow_writes import plan_allow_writes
-    from aifactory.run.resolve import CI_FIX_WORKFLOW
+    from aifactory.workflow.parse import CI_FIX_WORKFLOW
 
     store, row = _open_run(repo, run_id)
     store.close()
@@ -546,7 +546,7 @@ def start_allow_writes(
     its new ``ci-fix`` runs read the extended writes from base.
     """
     from aifactory.run.allow_writes import allow_writes, retry_note
-    from aifactory.run.resolve import CI_FIX_WORKFLOW
+    from aifactory.workflow.parse import CI_FIX_WORKFLOW
 
     for key in body:
         if key not in ALLOW_WRITES_KEYS:

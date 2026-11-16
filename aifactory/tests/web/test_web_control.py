@@ -20,8 +20,8 @@ from starlette.testclient import TestClient
 from thread_launcher import ThreadLauncher
 
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.errors import TaskRunError
 from aifactory.run.store import TaskChainRow, TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app, create_multi_app

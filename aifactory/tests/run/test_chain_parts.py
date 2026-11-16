@@ -15,9 +15,10 @@ from run_repo import Script, commit_all, fake_env, git, make_run_repo, ok, write
 from aifactory import gitquery
 from aifactory.cli import main
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
+from aifactory.gitops import pr_changed_files
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskPrRow, TaskRunError, TaskRunRow, TaskRunStore
-from aifactory.run.gitops import pr_changed_files
+from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore
 from aifactory.run.members import launch_error, member_result, parse_envelope
 from aifactory.run.store import TaskChainRow
 from cli_json import read_envelope

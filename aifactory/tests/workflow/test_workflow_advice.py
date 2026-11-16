@@ -38,6 +38,20 @@ def test_no_advice_for_a_task_with_an_open_pr() -> None:
     }
 
 
+def test_context_refuses_a_closed_task_state(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path / "repo")
+    seen: list[str] = []
+
+    def state(backlog: Any, task: Any) -> str:
+        seen.append(task.id)
+        return "in review"
+
+    with pytest.raises(UsageError, match="unavailable for this task state"):
+        context(repo, "P01-S01-T01", {}, task_state=state)
+    assert seen == ["P01-S01-T01"]
+    assert context(repo, "P01-S01-T01", {}, task_state=lambda b, t: "failed")["task_id"]
+
+
 def test_context_and_committed_catalog(tmp_path: Path) -> None:
     repo = make_repo(tmp_path / "repo")
     (repo / ".factory/workflows/unpublished.yaml").write_text("name: unpublished\nsteps: [plan]")
@@ -309,7 +323,7 @@ def test_missing_planner_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 def test_missing_planner_agent_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from aifactory.config import load_run_config
-    from aifactory.run.task import prepare_cfg
+    from aifactory.config.runtime import prepare_cfg
 
     repo = make_repo(tmp_path / "repo")
     ctx = context(repo, "P01-S01-T01", {})

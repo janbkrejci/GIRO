@@ -16,7 +16,9 @@ import pytest
 from run_repo import Script, commit_all, fake_env, make_run_repo, ok, write
 
 from aifactory.backlog import Task, load_backlog
+from aifactory.backlog.followup_ids import follow_up_marker
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review.automerge import AutoMergeResult
 from aifactory.run import (
@@ -25,7 +27,6 @@ from aifactory.run import (
     STOP_NOT_MERGED,
     Skip,
     TaskPrRow,
-    TaskRunError,
     TaskRunResult,
     TaskRunRow,
     TaskRunStore,
@@ -33,7 +34,6 @@ from aifactory.run import (
     run_chain,
     select_next,
 )
-from aifactory.run.followups import follow_up_marker
 from aifactory.run.members import member_result
 from aifactory.run.store import FAILED, SUCCEEDED
 from aifactory.run.task import blocked_reason

@@ -18,10 +18,10 @@ from anyio.from_thread import start_blocking_portal
 from starlette.testclient import TestClient
 
 from aifactory import review
+from aifactory.registry import Registry, RegistryState, RepoEntry
 from aifactory.review.flow import CleanResult
 from aifactory.web import system
 from aifactory.web.app import create_multi_app
-from aifactory.web.registry import Registry, RegistryState, RepoEntry
 from aifactory.workflow import adaptive
 
 BASE = "http://127.0.0.1:4700"

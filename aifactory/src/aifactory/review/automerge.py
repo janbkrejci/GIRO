@@ -47,9 +47,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
 
+from aifactory import gitops
 from aifactory.backlog import Task
 from aifactory.config import ConfigError, RunConfig, load_run_config
 from aifactory.engine.data_types import ReviewOutput
+from aifactory.errors import TaskRunError
 from aifactory.providers import (
     CONFLICT,
     MERGEABLE,
@@ -65,11 +67,7 @@ from aifactory.review import flow as review_flow
 from aifactory.review.ci import checks_reason, settled_checks
 from aifactory.review.errors import ReviewError
 from aifactory.review.flow import ApproveResult, approve_task
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
 from aifactory.run.queue import WAITS_FOR_STACK, auto_merge_enabled
-from aifactory.run.resolve import RESOLVE_REVIEWED_WORKFLOW
-from aifactory.run.scope import output_paths
 from aifactory.run.stack import open_stack
 from aifactory.run.store import (
     MERGED_BY_AUTO,
@@ -78,8 +76,10 @@ from aifactory.run.store import (
     TaskPrRow,
     TaskRunStore,
 )
-from aifactory.run.task import TaskRunResult, named_workflow
+from aifactory.run.task import TaskRunResult
+from aifactory.scope import output_paths
 from aifactory.workflow import CodeRunner, RoleStep, Workflow, WorkflowRun, walk
+from aifactory.workflow.parse import RESOLVE_REVIEWED_WORKFLOW, named_workflow
 
 AUTO_MERGE = MERGED_BY_AUTO
 

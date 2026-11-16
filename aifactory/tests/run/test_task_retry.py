@@ -33,8 +33,9 @@ from workflow_fakes import FakeCodeRunner, triage_envelope
 
 from aifactory import failure
 from aifactory.engine import data_types as dt
+from aifactory.errors import TaskRunError
 from aifactory.review import approve_task
-from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, run_task
+from aifactory.run import TaskRunRow, TaskRunStore, run_task
 from aifactory.run.retry import plan_retry, retry_run
 from aifactory.workflow import EngineCodeRunner, Journal, JournalEntry, read_journal
 from cli_json import run_json

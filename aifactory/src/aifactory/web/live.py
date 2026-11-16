@@ -27,13 +27,12 @@ from typing import Any
 
 from starlette.concurrency import run_in_threadpool
 
-from aifactory import database
+from aifactory import database, gitops
 from aifactory.backlog.roots import backlog_roots
 from aifactory.config import ConfigError, ProjectSettings
+from aifactory.config.runtime import FACTORY_DATA_DIR
 from aifactory.config.settings import CONFIG_FILE, load_local, parse_project_settings
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
-from aifactory.run.task import FACTORY_DATA_DIR
+from aifactory.errors import TaskRunError
 
 MAX_PATHS = 200
 """At most this many changed paths go into one ``files`` event (``truncated`` beyond)."""

@@ -9,6 +9,7 @@ from pathlib import Path
 from aifactory.backlog.roots import backlog_roots, owning_root
 from aifactory.config.settings import ProjectSettings, load_local
 from aifactory.database import adopt_legacy_table, connect, is_remote
+from aifactory.locks import path_lock
 from aifactory.oscompat import atomic_write
 
 
@@ -101,9 +102,9 @@ def _synchronize(root: Path, settings: ProjectSettings) -> None:
     path = _path(root)
     if path is None:
         return
+    from aifactory import mainwrites
     from aifactory.backlog.edit import TaskEditError, _atomic_write, _guard
     from aifactory.backlog.model import Backlog
-    from aifactory.run import mainwrites
 
     stamps = _stamps(root, settings, path)
     conn = connect(path, isolation_level=None)
@@ -134,7 +135,7 @@ def _synchronize(root: Path, settings: ProjectSettings) -> None:
                 conn.execute("INSERT INTO giro_backlog VALUES (?, ?)", (rel, text))
             remote = dict(local)
         elif previous is None and any(local.get(rel) != text for rel, text in remote.items()):
-            from aifactory.run.gitops import read_git
+            from aifactory.gitops import read_git
 
             dirty = read_git(
                 root,
@@ -225,11 +226,10 @@ def synchronize(root: Path, settings: ProjectSettings) -> None:
     path = _path(root)
     if path is not None:
         from aifactory.backlog.edit import write_lock
-        from aifactory.run.store import _path_lock
 
         path.parent.mkdir(parents=True, exist_ok=True)
         # Same order as edits: protect their loaded baseline through publication.
-        with write_lock(root), _path_lock(path.with_suffix(".backlog.lock")).hold(30):
+        with write_lock(root), path_lock(path.with_suffix(".backlog.lock")).hold(30):
             _synchronize(root, settings)
 
 
@@ -237,9 +237,8 @@ def publish(root: Path, changes: dict[str, str]) -> None:
     path = _path(root)
     if path is not None:
         from aifactory.backlog.edit import write_lock
-        from aifactory.run.store import _path_lock
 
         path.parent.mkdir(parents=True, exist_ok=True)
         # Same order as edits: protect their loaded baseline through publication.
-        with write_lock(root), _path_lock(path.with_suffix(".backlog.lock")).hold(30):
+        with write_lock(root), path_lock(path.with_suffix(".backlog.lock")).hold(30):
             _publish(root, changes)

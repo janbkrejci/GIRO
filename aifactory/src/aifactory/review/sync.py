@@ -23,6 +23,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from aifactory import gitops
 from aifactory.backlog import Task, load_backlog
 from aifactory.backlog.taskfile import has_entry, mark_done
 from aifactory.config import ConfigError
@@ -39,7 +40,6 @@ from aifactory.review.flow import (
     _remove,
     _worktrees_dir,
 )
-from aifactory.run import gitops
 from aifactory.run.store import SyncPrRow, TaskPrRow, _now
 
 # NOT "factory/": task_id_from_branch must not read a sync branch as a task branch.

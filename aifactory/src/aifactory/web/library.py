@@ -19,10 +19,10 @@ from aifactory.library.model import ITEM_TYPES
 from aifactory.providers import git
 from aifactory.providers.base import ProviderError
 from aifactory.providers.publish import PlannedFile
+from aifactory.registry import RepoEntry
 from aifactory.web.backlog import UsageError
 from aifactory.web.factory import Failure
 from aifactory.web.machine import GlobalState
-from aifactory.web.registry import RepoEntry
 
 OPTIONS = {
     "init": ("name", "remote"),

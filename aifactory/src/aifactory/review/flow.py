@@ -34,12 +34,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aifactory import failure as failures
+from aifactory import gitops
 from aifactory.backlog import Task, load_backlog, unmet
+from aifactory.backlog.followup_ids import advance_pr, publication_lock, reconcile_ids
 from aifactory.backlog.roots import owning_root
 from aifactory.backlog.taskfile import mark_done, run_entry
 from aifactory.config import ConfigError, RunConfig, load_run_config
 from aifactory.config.settings import ProjectSettings
 from aifactory.engine.data_types import ReviewOutput
+from aifactory.errors import TaskRunError
 from aifactory.providers import (
     CHECKS_FAILING,
     CLOSED,
@@ -57,10 +60,6 @@ from aifactory.review import ci
 from aifactory.review.errors import ReviewError
 from aifactory.review.prbody import branch_cost
 from aifactory.review.publish import PublishResult, publish
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
-from aifactory.run.resolve import CI_FIX_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW, RESOLVE_WORKFLOW
-from aifactory.run.scope import matches
 from aifactory.run.stack import open_stack, stacked_on
 from aifactory.run.store import (
     MERGED_BY_OPERATOR,
@@ -75,8 +74,10 @@ from aifactory.run.store import (
 )
 from aifactory.run.task import TaskRunResult, run_task, session_dir_of
 from aifactory.run.unchanged import finish_unchanged, unchanged
+from aifactory.scope import matches
 from aifactory.workflow import CodeRunner, WorkflowRun
 from aifactory.workflow.journal import JOURNAL_FILE, read_journal
+from aifactory.workflow.parse import CI_FIX_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW, RESOLVE_WORKFLOW
 
 if TYPE_CHECKING:
     from aifactory.run.allow_writes import AllowWritesResult
@@ -584,8 +585,6 @@ def _prepare_approve(ctx: _Ctx, task_id: str) -> _Prepared:
     _refuse_blocked(main, settings, task_id)
     worktree, temp = _branch_worktree(ctx, branch, "approve")
 
-    from aifactory.run.followups import publication_lock
-
     with publication_lock(main):
         repaired = _refresh_follow_up_ids(ctx, row, worktree)
     if status.mergeability == CONFLICT and not repaired:
@@ -613,7 +612,6 @@ def _prepare_approve(ctx: _Ctx, task_id: str) -> _Prepared:
 
 
 def _finish_approve(ctx: _Ctx, prepared: _Prepared, merged_by: str) -> ApproveResult:
-    from aifactory.run.followups import publication_lock
 
     with publication_lock(ctx.main):
         if _refresh_follow_up_ids(ctx, prepared.row, prepared.worktree):
@@ -625,7 +623,6 @@ def _finish_approve(ctx: _Ctx, prepared: _Prepared, merged_by: str) -> ApproveRe
 
 
 def _refresh_follow_up_ids(ctx: _Ctx, row: TaskPrRow, worktree: Path) -> bool:
-    from aifactory.run.followups import advance_pr, reconcile_ids
 
     head = gitops.git(worktree, "rev-parse", "HEAD")
     fixed, _ = reconcile_ids(ctx.main, head, row.base, ctx.rc.config.settings)

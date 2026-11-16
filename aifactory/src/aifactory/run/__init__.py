@@ -15,8 +15,8 @@ Every run is a row in ``task_runs`` in the trace DB (``store.py``). A run that
 meets ``accept`` is pushed and gets a pull request, a row in ``task_prs``
 (``aifactory.review``: publish, approve, return, resolve, clean). A resolve
 run (``resolve.py``) rebases a conflicting PR branch onto base. After every
-agent call ``TaskWriteGuard`` (``guard.py``) checks both the worktree and the
-main checkout and rolls back what the task scope (``scope.py``) does not allow.
+agent call ``TaskWriteGuard`` (``aifactory.guard``) checks both the worktree and the
+main checkout and rolls back what the task scope (``aifactory.scope``) does not allow.
 
 Auto-continue (``queue.py``, repository-local ``auto_continue`` in GIRO_HOME):
 after a run opens its PR, ``run_chain`` may start the next
@@ -52,8 +52,6 @@ from typing import TYPE_CHECKING
 from aifactory.lazyexports import lazy_exports
 
 if TYPE_CHECKING:
-    from aifactory.run.errors import TaskRunError
-    from aifactory.run.guard import TaskWriteGuard
     from aifactory.run.members import ChainRunner, ProcessRunner
     from aifactory.run.pause import PauseGate, pause_run, resume_run
     from aifactory.run.queue import (
@@ -77,7 +75,6 @@ if TYPE_CHECKING:
         start_factory,
     )
     from aifactory.run.retry import retry_run
-    from aifactory.run.scope import OutputPaths, TaskScope, output_paths, task_scope
     from aifactory.run.stop import StopResult, running_run, stop_run
     from aifactory.run.store import (
         STOPPED,
@@ -92,8 +89,6 @@ if TYPE_CHECKING:
 __getattr__, __dir__ = lazy_exports(
     __name__,
     {
-        "aifactory.run.errors": ("TaskRunError",),
-        "aifactory.run.guard": ("TaskWriteGuard",),
         "aifactory.run.members": (
             "ChainRunner",
             "ProcessRunner",
@@ -124,12 +119,6 @@ __getattr__, __dir__ = lazy_exports(
             "start_factory",
         ),
         "aifactory.run.retry": ("retry_run",),
-        "aifactory.run.scope": (
-            "OutputPaths",
-            "TaskScope",
-            "output_paths",
-            "task_scope",
-        ),
         "aifactory.run.stop": (
             "StopResult",
             "running_run",
@@ -165,7 +154,6 @@ __all__ = [
     "FactoryStart",
     "Occupancy",
     "PauseGate",
-    "OutputPaths",
     "ProcessRunner",
     "Skip",
     "Slots",
@@ -173,16 +161,12 @@ __all__ = [
     "SyncPrRow",
     "TaskChainRow",
     "TaskPrRow",
-    "TaskRunError",
     "TaskRunResult",
     "TaskRunRow",
     "TaskRunStore",
-    "TaskScope",
-    "TaskWriteGuard",
     "auto_continue_enabled",
     "auto_merge_enabled",
     "continue_after_merge",
-    "output_paths",
     "pause_run",
     "resume_run",
     "retry_chain",
@@ -197,5 +181,4 @@ __all__ = [
     "task_prompt",
     "task_prs_for",
     "task_runs_for",
-    "task_scope",
 ]

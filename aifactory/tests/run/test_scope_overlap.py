@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from aifactory.run.scope import is_wide, literal_prefix, overlaps, paths_overlap
+from aifactory.scope import is_wide, literal_prefix, overlaps, paths_overlap
 
 
 @pytest.mark.parametrize(

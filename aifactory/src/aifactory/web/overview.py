@@ -103,7 +103,9 @@ from aifactory.backlog.derived import ancestors
 from aifactory.config import ConfigError
 from aifactory.config.loader import load_config
 from aifactory.config.source import CommitSource
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
+from aifactory.registry import Registry, RepoEntry
+from aifactory.repo_vet import trace_db_of
 from aifactory.run.queue import Slots
 from aifactory.web.backlog import (
     BOARD_STATES,
@@ -119,8 +121,6 @@ from aifactory.web.backlog import (
 )
 from aifactory.web.chains import max_parallel_runs_in
 from aifactory.web.control import FactoryControl
-from aifactory.web.registry import Registry, RepoEntry
-from aifactory.web.repos import trace_db_of
 from aifactory.web.repostate import REPO_STATES, RepoSnapshot
 
 JsonDict = dict[str, Any]
@@ -1012,6 +1012,10 @@ class Overview:
                     if self._inflight.get(key) is future:
                         del self._inflight[key]
                         self._delayed.discard(key)
+
+    async def item(self, entry: RepoEntry) -> JsonDict:
+        """One repository item, as in ``collect`` (``REPO_TIMEOUT``, ``timeout``/``stale``)."""
+        return await self._bounded(entry)
 
     async def collect(self) -> tuple[JsonDict, list[str]]:
         """``({repos, totals}, registry warnings)`` for every registered repository."""

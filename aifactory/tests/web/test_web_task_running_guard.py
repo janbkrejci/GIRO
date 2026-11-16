@@ -16,8 +16,8 @@ from test_web_workflow_advice import client_for, wait
 from trace_fixture import _run
 
 from advice_fixture import make_repo, output
+from aifactory.errors import TaskRunError
 from aifactory.run import TaskRunStore
-from aifactory.run.errors import TaskRunError
 from aifactory.web.app import create_app
 from aifactory.web.workflow_advice import AdviceManager
 

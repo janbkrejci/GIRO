@@ -180,9 +180,14 @@ def test_overview_backlog_indicator_refreshes_in_both_modes() -> None:
         ],
     }
     fallback = _server("live")
+    # What GET /api/live sends; the mocked stream ends, so the browser reconnects to it.
+    live = ["retry: 300\n\nevent: hello\ndata: {}\n\n"]
 
     def serve(route: Route) -> None:
         path = urlsplit(route.request.url).path
+        if path == "/api/live":
+            route.fulfill(content_type="text/event-stream", body="".join(live))
+            return
         if path == "/api/repos":
             route.fulfill(
                 content_type="application/json",
@@ -264,7 +269,11 @@ def test_overview_backlog_indicator_refreshes_in_both_modes() -> None:
                     expect(link).to_have_attribute("href", f"#/r/{repo_id}/backlog")
             calm["backlog"] = {"state": "clean", "count": 0, "error": None}
             active["backlog"] = {"state": "error", "count": None, "error": "denied"}
-            # The ordinary overview poll removes the committed indication without a reload.
+            # A live event of the repo removes the committed indication without a reload.
+            live.append(
+                'event: files\ndata: {"repo": "haifa", "seq": 1, "areas": ["backlog"], '
+                '"paths": [], "truncated": false}\n\n'
+            )
             expect(
                 page.locator('[data-repo="haifa"] [data-test="repo-backlog-status"]')
             ).to_have_count(0)

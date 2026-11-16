@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from aifactory import failure
+from aifactory import failure, gitops
 from aifactory.backlog import (
     Task,
     commit_backlog,
@@ -60,12 +60,11 @@ from aifactory.backlog.roots import owning_root
 from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import ConfigError, ProjectSettings, RunConfig, load_run_config
 from aifactory.engine import permissions
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
-from aifactory.run.resolve import CI_FIX_WORKFLOW, INTERNAL_WORKFLOWS
+from aifactory.errors import TaskRunError
 from aifactory.run.retry import _pull_base
-from aifactory.run.scope import effective_task_writes, matches, normalize, output_paths
 from aifactory.run.store import RETRYABLE, TaskRunRow, TaskRunStore, already_running
+from aifactory.scope import effective_task_writes, matches, normalize, output_paths
+from aifactory.workflow.parse import CI_FIX_WORKFLOW, INTERNAL_WORKFLOWS
 
 ALLOWABLE_KINDS = (failure.WRITES_VIOLATION, failure.WRITES_NEEDED)
 """The failure kinds whose paths ``allow_writes`` adds to the task's writes."""

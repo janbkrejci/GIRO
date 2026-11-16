@@ -1,8 +1,10 @@
 import { t } from './i18n'
 // The overview (#/overview): what runs, waits for review and failed in every registered repo.
-// Pure helpers (urgency, totals, filter, links) and useOverview, which polls GET /api/overview
-// every 2 s while the tab is visible, reloads on focus and on demand; it never writes.
-import { computed, onScopeDispose, ref, type Ref } from 'vue'
+// Pure helpers (urgency, totals, filter, links) and useOverview, which reads GET /api/overview
+// after live events of any repo (GET /api/live), every 15 s as a fallback while the tab is
+// visible, on focus and on demand; it never writes. The last read is shared (sharedOverview),
+// so the repo switcher shows its counts without another read.
+import { computed, onScopeDispose, ref, shallowRef, type Ref } from 'vue'
 import {
   ApiError,
   fetchOverview,
@@ -15,8 +17,27 @@ import {
 import { BOARD_STATES, type BoardState } from './backlog'
 import { repoHref } from './router'
 import { dashboardStateLabel, dashboardFailureLabel, dashboardError } from './dashboardMessages'
+import { onOverviewLive } from './overviewLive'
 
-export const OVERVIEW_POLL_MS = 2000
+/** The fallback read while live events drive the overview. */
+export const OVERVIEW_FALLBACK_MS = 15000
+
+/** The newest overview read in this tab and when it arrived (Date.now()). */
+export const sharedOverview = shallowRef<{ data: OverviewData; at: number } | null>(null)
+
+/** Test helper: forget the shared overview. */
+export function resetSharedOverviewForTests(): void {
+  sharedOverview.value = null
+}
+
+/** The shared overview when it is at most `maxAgeMs` old, else a fresh read (shared too). */
+export async function recentOverview(maxAgeMs = OVERVIEW_FALLBACK_MS): Promise<OverviewData> {
+  const known = sharedOverview.value
+  if (known && Date.now() - known.at <= maxAgeMs) return known.data
+  const data = await fetchOverview()
+  sharedOverview.value = { data, at: Date.now() }
+  return data
+}
 
 /** The totals at the top; a click on one filters the cards. */
 export type OverviewFilter = 'running' | 'review' | 'approved' | 'automerge' | 'failed' | 'problems'
@@ -394,10 +415,11 @@ export interface OverviewPoll {
 }
 
 /**
- * GET /api/overview now, every `intervalMs` while the tab is visible, on a return to the
- * window or tab and on refresh(); stops with the calling scope.
+ * GET /api/overview now, after live events of any repo, every `intervalMs` while the tab is
+ * visible (a fallback), on a return to the window or tab and on refresh(); stops with the
+ * calling scope.
  */
-export function useOverview(intervalMs = OVERVIEW_POLL_MS): OverviewPoll {
+export function useOverview(intervalMs = OVERVIEW_FALLBACK_MS): OverviewPoll {
   const data = ref<OverviewData | null>(null)
   const failure = ref<unknown>(null)
   const error = computed(() => failure.value === null ? null : dashboardError(failure.value))
@@ -405,6 +427,8 @@ export function useOverview(intervalMs = OVERVIEW_POLL_MS): OverviewPoll {
   let generation = 0
   let currentRead: AbortController | undefined
   let timer: ReturnType<typeof setInterval> | undefined
+  // a live event during a read: read once more when it ends
+  let again = false
 
   async function refresh(): Promise<void> {
     const mine = ++generation
@@ -415,13 +439,25 @@ export function useOverview(intervalMs = OVERVIEW_POLL_MS): OverviewPoll {
       const next = await fetchOverview(currentRead.signal)
       if (mine !== generation) return
       data.value = next
+      sharedOverview.value = { data: next, at: Date.now() }
       failure.value = null
     } catch (err) {
       if (mine !== generation) return
       failure.value = err
     } finally {
-      if (mine === generation) loading.value = false
+      if (mine === generation) {
+        loading.value = false
+        if (again) {
+          again = false
+          void refresh()
+        }
+      }
     }
+  }
+
+  function onLiveChange() {
+    if (loading.value) again = true
+    else void refresh()
   }
 
   function stop() {
@@ -452,11 +488,13 @@ export function useOverview(intervalMs = OVERVIEW_POLL_MS): OverviewPoll {
 
   document.addEventListener('visibilitychange', onVisibility)
   window.addEventListener('focus', onFocus)
+  const offLive = onOverviewLive(onLiveChange)
   void refresh()
   start()
 
   onScopeDispose(() => {
     stop()
+    offLive()
     generation += 1
     currentRead?.abort()
     document.removeEventListener('visibilitychange', onVisibility)

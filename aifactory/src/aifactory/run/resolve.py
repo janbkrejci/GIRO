@@ -25,12 +25,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aifactory import failure, gitrun
+from aifactory import failure, gitops, gitrun
 from aifactory.backlog import Task
 from aifactory.backlog.derived import ancestors
-from aifactory.run import gitops
-from aifactory.run.guard import TaskWriteGuard
-from aifactory.run.scope import TaskScope
+from aifactory.guard import TaskWriteGuard
+from aifactory.scope import TaskScope
 from aifactory.workflow import (
     Generated,
     WorkflowRun,
@@ -39,14 +38,6 @@ from aifactory.workflow import (
     unmerged_files,
 )
 from aifactory.workflow.rebuild import to_rebuild
-
-RESOLVE_WORKFLOW = "resolve"
-RESOLVE_REVIEWED_WORKFLOW = "resolve-reviewed"
-"""``resolve`` plus a review of a resolution the agent wrote; auto-merge resolves with it."""
-CI_FIX_WORKFLOW = "ci-fix"
-"""Repairs a PR whose CI checks went red, on the PR's branch (``review.ci``)."""
-# internal workflows: packaged, available also when neither the repo nor the library has them
-INTERNAL_WORKFLOWS = frozenset({RESOLVE_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW, CI_FIX_WORKFLOW})
 
 
 @dataclass(frozen=True)

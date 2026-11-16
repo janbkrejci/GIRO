@@ -505,8 +505,8 @@ def test_overrides_without_repos(client: TestClient) -> None:
 
 def test_repo_inventory_and_ignore_persistence(client: TestClient) -> None:
     from aifactory.library.load import load_repo_item
+    from aifactory.registry import Registry
     from aifactory.web.library_inventory import inventory
-    from aifactory.web.registry import Registry
 
     registry = state(client).registry
     roots = [state(client).user_home / name for name in ("one", "two")]

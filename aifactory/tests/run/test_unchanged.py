@@ -18,11 +18,11 @@ from aifactory import failure
 from aifactory.backlog import Task, TaskEditError, load_backlog
 from aifactory.backlog.commit import BacklogCommit
 from aifactory.engine.data_types import BuildOutput
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run import (
     STOP_EXHAUSTED,
     STOP_FAILED,
-    TaskRunError,
     TaskRunStore,
     run_chain,
     run_task,

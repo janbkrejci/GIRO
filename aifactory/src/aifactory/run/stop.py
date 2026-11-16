@@ -24,7 +24,7 @@ from pathlib import Path
 import psutil
 
 from aifactory import oscompat
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.store import RUNNING, TaskRunRow, TaskRunStore, _alive
 from aifactory.run.task import existing_store
 

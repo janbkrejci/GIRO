@@ -25,12 +25,12 @@ import signal
 import tempfile
 import threading
 from collections.abc import Iterator
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest import mock
 
-from aifactory import database
+from aifactory import database, gitops
 from aifactory import failure as failures
 from aifactory import harness as harness_mod
 from aifactory.backlog import (
@@ -54,37 +54,34 @@ from aifactory.config import (
     load_local,
     load_run_config,
 )
-from aifactory.config.loader import write_prompts
+from aifactory.config.runtime import (
+    TRACE_DB_SUFFIXES,
+    apply_agents_override,
+    data_dir,
+    main_ignored,
+    prepare_cfg,
+)
 from aifactory.engine.quality import DEFAULT_TEST_TIMEOUT
 from aifactory.engine.slots import TestSlots, default_slots_dir
 from aifactory.engine.utils import new_id
-from aifactory.harness import THINKING_LEVELS
+from aifactory.errors import TaskRunError
+from aifactory.guard import TaskWriteGuard
 from aifactory.harness.config import SSSFConfig
 from aifactory.library.inherit import copy_library_items
 from aifactory.providers import GitProvider, ProviderError, get_provider
 from aifactory.providers import git as provider_git
-from aifactory.run import followups, gitops
+from aifactory.run import followups
 from aifactory.run.accept import accept_failure
-from aifactory.run.errors import TaskRunError
 from aifactory.run.follows import FollowedTask, followed_section, followed_task
 from aifactory.run.followups import FollowUpOutcome
-from aifactory.run.guard import TaskWriteGuard
 from aifactory.run.pause import PauseGate
 from aifactory.run.resolve import (
-    INTERNAL_WORKFLOWS,
-    RESOLVE_WORKFLOW,
     ConflictWriteGuard,
     ResolveSpec,
     explain_allowed_repair_request,
     finish_resolve,
     resolve_prompt,
     restore,
-)
-from aifactory.run.scope import (
-    OutputPaths,
-    TaskScope,
-    output_paths,
-    task_scope,
 )
 from aifactory.run.stack import stack_point, stacked_on
 from aifactory.run.store import (
@@ -101,9 +98,14 @@ from aifactory.run.store import (
 )
 from aifactory.run.unchanged import finish_unchanged, only_spec_changes, unchanged
 from aifactory.run.workdir import agent_workdir, project_workdir, validate_base_dirs
+from aifactory.scope import (
+    OutputPaths,
+    TaskScope,
+    output_paths,
+    task_scope,
+)
 from aifactory.testing.profile import ProfileCache
 from aifactory.workflow import (
-    DEFAULT_WORKFLOWS_DIR,
     JOURNAL_FILE,
     CodeRunner,
     CodeStep,
@@ -112,19 +114,14 @@ from aifactory.workflow import (
     Workflow,
     WorkflowError,
     WorkflowRun,
-    load_workflow,
-    parse_workflow,
     preflight,
     run_workflow,
     walk,
 )
+from aifactory.workflow.parse import INTERNAL_WORKFLOWS, RESOLVE_WORKFLOW, named_workflow
 
 if TYPE_CHECKING:  # review imports run; a runtime import would be a cycle
     from aifactory.review.automerge import AutoMergeResult
-
-SSSF_DATA_DIR = "adws/adw_data"  # the engine's default; a task run uses FACTORY_DATA_DIR
-FACTORY_DATA_DIR = ".factory/data"
-_TRACE_DB_SUFFIXES = ("", "-wal", "-shm", "-journal")
 
 
 @dataclass
@@ -235,78 +232,12 @@ def resolve_test_timeout(task: Task, settings: ProjectSettings) -> int:
     return DEFAULT_TEST_TIMEOUT
 
 
-def named_workflow(name: str, config: FactoryConfig, task_id: str) -> Workflow:
-    """Workflow `name` of a run.
-
-    ``.factory/workflows/`` in base first, then the library (the seed without one);
-    ``config.workflows`` holds both. The internal resolve workflows also come from the
-    package.
-    """
-    try:
-        if name in config.workflows:
-            return parse_workflow(config.workflows[name], config.roles)
-        if name in INTERNAL_WORKFLOWS:
-            return load_workflow(DEFAULT_WORKFLOWS_DIR / f"{name}.yaml", config.roles)
-    except WorkflowError as exc:
-        raise TaskRunError("invalid_workflow", f"workflow {name}: {exc}") from exc
-    raise TaskRunError(
-        "unknown_workflow",
-        f"workflow {name!r} of task {task_id} is neither in .factory/workflows/ in base "
-        "nor in the library",
-    )
-
-
-def _absolute(value: str, root: Path) -> Path:
-    path = Path(value).expanduser()
-    return path if path.is_absolute() else (root / path).resolve()
-
-
-def data_dir(main: Path, rc: RunConfig) -> Path:
-    """The session runtime of task runs: agents.yaml ``data_dir``, else ``.factory/data``.
-
-    Always in (or relative to) the main checkout, shared by all runs.
-    """
-    value = str(rc.config.agents.defaults.data_dir)
-    if not value.strip() or value.rstrip("/") == SSSF_DATA_DIR:
-        value = FACTORY_DATA_DIR
-    return _absolute(value, main)
-
-
-def prepare_cfg(main: Path, rc: RunConfig, prompts_dir: Path) -> SSSFConfig:
-    """The roster of `rc` with prompts in `prompts_dir`, runtime and trace in the main checkout."""
-    cfg = write_prompts(rc.config, prompts_dir).model_copy(deep=True)
-    cfg.defaults.data_dir = str(data_dir(main, rc))
-    cfg.observability.db = str(rc.local.trace_db_path(main))
-    protected = [*cfg.defaults.protected_files, *rc.config.settings.protected_files]
-    cfg.defaults.protected_files = list(dict.fromkeys(protected))
-    return cfg
-
-
-def _relative_to(path: Path, root: Path) -> str | None:
-    try:
-        return path.resolve().relative_to(root).as_posix()
-    except ValueError:
-        return None
-
-
-def _main_ignored(main: Path, worktrees_dir: str, cfg: SSSFConfig) -> tuple[str, ...]:
-    """What the guard ignores in the main checkout: worktrees, session runtime, trace DB."""
-    ignored = [worktrees_dir.strip("/").removeprefix("./") + "/"]
-    data = _relative_to(Path(cfg.defaults.data_dir), main)
-    if data:
-        ignored.append(data.rstrip("/") + "/")
-    db = _relative_to(Path(cfg.observability.db), main)
-    if db:
-        ignored += [db + suffix for suffix in _TRACE_DB_SUFFIXES]
-    return tuple(ignored)
-
-
 def _exclude_lines(ignored: tuple[str, ...]) -> list[str]:
     lines = []
     for entry in ignored:
         if entry.endswith("/"):
             lines.append("/" + entry)
-        elif entry.endswith(_TRACE_DB_SUFFIXES[1:]):
+        elif entry.endswith(TRACE_DB_SUFFIXES[1:]):
             continue
         else:
             lines.append("/" + entry + "*")
@@ -391,73 +322,6 @@ def _load(main: Path) -> RunConfig:
         return load_run_config(main)
     except ConfigError as exc:
         raise TaskRunError("invalid_config", str(exc)) from exc
-
-
-OVERRIDE_KEYS = ("harness", "model", "thinking")
-# The model a harness switch picks when no model is given (``config.roster.PRESETS``).
-_HARNESS_MODELS = {"claude": "claude-opus-5-5", "codex": "gpt-6.1-sol"}
-
-
-def apply_agents_override(rc: RunConfig, override: dict[str, str] | None) -> RunConfig:
-    """`rc` with every agent of the roster on the given harness/model/thinking (in memory).
-
-    The same as ``factory config roster set`` with defaults only: every role-level value
-    is replaced. Nothing is written. A harness switch without a model takes that
-    harness's preset model. Step overrides of the workflow (``harness/override.py``) still
-    apply on top, so one workflow can still mix harnesses. Unknown harness, thinking or a
-    model the harness rejects raise ``invalid_override``.
-    """
-    values = {k: v.strip() for k, v in (override or {}).items() if v and v.strip()}
-    unknown = sorted(set(values) - set(OVERRIDE_KEYS))
-    if unknown:
-        raise TaskRunError("invalid_override", f"unknown override key(s): {', '.join(unknown)}")
-    if not values:
-        return rc
-    harness = values.get("harness")
-    if harness is not None:
-        try:
-            harness = harness_mod.canonical(harness)
-        except ValueError as exc:
-            raise TaskRunError("invalid_override", str(exc)) from exc
-    thinking = values.get("thinking")
-    if thinking is not None and thinking not in THINKING_LEVELS:
-        raise TaskRunError(
-            "invalid_override", f"thinking {thinking!r} is not one of {list(THINKING_LEVELS)}"
-        )
-    model = values.get("model")
-    agents = []
-    for agent in rc.config.agents.agents:
-        update: dict[str, Any] = {}
-        agent_harness = harness or agent.harness
-        if harness is not None:
-            update["coding_agent"] = harness
-        if model is not None:
-            update["model"] = model
-        elif harness is not None and harness != agent.harness and harness in _HARNESS_MODELS:
-            update["model"] = _HARNESS_MODELS[harness]
-        if thinking is not None:
-            update["thinking"] = thinking
-        elif harness is not None and harness != agent.harness:
-            from aifactory.harness.thinking import default_level
-
-            update["thinking"] = default_level(harness, update.get("model", agent.model))
-        if agent_harness != "pi" and agent.harness_engineering:
-            update["harness_engineering"] = []  # pi extensions belong to pi only
-        try:
-            harness_mod.load(agent_harness).resolve_model(update.get("model", agent.model))
-        except (ValueError, ImportError) as exc:
-            raise TaskRunError("invalid_override", f"agent {agent.name!r}: {exc}") from exc
-        agents.append(agent.model_copy(update=update, deep=True))
-    defaults = rc.config.agents.defaults.model_copy(
-        update={
-            k: v
-            for k, v in (("coding_agent", harness), ("model", model), ("thinking", thinking))
-            if v is not None
-        },
-        deep=True,
-    )
-    roster = rc.config.agents.model_copy(update={"agents": agents, "defaults": defaults})
-    return replace(rc, config=replace(rc.config, agents=roster))
 
 
 def override_note(note: str | None, override: dict[str, str] | None) -> str | None:
@@ -940,7 +804,7 @@ def _execute_job(
             rc.config.agents.model_dump_json(), encoding="utf-8"
         )
         cfg = prepare_cfg(main, rc, session_dir / "prompt_templates")
-        ignored = _main_ignored(main, settings.worktrees_dir, cfg)
+        ignored = main_ignored(main, settings.worktrees_dir, cfg)
         with store.serialized():
             gitops.ensure_excluded(main, _exclude_lines(ignored))
             gitops.ensure_untracked_cache(main)

@@ -127,7 +127,7 @@ def redact(text: str, values: Iterable[str]) -> str:
 
 def registered(home: Path | None = None, *, repo_id: str | None = None) -> dict[str, Path]:
     """Registered repository id -> path."""
-    from aifactory.web.registry import Registry
+    from aifactory.registry import Registry
 
     state = Registry(home if home is not None else giro_home()).snapshot()[0]
     scope = repo_id if repo_id is not None else env_value("GUIDE_REPO")
@@ -213,7 +213,7 @@ class _ReadOnly:
 def run_sql(repos: dict[str, Path], repo_id: str, query: str) -> dict[str, Any]:
     """Rows of one read-only query on the trace DB of ``repo_id``."""
     from aifactory import database
-    from aifactory.web.repos import trace_db_of
+    from aifactory.repo_vet import trace_db_of
 
     root = _repo(repos, repo_id)
     path = trace_db_of(root)

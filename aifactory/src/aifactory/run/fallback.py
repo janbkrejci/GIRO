@@ -35,9 +35,9 @@ from typing import TYPE_CHECKING, Any
 
 from aifactory import failure as failures
 from aifactory.config import RunConfig
+from aifactory.errors import TaskRunError
 from aifactory.harness.fallback import Fallback
 from aifactory.providers import GitProvider
-from aifactory.run.errors import TaskRunError
 from aifactory.run.store import FAILED, TaskRunRow, TaskRunStore
 from aifactory.workflow import CodeRunner
 

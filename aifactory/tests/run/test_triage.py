@@ -16,13 +16,13 @@ from pydantic import ValidationError
 from advice_fixture import git, make_repo
 from aifactory.backlog import Backlog, Container, Task
 from aifactory.config import ProjectSettings
+from aifactory.config.runtime import prepare_cfg
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentResult
 from aifactory.engine.tracer import Tracer
 from aifactory.harness.check import HarnessStatus
 from aifactory.run import triage
 from aifactory.run.followups import Reported
-from aifactory.run.task import prepare_cfg
 from aifactory.run.triage import (
     BODY_LIMIT,
     Decision,

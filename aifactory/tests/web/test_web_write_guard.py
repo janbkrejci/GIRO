@@ -9,7 +9,7 @@ import pytest
 from starlette.testclient import TestClient
 from web_repo import git_repo
 
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.skill import envelope_problems
 from aifactory.skill.codes import ERROR_CODES
 from aifactory.web.app import create_app

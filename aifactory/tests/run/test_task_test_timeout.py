@@ -30,7 +30,8 @@ from run_repo import (
 )
 
 from aifactory.config import ConfigError
-from aifactory.run import TaskRunError, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import run_task
 
 STEP_INDEX = "backlog/M01-core/S01-model/index.md"
 TASK_FILE = "backlog/M01-core/S01-model/M01-S01-T01-schema.md"

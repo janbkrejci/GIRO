@@ -19,8 +19,8 @@ from pathlib import Path
 from multi_repo import AGENTS, commit_all, init_repo, write
 
 from aifactory.engine.tracer import SCHEMA
+from aifactory.registry import Registry
 from aifactory.run.store import TaskPrRow, TaskRunRow, TaskRunStore
-from aifactory.web.registry import Registry
 
 T_RUN = "M01-S01-T01"
 T_REV = "M01-S01-T02"

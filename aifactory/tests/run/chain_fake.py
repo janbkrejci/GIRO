@@ -23,9 +23,9 @@ import pytest
 from run_repo import commit_all, git, write
 
 from aifactory.backlog import Task, load_backlog
+from aifactory.backlog.followup_ids import follow_up_marker
 from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore, policy
 from aifactory.run import task as task_mod
-from aifactory.run.followups import follow_up_marker
 
 FAILED, SUCCEEDED = "failed", "succeeded"
 

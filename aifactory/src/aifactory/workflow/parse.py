@@ -15,7 +15,7 @@ import re
 from collections.abc import Mapping, Sequence
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -28,6 +28,7 @@ from aifactory.engine.role_registry import (
     check_description,
     load_roles,
 )
+from aifactory.errors import TaskRunError
 from aifactory.harness import ALIASES, HARNESSES, THINKING_LEVELS, canonical
 from aifactory.workflow.conditions import Condition, ConditionError, parse_condition, refs
 from aifactory.workflow.model import (
@@ -41,15 +42,27 @@ from aifactory.workflow.model import (
     walk,
 )
 
+if TYPE_CHECKING:
+    from aifactory.config.loader import FactoryConfig
+
 __all__ = [
     "DEFAULT_WORKFLOWS_DIR",
     "HARNESS_NAMES",
+    "INTERNAL_WORKFLOWS",
     "load_workflow",
+    "named_workflow",
     "outline",
     "parse_workflow",
 ]
 
 DEFAULT_WORKFLOWS_DIR = Path(str(resources.files("aifactory") / "defaults" / "workflows"))
+RESOLVE_WORKFLOW = "resolve"
+RESOLVE_REVIEWED_WORKFLOW = "resolve-reviewed"
+"""``resolve`` plus a review of a resolution the agent wrote; auto-merge resolves with it."""
+CI_FIX_WORKFLOW = "ci-fix"
+"""Repairs a PR whose CI checks went red, on the PR's branch (``review.ci``)."""
+# internal workflows: packaged, available also when neither the repo nor the library has them
+INTERNAL_WORKFLOWS = frozenset({RESOLVE_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW, CI_FIX_WORKFLOW})
 """The packaged workflows (one per ported Python ADW)."""
 
 HARNESS_NAMES: tuple[str, ...] = (*HARNESSES, *ALIASES)
@@ -627,3 +640,24 @@ def outline(steps: Sequence[Step]) -> list[dict[str, Any]]:
             }
         rows.append({k: v for k, v in row.items() if v is not None})
     return rows
+
+
+def named_workflow(name: str, config: FactoryConfig, task_id: str) -> Workflow:
+    """Workflow `name` of a run.
+
+    ``.factory/workflows/`` in base first, then the library (the seed without one);
+    ``config.workflows`` holds both. The internal resolve workflows also come from the
+    package.
+    """
+    try:
+        if name in config.workflows:
+            return parse_workflow(config.workflows[name], config.roles)
+        if name in INTERNAL_WORKFLOWS:
+            return load_workflow(DEFAULT_WORKFLOWS_DIR / f"{name}.yaml", config.roles)
+    except WorkflowError as exc:
+        raise TaskRunError("invalid_workflow", f"workflow {name}: {exc}") from exc
+    raise TaskRunError(
+        "unknown_workflow",
+        f"workflow {name!r} of task {task_id} is neither in .factory/workflows/ in base "
+        "nor in the library",
+    )

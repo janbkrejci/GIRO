@@ -25,8 +25,10 @@ from run_repo import (
 )
 
 from aifactory.cli import main
+from aifactory.config import runtime
+from aifactory.errors import TaskRunError
 from aifactory.harness.override import StepOverride, effective_agent
-from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, run_task
+from aifactory.run import TaskRunRow, TaskRunStore, run_task
 from aifactory.run import task as task_mod
 from aifactory.run.store import ABORTED, RUNNING
 from cli_json import read_envelope
@@ -498,27 +500,27 @@ def test_config_comes_from_base(repo: Path, script: Script) -> None:
 
 def test_agents_override_changes_every_role(repo: Path) -> None:
     rc = task_mod._load(repo)
-    changed = task_mod.apply_agents_override(rc, {"harness": "codex", "thinking": "high"})
+    changed = runtime.apply_agents_override(rc, {"harness": "codex", "thinking": "high"})
     assert {a.harness for a in changed.config.agents.agents} == {"codex"}
     # a harness switch without a model takes that harness's preset model
     assert {a.model for a in changed.config.agents.agents} == {"gpt-6.1-sol"}
     assert {a.thinking for a in changed.config.agents.agents} == {"high"}
     # in memory only: the loaded config is untouched
     assert {a.harness for a in rc.config.agents.agents} == {"claude"}
-    same = task_mod.apply_agents_override(rc, {"model": "opus"})
+    same = runtime.apply_agents_override(rc, {"model": "opus"})
     assert {(a.harness, a.model) for a in same.config.agents.agents} == {("claude", "opus")}
-    assert task_mod.apply_agents_override(rc, None) is rc
+    assert runtime.apply_agents_override(rc, None) is rc
 
 
 def test_override_with_a_model_the_harness_rejects(repo: Path) -> None:
     rc = task_mod._load(repo)
     with pytest.raises(TaskRunError) as err:
-        task_mod.apply_agents_override(rc, {"harness": "codex", "model": "a/b/c"})
+        runtime.apply_agents_override(rc, {"harness": "codex", "model": "a/b/c"})
     assert err.value.code == "invalid_override"
 
 
 def test_step_override_still_wins_over_the_run_override(repo: Path) -> None:
-    rc = task_mod.apply_agents_override(task_mod._load(repo), {"harness": "codex"})
+    rc = runtime.apply_agents_override(task_mod._load(repo), {"harness": "codex"})
     agent = rc.config.agents.agents[0]
     stepped = effective_agent(agent, StepOverride(harness="claude", model="sonnet"))
     assert (stepped.harness, stepped.model) == ("claude", "sonnet")

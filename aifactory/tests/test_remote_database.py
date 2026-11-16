@@ -18,7 +18,7 @@ from aifactory.backlog.model import Backlog, Issue
 from aifactory.config import ConfigError
 from aifactory.config.settings import LocalSettings, ProjectSettings
 from aifactory.database.server import DatabaseServer
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.store import TaskRunRow, TaskRunStore
 from aifactory.web.live import LiveWatcher
 from aifactory.web.overview import _open_ro
@@ -68,7 +68,7 @@ def repos(service: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tupl
             )
         return None
 
-    monkeypatch.setattr("aifactory.run.gitops.read_git", remote)
+    monkeypatch.setattr("aifactory.gitops.read_git", remote)
     return checkout(tmp_path / "a"), checkout(tmp_path / "b")
 
 
@@ -92,7 +92,7 @@ def test_missing_remote_fails_closed(
     service: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GIRO_DATABASE_URL", service)
-    monkeypatch.setattr("aifactory.run.gitops.read_git", lambda *args: None)
+    monkeypatch.setattr("aifactory.gitops.read_git", lambda *args: None)
     with pytest.raises(ConfigError, match="requires Git remote"):
         LocalSettings().trace_db_path(checkout(tmp_path / "repo"))
 
@@ -217,9 +217,7 @@ def test_global_configuration_and_local_override(
     home.mkdir()
     (home / "database.yaml").write_text(f"url: {service}\n")
     root = checkout(tmp_path / "repo")
-    monkeypatch.setattr(
-        "aifactory.run.gitops.read_git", lambda *args: "https://example.org/repo.git"
-    )
+    monkeypatch.setattr("aifactory.gitops.read_git", lambda *args: "https://example.org/repo.git")
     path = LocalSettings().trace_db_path(root)
     assert database.is_remote(path)
     assert database._ENDPOINTS[str(path)][0] == service
@@ -232,9 +230,7 @@ def test_global_configuration_and_local_override(
 
 def test_project_isolation(repos: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch) -> None:
     a = database.connect(LocalSettings().trace_db_path(repos[0]), isolation_level=None)
-    monkeypatch.setattr(
-        "aifactory.run.gitops.read_git", lambda *args: "https://example.org/other.git"
-    )
+    monkeypatch.setattr("aifactory.gitops.read_git", lambda *args: "https://example.org/other.git")
     b = database.connect(LocalSettings().trace_db_path(repos[1]), isolation_level=None)
     try:
         a.execute("CREATE TABLE private_project (id TEXT)")
@@ -332,7 +328,7 @@ def test_first_join_preserves_dirty_backlog(
     load_backlog(a)
     edit_task(a, "P-S-T", title="Team title")
     (b / TASK).write_text((b / TASK).read_text().replace("title: Task", "title: My unsaved title"))
-    from aifactory.run import gitops
+    from aifactory import gitops
 
     original = gitops.read_git
 
@@ -342,7 +338,7 @@ def test_first_join_preserves_dirty_backlog(
         result: str | None = original(root, *args)
         return result
 
-    monkeypatch.setattr("aifactory.run.gitops.read_git", read_git)
+    monkeypatch.setattr("aifactory.gitops.read_git", read_git)
     with pytest.raises(TaskEditError, match="before joining"):
         load_backlog(b)
     assert "My unsaved title" in (b / TASK).read_text()

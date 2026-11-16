@@ -13,7 +13,7 @@ from multi_repo import symlink
 from starlette.testclient import TestClient
 from trace_fixture import make_trace_db
 
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.task import session_dir_of
 from aifactory.skill import envelope_problems
 from aifactory.web import runs

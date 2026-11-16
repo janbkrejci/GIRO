@@ -614,7 +614,7 @@ def test_codex_correction_and_refinement_keep_binding(
 def test_selected_harness_failures_are_structured(
     repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], failure: str
 ) -> None:
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
     from intent_fixture import computer_binding, container_binding
 
     container_binding(repo, "backlog/P01/index.md", "harness: codex\n")
