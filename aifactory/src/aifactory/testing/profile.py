@@ -5,12 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from aifactory import gitrun
 
 MAX_PROFILE_LENGTH = 12_000
 CONFIG_NAMES = frozenset(
@@ -59,16 +60,9 @@ class _StoredProfile(BaseModel):
 
 def fingerprint(root: Path) -> str:
     """Notice runner/config changes and test layout changes, including untracked files."""
-    files = (
-        subprocess.run(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-            cwd=root,
-            check=True,
-            capture_output=True,
-        )
-        .stdout.decode("utf-8", errors="surrogateescape")
-        .split("\0")
-    )
+    files = gitrun.run(
+        root, "ls-files", "--cached", "--others", "--exclude-standard", "-z", check=True
+    ).z()
     digest = hashlib.sha256()
     for name in sorted(set(files) - {""}):
         path = Path(name)

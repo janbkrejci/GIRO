@@ -9,7 +9,6 @@ import os
 import re
 import shutil
 import stat
-import subprocess
 import sys
 import tempfile
 import threading
@@ -22,7 +21,7 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field
 
 from aifactory import backlog as core
-from aifactory import oscompat, yamlload
+from aifactory import gitrun, oscompat, yamlload
 from aifactory.config import load_run_config
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentCall, EnvelopeBase, PhaseParams
@@ -413,24 +412,18 @@ def recommend(
         isolated = tmp / "repo"
         # --shared borrows the objects instead of copying them all; the agent cannot write
         # through the alternates link, and the clone lives only for this job.
-        subprocess.run(
-            ["git", "clone", "--quiet", "--no-checkout", "--shared", str(repo), str(isolated)],
+        gitrun.run(
+            None,
+            "clone",
+            "--quiet",
+            "--no-checkout",
+            "--shared",
+            str(repo),
+            str(isolated),
             check=True,
-            capture_output=True,
         )
-        subprocess.run(
-            [
-                "git",
-                "-C",
-                str(isolated),
-                *PARALLEL_CHECKOUT,
-                "checkout",
-                "--quiet",
-                "--detach",
-                rc.commit,
-            ],
-            check=True,
-            capture_output=True,
+        gitrun.run(
+            isolated, *PARALLEL_CHECKOUT, "checkout", "--quiet", "--detach", rc.commit, check=True
         )
         runtime = repo / ".factory/data/workflow-advice" / job_id
         runtime.mkdir(parents=True, exist_ok=True)

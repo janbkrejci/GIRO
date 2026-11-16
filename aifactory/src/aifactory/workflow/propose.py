@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import json
 import secrets
-import subprocess
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -35,7 +34,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from aifactory import backlog as core
-from aifactory import yamlload
+from aifactory import gitrun, yamlload
 from aifactory.backlog import Issue, NewTask, TaskEditError
 from aifactory.config import load_run_config
 from aifactory.engine import agents
@@ -577,24 +576,18 @@ def _isolated(repo: Path, commit: str, workdir: Path | None) -> Iterator[Path]:
 
     def clone(isolated: Path) -> None:
         # --shared borrows the objects; the clone lives only for this proposal.
-        subprocess.run(
-            ["git", "clone", "--quiet", "--no-checkout", "--shared", str(repo), str(isolated)],
+        gitrun.run(
+            None,
+            "clone",
+            "--quiet",
+            "--no-checkout",
+            "--shared",
+            str(repo),
+            str(isolated),
             check=True,
-            capture_output=True,
         )
-        subprocess.run(
-            [
-                "git",
-                "-C",
-                str(isolated),
-                *PARALLEL_CHECKOUT,
-                "checkout",
-                "--quiet",
-                "--detach",
-                commit,
-            ],
-            check=True,
-            capture_output=True,
+        gitrun.run(
+            isolated, *PARALLEL_CHECKOUT, "checkout", "--quiet", "--detach", commit, check=True
         )
 
     if workdir is not None:

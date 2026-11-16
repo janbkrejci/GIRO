@@ -21,12 +21,11 @@ fails, ``restore`` puts the branch back exactly where it was before the rebase.
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aifactory import failure
+from aifactory import failure, gitrun
 from aifactory.backlog import Task
 from aifactory.backlog.derived import ancestors
 from aifactory.run import gitops
@@ -275,9 +274,7 @@ def finish_resolve(worktree: Path, wf: WorkflowRun, task_id: str, spec: ResolveS
 def restore(worktree: Path, before: str) -> None:
     """Put the worktree's branch back on `before` with a clean tree; raise if it is not."""
     for args in (("rebase", "--abort"), ("merge", "--abort")):
-        subprocess.run(
-            ["git", *args], cwd=worktree, capture_output=True, text=True, encoding="utf-8"
-        )
+        gitrun.run(worktree, *args)
     gitops.git(worktree, "reset", "--hard", "-q", before)
     gitops.git(worktree, "clean", "-fdq")
     now = gitops.head(worktree)

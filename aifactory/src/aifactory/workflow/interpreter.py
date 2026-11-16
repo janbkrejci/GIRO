@@ -62,6 +62,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
+from aifactory import gitrun
 from aifactory import harness as harness_registry
 from aifactory.engine import changes as engine_changes
 from aifactory.engine import data_types as dt
@@ -856,22 +857,19 @@ class _Interpreter:
         root = Path(self.run.repo_root)
         baseline = self.resolve_baseline or self.baseline
         try:
-            changed = subprocess.run(
-                ["git", "-c", "core.quotePath=false", "diff", "--name-only", baseline, "--"],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
+            changed = gitrun.run(
+                root,
+                "-c",
+                "core.quotePath=false",
+                "diff",
+                "--name-only",
+                baseline,
+                "--",
                 check=True,
-            ).stdout.splitlines()
-            untracked = subprocess.run(
-                ["git", "ls-files", "--others", "--exclude-standard"],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                check=True,
-            ).stdout.splitlines()
+            ).text.splitlines()
+            untracked = gitrun.run(
+                root, "ls-files", "--others", "--exclude-standard", check=True
+            ).text.splitlines()
         except (OSError, subprocess.SubprocessError):
             return (
                 "Diff unavailable: inspect git against baseline and find direct callers; "

@@ -67,19 +67,19 @@ def test_1655_files_use_one_batch_and_no_python_file_io(
         write(root, f"factory/backlog/P/S/T{i}.md", task_md(f"P-S-T{i}"))
     write(root, "outside.md", "must not be included")
     sha = commit(root)
-    calls: list[list[str]] = []
-    run = subprocess.run
+    from gitspy import GitCall, spy_git
 
-    def spy(argv: list[str], **kwargs: Any) -> Any:
-        calls.append(argv)
-        assert "archive" not in argv
-        return run(argv, **kwargs)
+    calls: list[list[str]] = []
+
+    def spy(call: GitCall) -> None:
+        calls.append(call.argv)
+        assert "archive" not in call.argv
 
     def forbidden(*args: Any, **kwargs: Any) -> Any:
         pytest.fail("committed backlog must not open or create filesystem paths")
 
     with monkeypatch.context() as patch:
-        patch.setattr(subprocess, "run", spy)
+        spy_git(patch, spy)
         patch.setattr(Path, "open", forbidden)
         patch.setattr(Path, "mkdir", forbidden)
         backlog = load_backlog_at(root, sha, ProjectSettings())
@@ -151,14 +151,15 @@ def test_git_failure_does_not_become_an_empty_backlog(
     settings = load_settings(root)
     with pytest.raises(RuntimeError, match="cannot read committed backlog"):
         load_backlog_at(root, "missing-commit", settings)
-    run = subprocess.run
+    from aifactory import gitrun
+    from gitspy import GitCall, spy_git
 
-    def fail_batch(argv: list[str], **kwargs: Any) -> Any:
-        if argv == ["git", "cat-file", "--batch"]:
-            return subprocess.CompletedProcess(argv, 1, b"", b"cannot read objects")
-        return run(argv, **kwargs)
+    def fail_batch(call: GitCall) -> gitrun.Result | None:
+        if call.argv == ["git", "cat-file", "--batch"]:
+            return gitrun.Result(tuple(call.argv), 1, b"", b"cannot read objects")
+        return None
 
-    monkeypatch.setattr(subprocess, "run", fail_batch)
+    spy_git(monkeypatch, fail_batch)
     with pytest.raises(RuntimeError, match="cannot read objects"):
         load_backlog_at(root, sha, settings)
 

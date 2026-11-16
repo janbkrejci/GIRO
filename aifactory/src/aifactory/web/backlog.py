@@ -40,7 +40,7 @@ from aifactory.backlog.taskfile import has_entry
 from aifactory.config import ConfigError, load_local, load_run_config
 from aifactory.config.loader import WORKFLOWS_DIR
 from aifactory.config.run import worktree_base
-from aifactory.config.source import git, resolve_commit
+from aifactory.config.source import repo_root, resolve_commit
 from aifactory.errors import UsageError as UsageError
 from aifactory.harness import canonical
 from aifactory.harness.override import THINKING_LEVELS
@@ -912,7 +912,7 @@ def status(repo: Path) -> tuple[JsonDict, list[str]]:
     and the backlog roots of the working tree's config.yaml, no run config.
     """
     try:
-        main = Path(git(repo, "rev-parse", "--show-toplevel").strip()).resolve()
+        main = repo_root(repo)
         base = worktree_base(main)
         sha = resolve_commit(main, base)
         changes = core.backlog_changes(main, sha, core.load_settings(main))

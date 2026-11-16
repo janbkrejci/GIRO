@@ -32,15 +32,16 @@ def test_pull_many_files_uses_constant_git_processes(
     git(repo, "push", "-q", "origin", "HEAD:main")
     git(repo, "checkout", "-q", "main")
 
+    from aifactory import gitrun
+
     calls: list[list[str]] = []
-    run = subprocess.run
+    run = gitrun.run
 
-    def counted(args: list[str], **kwargs: Any) -> Any:
-        if args[0] == "git":
-            calls.append(args[1:])
-        return run(args, **kwargs)
+    def counted(cwd: Any, *args: str, **kwargs: Any) -> Any:
+        calls.append(list(args))
+        return run(cwd, *args, **kwargs)
 
-    monkeypatch.setattr(subprocess, "run", counted)
+    monkeypatch.setattr(gitrun, "run", counted)
     settings = ProjectSettings(base="main", git_provider="local")
     store = TaskRunStore(tmp_path / "trace.db")
     try:

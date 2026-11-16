@@ -63,11 +63,11 @@ from __future__ import annotations
 
 import dataclasses
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
 
+from aifactory import gitrun
 from aifactory.engine import permissions
 from aifactory.failure import OTHER
 from aifactory.run import backup, basemoves, gitops, mainwrites
@@ -95,13 +95,7 @@ def roll_back(root: Path, path: str, after: dict[str, str]) -> str:
     if gitops.git_ok(root, "cat-file", "-e", f"HEAD:{path}"):
         ok = gitops.git_ok(root, "checkout", "HEAD", "--", path)
         return "rolled back" if ok else "could not roll back"
-    subprocess.run(
-        ["git", "rm", "--cached", "-q", "--", path],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
+    gitrun.run(root, "rm", "--cached", "-q", "--", path)
     try:
         target.unlink(missing_ok=True)
     except OSError as error:

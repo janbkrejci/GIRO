@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
 import tarfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from aifactory import gitquery, gitrun
 from aifactory.run.errors import TaskRunError
 
 BRANCH_PREFIX = "factory/"
@@ -20,61 +19,36 @@ class _Branches(Protocol):
 
 
 def git(root: Path, *args: str) -> str:
-    """Run git in `root`; return stripped stdout, raise RuntimeError with stderr on failure."""
-    proc = subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8"
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
-    return proc.stdout.strip()
-
-
-_COMMON_DIRS: dict[str, Path] = {}
+    """Run git in `root`; return stripped stdout, raise ``gitrun.GitCommandFailed`` (a
+    RuntimeError carrying stderr) on failure."""
+    return gitrun.out(root, *args)
 
 
 def common_dir(root: Path) -> Path | None:
-    """The absolute git common dir of the repo at ``root`` (None outside a repo).
-
-    Remembered per path once found: the guard asks for it several times in every agent phase.
-    """
-    key = str(root)
-    cached = _COMMON_DIRS.get(key)
-    if cached is not None:
-        return cached
-    proc = subprocess.run(
-        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    out = proc.stdout.strip()
-    if proc.returncode != 0 or not out:
-        return None
-    _COMMON_DIRS[key] = Path(out)
-    return _COMMON_DIRS[key]
+    """The absolute git common dir of the repo at ``root`` (None outside a repo); cached."""
+    found = gitquery.dirs(root)
+    return None if found is None else found.common_dir
 
 
 def git_ok(root: Path, *args: str) -> bool:
-    proc = subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.returncode == 0
+    return gitrun.ok(root, *args)
 
 
 def main_root(repo: Path) -> Path:
-    """The top of the checkout that contains `repo`."""
+    """The top of the checkout that contains `repo` (cached)."""
     try:
-        return Path(git(repo, "rev-parse", "--show-toplevel")).resolve()
+        top = gitquery.toplevel(repo, required=True)
     except (RuntimeError, OSError) as exc:
         raise TaskRunError("invalid_config", f"{repo} is not a git repository: {exc}") from exc
+    assert top is not None
+    return top
 
 
 def ensure_excluded(root: Path, lines: Iterable[str]) -> None:
     """Add `lines` to ``info/exclude`` of the shared ``.git`` unless present (idempotent)."""
-    common = Path(git(root, "rev-parse", "--git-common-dir"))
-    if not common.is_absolute():
-        common = root / common
+    common = common_dir(root)
+    if common is None:
+        raise RuntimeError(f"git rev-parse --git-common-dir failed: {root} is not a repository")
     exclude = common / "info" / "exclude"
     existing = exclude.read_text(encoding="utf-8") if exclude.is_file() else ""
     present = set(existing.splitlines())
@@ -108,12 +82,12 @@ def _commit_dirs(root: Path, sha: str, pattern: str) -> list[str]:
     found = [""]
     for part in [p for p in pattern.strip("/").split("/") if p and p != "."]:
         nxt: list[str] = []
+        if not any(ch in part for ch in "*?["):
+            paths = [f"{prefix}/{part}" if prefix else part for prefix in found]
+            present = gitquery.exists(root, [f"{sha}:{path}" for path in paths])
+            found = [path for path in paths if present.get(f"{sha}:{path}")]
+            continue
         for prefix in found:
-            if not any(ch in part for ch in "*?["):
-                path = f"{prefix}/{part}" if prefix else part
-                if git_ok(root, "cat-file", "-e", f"{sha}:{path}"):
-                    nxt.append(path)
-                continue
             tree = f"{sha}:{prefix}" if prefix else sha
             try:
                 out = git(root, "ls-tree", "-d", "-z", "--name-only", tree)
@@ -145,14 +119,8 @@ def extract_backlog(root: Path, sha: str, backlog_dirs: str | Iterable[str], des
     if not rels:
         return
     archive = dest / ".base.tar"
-    with archive.open("wb") as out:
-        subprocess.run(
-            ["git", "archive", "--format=tar", sha, "--", *rels],
-            cwd=root,
-            stdout=out,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
+    data = gitrun.run(root, "archive", "--format=tar", sha, "--", *rels, check=True).stdout
+    archive.write_bytes(data)
     with tarfile.open(archive) as tar:
         tar.extractall(dest, filter="data")
     archive.unlink()
@@ -175,16 +143,9 @@ def symbolic_head(path: Path) -> str | None:
 
 
 def _stdout(root: Path, *args: str) -> str:
-    proc = subprocess.run(
-        # unquoted paths: core.quotePath would octal-escape "Testovací sady/"
-        ["git", "-c", "core.quotePath=false", *args],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return proc.stdout if proc.returncode == 0 else ""
+    # unquoted paths: core.quotePath would octal-escape "Testovací sady/"
+    proc = gitrun.run(root, "-c", "core.quotePath=false", *args)
+    return proc.text if proc.ok else ""
 
 
 def fingerprint(root: Path) -> dict[str, str]:
@@ -217,11 +178,7 @@ def pr_changed_files(
             start = git(main, "merge-base", base_sha, head_ref)
         else:
             return None
-        proc = subprocess.run(
-            ["git", "diff", "--name-only", "-z", start, head_ref],
-            cwd=main,
-            capture_output=True,
-        )
+        proc = gitrun.run(main, "diff", "--name-only", "-z", start, head_ref)
     except (RuntimeError, OSError):
         return None
     if proc.returncode != 0:
@@ -232,7 +189,7 @@ def pr_changed_files(
 
 # ── read-only layout of a repository the dashboard does not know yet ────────────────
 
-READ_ONLY_ENV = {"GIT_OPTIONAL_LOCKS": "0"}
+READ_ONLY_ENV = gitrun.READ_ONLY_ENV
 
 
 def read_git(path: Path, *args: str) -> str | None:
@@ -243,20 +200,9 @@ def read_git(path: Path, *args: str) -> str | None:
     ``remote get-url`` through it in a repository it has not registered.
     """
     try:
-        proc = subprocess.run(
-            ["git", *args],
-            cwd=path,
-            capture_output=True,
-            text=True,
-            check=False,
-            env={**os.environ, **READ_ONLY_ENV},
-            encoding="utf-8",
-        )
+        return gitrun.try_out(path, *args, read_only=True)
     except OSError:
         return None
-    if proc.returncode != 0:
-        return None
-    return proc.stdout.strip()
 
 
 @dataclass(frozen=True)
@@ -301,8 +247,10 @@ def repo_layout(path: Path) -> RepoLayout | None:
     inside = lines[1].strip() == "true"
     toplevel: Path | None = None
     if not bare and not inside:
-        top = read_git(path, "rev-parse", "--show-toplevel")
-        toplevel = Path(top).resolve() if top else None
+        try:
+            toplevel = gitquery.toplevel(path)
+        except OSError:
+            toplevel = None
     return RepoLayout(
         bare=bare,
         inside_git_dir=inside,

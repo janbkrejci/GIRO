@@ -593,11 +593,11 @@ def test_registry_budget_expires_inside_context_without_starting_more_git(
     caplog: pytest.LogCaptureFixture,
     completed: int,
 ) -> None:
-    import subprocess
-
-    from aifactory import procrun
+    from aifactory import gitrun, procrun
     from aifactory.library import inherit
     from aifactory.web.registry import RepoEntry
+    from gitspy import GitCall, spy_git
+    from gitspy import result as gitspy_result
 
     clock = [100.0]
     monkeypatch.setattr(procrun, "_clock", lambda: clock[0])
@@ -616,16 +616,19 @@ def test_registry_budget_expires_inside_context_without_starting_more_git(
     ]
     outputs = [str(tmp_path), f"worktree {tmp_path}\n", "repo-head\n"]
 
-    def finish(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+    def finish(call: GitCall) -> gitrun.Result:
+        argv = call.argv
+        if "--git-common-dir" in argv:  # gitquery.dirs before resolving a ref: no repo
+            return gitspy_result(argv, "", 128)
         assert len(calls) < completed, "git must not start with only 0.27 seconds left"
         assert argv == commands[len(calls)]
         output = outputs[len(calls)]
         calls.append(argv)
         if len(calls) == completed:
             clock[0] = 109.73
-        return subprocess.CompletedProcess(argv, 0, output, "")
+        return gitspy_result(argv, output)
 
-    monkeypatch.setattr(subprocess, "run", finish)
+    spy_git(monkeypatch, finish)
     counts = machine._harness_repos(tmp_path, FakeMachine(), global_state)
     assert calls == commands[:completed]
     assert counts["claude"] == 1

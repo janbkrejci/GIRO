@@ -11,19 +11,18 @@ take ``index.lock`` while task runs commit in the same repository.
 
 from __future__ import annotations
 
-import os
 import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Protocol
 
-from aifactory import procrun
+from aifactory import gitquery, gitrun
 from aifactory.config.errors import ConfigError, ConfigIssue
 
 FACTORY_DIR = ".factory"
 LOCAL_FILE = ".factory/local.yaml"
 # git reads only: no optional locks (index refresh) during reads
-READ_ENV = {"GIT_OPTIONAL_LOCKS": "0"}
+READ_ENV = gitrun.READ_ONLY_ENV
 
 
 class GitError(ConfigError):
@@ -33,22 +32,13 @@ class GitError(ConfigError):
 def git(root: Path, *args: str) -> str:
     """Run ``git *args`` in ``root`` and return stdout; raise ``GitError`` on failure."""
     try:
-        proc = subprocess.run(
-            ["git", *args],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            check=False,
-            env={**os.environ, **READ_ENV},
-            timeout=procrun.limit(None, ["git", *args]),
-        )
+        proc = gitrun.run(root, *args, read_only=True)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitError([ConfigIssue(str(root), f"git {' '.join(args)}: {exc}")]) from exc
     if proc.returncode != 0:
-        detail = proc.stderr.strip() or f"exit status {proc.returncode}"
+        detail = proc.error or f"exit status {proc.returncode}"
         raise GitError([ConfigIssue(str(root), f"git {' '.join(args)}: {detail}")])
-    return proc.stdout
+    return proc.text
 
 
 _TREES: dict[tuple[str, str], tuple[frozenset[str], dict[str, str]]] = {}
@@ -98,19 +88,11 @@ def _read_blobs(root: Path, oids: dict[str, str]) -> dict[str, bytes]:
     order = list(oids.items())
     request = "".join(f"{oid}\n" for _, oid in order).encode()
     try:
-        proc = subprocess.run(
-            ["git", "cat-file", "--batch"],
-            cwd=root,
-            input=request,
-            capture_output=True,
-            check=False,
-            env={**os.environ, **READ_ENV},
-            timeout=procrun.limit(None, ["git", "cat-file", "--batch"]),
-        )
+        proc = gitrun.run(root, "cat-file", "--batch", input=request, read_only=True)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitError([ConfigIssue(str(root), f"git cat-file --batch: {exc}")]) from exc
     if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip() or f"exit status {proc.returncode}"
+        detail = proc.error or f"exit status {proc.returncode}"
         raise GitError([ConfigIssue(str(root), f"git cat-file --batch: {detail}")])
     data, pos, contents = proc.stdout, 0, {}
     for path, oid in order:
@@ -136,21 +118,25 @@ def git_try(root: Path, *args: str) -> str | None:
 def repo_root(start: Path) -> Path:
     """The top level of the git repository containing ``start``."""
     try:
-        out = git(start, "rev-parse", "--show-toplevel")
-    except GitError as exc:
-        raise ConfigError([ConfigIssue(str(start), "not a git repository")]) from exc
-    return Path(out.strip()).resolve()
+        top = gitquery.toplevel(start)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitError([ConfigIssue(str(start), f"git rev-parse --show-toplevel: {exc}")]) from exc
+    if top is None:
+        raise ConfigError([ConfigIssue(str(start), "not a git repository")])
+    return top
 
 
 def resolve_commit(root: Path, ref: str) -> str:
     """The full sha of the commit ``ref`` names."""
     try:
-        out = git(root, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
-    except GitError as exc:
+        sha = gitquery.resolve(root, ref)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise GitError([ConfigIssue(str(root), f"git rev-parse {ref}: {exc}")]) from exc
+    if sha is None:
         raise ConfigError(
             [ConfigIssue(str(root), f"base '{ref}' does not resolve to a commit in {root}")]
-        ) from exc
-    return out.strip()
+        )
+    return sha
 
 
 class ConfigSource(Protocol):

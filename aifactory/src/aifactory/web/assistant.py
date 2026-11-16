@@ -50,7 +50,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import threading
 import time
 import uuid
@@ -62,6 +61,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from aifactory import gitrun
 from aifactory import guide as guide_chapters
 from aifactory.harness import canonical
 from aifactory.harness import load as load_harness
@@ -450,20 +450,16 @@ def parse_outcome(body: dict[str, Any]) -> tuple[str, str]:
 
 
 def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=GIRO guide",
-            "-c",
-            "user.email=guide@haifa.invalid",
-            "-c",
-            "commit.gpgsign=false",
-            *args,
-        ],
-        cwd=cwd,
+    gitrun.run(
+        cwd,
+        "-c",
+        "user.name=GIRO guide",
+        "-c",
+        "user.email=guide@haifa.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        *args,
         check=True,
-        capture_output=True,
     )
 
 

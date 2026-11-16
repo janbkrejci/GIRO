@@ -8,16 +8,14 @@ checked out, or ``update-ref`` where it is not.
 from __future__ import annotations
 
 import contextlib
-import os
 import re
 import shutil
-import subprocess
 import tempfile
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 
-from aifactory import procrun
+from aifactory import gitquery, gitrun
 from aifactory.providers.base import ProviderError
 
 # Global options for commands that check files out: write them with parallel workers.
@@ -25,33 +23,22 @@ from aifactory.providers.base import ProviderError
 PARALLEL_CHECKOUT = ("-c", "checkout.workers=0")
 
 
-def _run(cwd: Path, args: tuple[str, ...], input: str | None) -> subprocess.CompletedProcess[str]:
-    # Inside a probe budget (``procrun.budget``) git gets the time left, else no limit.
-    return subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        input=input,
-        encoding="utf-8",
-        timeout=procrun.limit(None, ["git", *args]),
-    )
+def _run(cwd: Path, args: tuple[str, ...], input: str | None) -> gitrun.Result:
+    return gitrun.run(cwd, *args, input=input)
 
 
 def git(cwd: Path, *args: str, input: str | None = None) -> str:
-    result = _run(cwd, args, input)
-    if result.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
-    return result.stdout.strip()
+    """Stripped stdout; raise ``gitrun.GitCommandFailed`` (a RuntimeError) on failure."""
+    return gitrun.out(cwd, *args, input=input)
 
 
 def git_ok(cwd: Path, *args: str) -> bool:
-    return _run(cwd, args, None).returncode == 0
+    return gitrun.ok(cwd, *args)
 
 
 def rev_parse(cwd: Path, ref: str) -> str | None:
-    result = _run(cwd, ("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"), None)
-    return result.stdout.strip() if result.returncode == 0 else None
+    """The commit `ref` names (cached while the ref does not move), or None."""
+    return gitquery.resolve(cwd, ref)
 
 
 def is_ancestor(cwd: Path, ancestor: str, descendant: str) -> bool:
@@ -59,7 +46,7 @@ def is_ancestor(cwd: Path, ancestor: str, descendant: str) -> bool:
 
 
 def has_remote(root: Path, remote: str) -> bool:
-    return git_ok(root, "remote", "get-url", remote)
+    return gitquery.remote_url(root, remote) is not None
 
 
 def remote_branches(root: Path, remote: str, prefix: str) -> list[str] | None:
@@ -68,7 +55,7 @@ def remote_branches(root: Path, remote: str, prefix: str) -> list[str] | None:
     if result.returncode != 0:
         return None
     names: list[str] = []
-    for line in result.stdout.splitlines():
+    for line in result.text.splitlines():
         parts = line.split("\t", 1)
         if len(parts) == 2 and parts[1].startswith("refs/heads/"):
             names.append(parts[1].removeprefix("refs/heads/"))
@@ -81,12 +68,11 @@ def remote_branch_exists(root: Path, remote: str, branch: str) -> bool | None:
     result = _run(root, ("ls-remote", "--heads", remote, ref), None)
     if result.returncode != 0:
         return None
-    return any(line.endswith("\t" + ref) for line in result.stdout.splitlines())
+    return any(line.endswith("\t" + ref) for line in result.text.splitlines())
 
 
 def remote_url(root: Path, remote: str) -> str | None:
-    result = _run(root, ("remote", "get-url", remote), None)
-    return result.stdout.strip() if result.returncode == 0 else None
+    return gitquery.remote_url(root, remote)
 
 
 # A push that fails with one of these (lowercased stderr) failed on the way, not because
@@ -157,7 +143,7 @@ def push(cwd: Path, remote: str, branch: str, lease: str | None = None) -> None:
         result = _run(cwd, (*args, remote, f"refs/heads/{branch}:refs/heads/{branch}"), None)
         if result.returncode == 0:
             return
-        detail = result.stderr.strip() or "failed"
+        detail = result.error or "failed"
         if attempt < PUSH_ATTEMPTS and transient_push_error(detail):
             _sleep(delay)
             delay *= 2
@@ -171,7 +157,7 @@ def fetch(root: Path, remote: str, branch: str) -> None:
     result = _run(root, ("fetch", "--quiet", remote, branch), None)
     if result.returncode != 0:
         raise ProviderError(
-            "fetch_failed", f"git fetch {remote} {branch}: {result.stderr.strip() or 'failed'}"
+            "fetch_failed", f"git fetch {remote} {branch}: {result.error or 'failed'}"
         )
 
 
@@ -206,7 +192,7 @@ def advance_branch(
         if result.returncode != 0:
             raise ProviderError(
                 "dirty_base",
-                f"cannot fast-forward {branch} checked out in {where}: {result.stderr.strip()}",
+                f"cannot fast-forward {branch} checked out in {where}: {result.error}",
             )
     else:
         git(root, "update-ref", f"refs/heads/{branch}", new_sha, old_sha)
@@ -217,7 +203,7 @@ def advance_branch(
 
 def remove_worktree(root: Path, path: Path) -> bool:
     """Remove the worktree at `path`; return whether there was one."""
-    if path.resolve() == Path(git(root, "rev-parse", "--show-toplevel")).resolve():
+    if path.resolve() == gitquery.toplevel(root, required=True):
         raise ProviderError("worktree_remove_failed", f"{path} is the main checkout")
     existed = path.exists()
     if existed:
@@ -240,7 +226,7 @@ def remove_worktree(root: Path, path: Path) -> bool:
         if result.returncode != 0:
             raise ProviderError(
                 "worktree_remove_failed",
-                f"git worktree remove {path}: {result.stderr.strip()}; remaining files kept; "
+                f"git worktree remove {path}: {result.error}; remaining files kept; "
                 "if Git metadata was removed, the next task resolve preserves the remainder "
                 "in .factory/recovered-worktrees before recreating the checkout",
             )
@@ -283,9 +269,7 @@ def merge_commit(root: Path, base_sha: str, tip: str, strategy: str, subject: st
         if result.returncode != 0:
             git_ok(wt, "merge", "--abort")
             git_ok(wt, "reset", "--hard", "--quiet")
-            raise ProviderError(
-                "conflict", f"{tip[:7]} does not merge cleanly: {result.stdout.strip()}"
-            )
+            raise ProviderError("conflict", f"{tip[:7]} does not merge cleanly: {result.out}")
         if strategy == "squash":
             git(wt, "commit", "--quiet", "-m", subject)
         return git(wt, "rev-parse", "HEAD")
@@ -303,20 +287,14 @@ def run_bytes(
     *,
     env: Mapping[str, str] | None = None,
     input_bytes: bytes | None = None,
-) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        capture_output=True,
-        input=input_bytes,
-        env={**os.environ, **(env or {})},
-        timeout=procrun.limit(None, ["git", *args]),
-    )
+) -> gitrun.Result:
+    """``gitrun.run`` with `env` laid over the environment (kept for its many callers)."""
+    return gitrun.run(cwd, *args, env=env, input=input_bytes)
 
 
-def _checked(proc: subprocess.CompletedProcess[bytes], code: str, what: str) -> bytes:
+def _checked(proc: gitrun.Result, code: str, what: str) -> bytes:
     if proc.returncode != 0:
-        detail = proc.stderr.decode("utf-8", "replace").strip() or "failed"
+        detail = proc.error or "failed"
         raise ProviderError(code, f"git {what}: {detail}")
     return proc.stdout
 
@@ -387,12 +365,10 @@ def commit_tree_with(
     try:
         start = [parent] if parent is not None else ["--empty"]
         _checked(run_bytes(root, ["read-tree", *start], env=env), "commit_failed", "read-tree")
-        for path, mode, blob in changes:
-            if blob is None or mode is None:
-                args = ["update-index", "--force-remove", "--", path]
-            else:
-                args = ["update-index", "--add", "--cacheinfo", f"{mode},{blob},{path}"]
-            _checked(run_bytes(root, args, env=env), "commit_failed", "update-index")
+        try:
+            gitquery.update_index(root, changes, env=env)
+        except gitrun.GitCommandFailed as exc:
+            raise ProviderError("commit_failed", f"git update-index: {exc.stderr}") from exc
         tree = _checked(run_bytes(root, ["write-tree"], env=env), "commit_failed", "write-tree")
         out = _checked(
             run_bytes(
@@ -420,7 +396,7 @@ def push_ref(cwd: Path, remote: str, sha: str, branch: str) -> None:
     result = _run(cwd, ("push", "--quiet", remote, f"{sha}:refs/heads/{branch}"), None)
     if result.returncode != 0:
         raise ProviderError(
-            "push_failed", f"git push {remote} {branch}: {result.stderr.strip() or 'failed'}"
+            "push_failed", f"git push {remote} {branch}: {result.error or 'failed'}"
         )
 
 
@@ -475,4 +451,4 @@ def ls_remote_refs(cwd: Path, url: str) -> list[str] | None:
     result = _run(cwd, ("ls-remote", url), None)
     if result.returncode != 0:
         return None
-    return [line.split("\t", 1)[1] for line in result.stdout.splitlines() if "\t" in line]
+    return [line.split("\t", 1)[1] for line in result.text.splitlines() if "\t" in line]

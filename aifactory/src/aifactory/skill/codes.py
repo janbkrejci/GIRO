@@ -258,6 +258,7 @@ _CODES: tuple[tuple[str, str, str], ...] = (
     ("invalid_strategy", "2", "merge_strategy is not squash or merge"),
     ("gh_missing", "2", "the gh CLI is not installed"),
     ("gh_failed", "2", "a gh command failed"),
+    ("gh_timeout", "2", "a gh command exceeded its timeout; retry the operation"),
     ("az_missing", "2", "the az CLI is not installed"),
     ("az_failed", "2", "an az command failed"),
     ("az_timeout", "2", "an Azure CLI command exceeded its timeout; retry the operation"),

@@ -105,21 +105,22 @@ def test_limit_allows_usable_git_budget_and_preserves_other_probe_limits(
 def test_git_budget_can_expire_between_commands_without_starting_another(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    clock = [100.0]
-    calls: list[list[str]] = []
-    monkeypatch.setattr(procrun, "_clock", lambda: clock[0])
+    # The budget starts at 100; the first command sees 100, the second 109.73.
+    times = iter([100.0, 100.0, 109.73])
+    monkeypatch.setattr(procrun, "_clock", lambda: next(times))
+    started: list[object] = []
+    popen = subprocess.Popen
 
-    def finish(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
-        calls.append(argv)
-        clock[0] = 109.73
-        return subprocess.CompletedProcess(argv, 0, b"head\n", b"")
+    def spawn(*args: object, **kwargs: object) -> object:
+        started.append(args[0])
+        return popen(*args, **kwargs)  # type: ignore[call-overload]
 
-    monkeypatch.setattr(subprocess, "run", finish)
+    monkeypatch.setattr(subprocess, "Popen", spawn)
     with procrun.budget(10.0):
-        assert git.run_bytes(tmp_path, ["rev-parse", "HEAD"]).returncode == 0
+        assert git.run_bytes(tmp_path, ["--version"]).returncode == 0
         with pytest.raises(procrun.BudgetExceeded):
             git.run_bytes(tmp_path, ["ls-tree", "HEAD"])
-    assert calls == [["git", "rev-parse", "HEAD"]]
+    assert started == [("git", "--version")]
 
 
 def test_system_machine_probe_times_out_to_none() -> None:
