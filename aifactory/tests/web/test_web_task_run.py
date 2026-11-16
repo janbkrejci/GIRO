@@ -225,6 +225,26 @@ def test_run_check_reports_uncommitted_config(client: TestClient, repo: Path) ->
     assert body["data"]["launcher_busy"] is False
 
 
+def test_run_check_reads_committed_dependencies_without_extracting_files(
+    client: TestClient, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_archive(*args: object, **kwargs: object) -> None:
+        pytest.fail("run-check must read the committed backlog in memory")
+
+    monkeypatch.setattr("aifactory.run.gitops.extract_backlog", no_archive)
+    path = repo / "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("status: todo", "status: done"), encoding="utf-8"
+    )
+    before = _check(client.get(f"/api/backlog/tasks/{T02}/run-check"), 200)["data"]
+    assert [dep["id"] for dep in before["unmet"]] == [T01]
+    assert before["in_base"] is True
+    commit_all(repo, "complete dependency")
+    after = _check(client.get(f"/api/backlog/tasks/{T02}/run-check"), 200)["data"]
+    assert after["unmet"] == []
+    assert runs_of(repo, T02) == []
+
+
 def test_run_rejects_bad_input(client: TestClient, repo: Path) -> None:
     assert _run(client, T01, {"bogus": 1}, 400)["error"]["code"] == "usage_error"
     assert _run(client, T01, {"force": "yes"}, 400)["error"]["code"] == "invalid_value"

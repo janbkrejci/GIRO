@@ -44,6 +44,7 @@ from aifactory.backlog import (
     unmet,
 )
 from aifactory.backlog.derived import ancestors, harness_values
+from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import (
     ConfigError,
     FactoryConfig,
@@ -556,108 +557,105 @@ def run_task(
         fork_base = fork_sha
         if resolve_onto is not None:
             fork_sha = resolve_onto
-        with tempfile.TemporaryDirectory(prefix="factory-base-") as tmp:
-            base_copy = Path(tmp)
-            try:
-                gitops.extract_backlog(main, rc.commit, settings.backlog_patterns, base_copy)
-            except (OSError, RuntimeError) as exc:
-                raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
-            backlog = load_backlog(base_copy, settings)
-            task = _find_task(backlog, task_id)
-            if task is None:
-                raise _missing_task(main, rc, backlog, task_id)
-            from aifactory.harness.settings import effective_override
+        try:
+            backlog = load_backlog_at(main, rc.commit, settings)
+        except (OSError, RuntimeError) as exc:
+            raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
+        task = _find_task(backlog, task_id)
+        if task is None:
+            raise _missing_task(main, rc, backlog, task_id)
+        from aifactory.harness.settings import effective_override
 
-            try:
-                binding = effective_override({}, agents_override, repo=main)
-                rc = apply_agents_override(rc, binding)
-            except ValueError as exc:
-                raise TaskRunError("invalid_override", str(exc)) from exc
-            primary = binding.get("harness") or rc.config.agents.defaults.harness
-            if not primary and rc.config.agents.agents:
-                primary = rc.config.agents.agents[0].harness
-            chain_start: _ChainStart | None = None
-            if agents_override is None and resolve_onto is None and workflow_name is None:
-                chain_start = _chain_start(store, rc, task, binding, repo=main)
-                if chain_start is not None and chain_start.rc is not None:
-                    rc, binding = chain_start.rc, chain_start.binding
-            if primary and (binding.get("harness") or chain_start is not None):
-                note = f"{note or ''} [primární harness: {primary}]".strip()
-            if binding:
-                from aifactory.harness.settings import read as read_harness_settings
-                from aifactory.repo_settings import RepositorySettings
+        try:
+            binding = effective_override({}, agents_override, repo=main)
+            rc = apply_agents_override(rc, binding)
+        except ValueError as exc:
+            raise TaskRunError("invalid_override", str(exc)) from exc
+        primary = binding.get("harness") or rc.config.agents.defaults.harness
+        if not primary and rc.config.agents.agents:
+            primary = rc.config.agents.agents[0].harness
+        chain_start: _ChainStart | None = None
+        if agents_override is None and resolve_onto is None and workflow_name is None:
+            chain_start = _chain_start(store, rc, task, binding, repo=main)
+            if chain_start is not None and chain_start.rc is not None:
+                rc, binding = chain_start.rc, chain_start.binding
+        if primary and (binding.get("harness") or chain_start is not None):
+            note = f"{note or ''} [primární harness: {primary}]".strip()
+        if binding:
+            from aifactory.harness.settings import read as read_harness_settings
+            from aifactory.repo_settings import RepositorySettings
 
-                local = RepositorySettings(main).read()
-                machine = read_harness_settings()
-                if chain_start and chain_start.record:
-                    source = "quota"
-                elif agents_override:
-                    source = "explicit"
-                elif local.harness:
-                    source = "repository"
-                elif machine and machine.default_harness:
-                    source = "machine"
-                else:
-                    source = "roster"
-                note = f"{note or ''} [zdroj harnessu: {source}]".strip()
-            note = override_note(note, binding)
-            busy = store.running(task_id)
-            if busy is not None:
-                raise already_running(busy)
-            if resolve_onto is None and is_human(task):
-                raise TaskRunError(
-                    "human_task", f"task {task.id} is for a person (assignee: human), not a run"
-                )
-            if resolve_onto is None and workflow_name is None and not has_workflow(task):
-                raise no_workflow_error(task)
-            stacked: str | None = None
-            if not force:
-                blocked = _unmet_error(backlog, task, rc.base)
-                stack = (
-                    stack_point(main, backlog, task, store)
-                    if blocked is not None and settings.stacked_prs and branch is None
-                    else None
-                )
-                if stack is not None:
-                    # the dependencies wait in open PRs: fork from the newest of them
-                    point, prs = stack
-                    fork_sha, stacked = point.sha, point.branch
-                    note = f"{note}\n\n{point.note(prs)}" if note else point.note(prs)
-                elif blocked is not None:
-                    raise blocked
-            outputs = output_paths(task, settings)
-            workdir = project_workdir(settings)
-            validate_base_dirs(
-                main,
-                fork_sha,
-                (workdir, str(Path(outputs.spec).parent), str(Path(outputs.doc).parent)),
-                workdir,
-            )
-            scope = task_scope(task, outputs)
-            if not scope.writes and resolve_onto is None:
-                raise TaskRunError(
-                    "no_writes",
-                    f"task {task_id} has no writes, neither its own nor inherited from index.md",
-                )
-            test_timeout = resolve_test_timeout(task, settings)
-            if resolve_onto is None and workflow_name is not None:
-                workflow = named_workflow(workflow_name, rc.config, task_id)
-            elif resolve_onto is None:
-                workflow = resolve_workflow(task, rc.config)
+            local = RepositorySettings(main).read()
+            machine = read_harness_settings()
+            if chain_start and chain_start.record:
+                source = "quota"
+            elif agents_override:
+                source = "explicit"
+            elif local.harness:
+                source = "repository"
+            elif machine and machine.default_harness:
+                source = "machine"
             else:
-                workflow = named_workflow(resolve_with, rc.config, task_id)
-                if not any(
-                    isinstance(s, CodeStep) and s.action == "rebase" for s in walk(workflow.steps)
-                ):
-                    raise TaskRunError(
-                        "invalid_workflow", f"workflow {resolve_with} needs a rebase step"
-                    )
-            with tempfile.TemporaryDirectory(prefix="factory-prompts-") as prompts_tmp:
-                probe = prepare_cfg(main, rc, Path(prompts_tmp))
-                try:
-                    preflight(workflow, probe)
-                except WorkflowError as exc:
-                    raise TaskRunError("invalid_workflow", str(exc)) from exc
+                source = "roster"
+            note = f"{note or ''} [zdroj harnessu: {source}]".strip()
+        note = override_note(note, binding)
+        busy = store.running(task_id)
+        if busy is not None:
+            raise already_running(busy)
+        if resolve_onto is None and is_human(task):
+            raise TaskRunError(
+                "human_task", f"task {task.id} is for a person (assignee: human), not a run"
+            )
+        if resolve_onto is None and workflow_name is None and not has_workflow(task):
+            raise no_workflow_error(task)
+        stacked: str | None = None
+        if not force:
+            blocked = _unmet_error(backlog, task, rc.base)
+            stack = (
+                stack_point(main, backlog, task, store)
+                if blocked is not None and settings.stacked_prs and branch is None
+                else None
+            )
+            if stack is not None:
+                # the dependencies wait in open PRs: fork from the newest of them
+                point, prs = stack
+                fork_sha, stacked = point.sha, point.branch
+                note = f"{note}\n\n{point.note(prs)}" if note else point.note(prs)
+            elif blocked is not None:
+                raise blocked
+        outputs = output_paths(task, settings)
+        workdir = project_workdir(settings)
+        validate_base_dirs(
+            main,
+            fork_sha,
+            (workdir, str(Path(outputs.spec).parent), str(Path(outputs.doc).parent)),
+            workdir,
+        )
+        scope = task_scope(task, outputs)
+        if not scope.writes and resolve_onto is None:
+            raise TaskRunError(
+                "no_writes",
+                f"task {task_id} has no writes, neither its own nor inherited from index.md",
+            )
+        test_timeout = resolve_test_timeout(task, settings)
+        if resolve_onto is None and workflow_name is not None:
+            workflow = named_workflow(workflow_name, rc.config, task_id)
+        elif resolve_onto is None:
+            workflow = resolve_workflow(task, rc.config)
+        else:
+            workflow = named_workflow(resolve_with, rc.config, task_id)
+            if not any(
+                isinstance(s, CodeStep) and s.action == "rebase" for s in walk(workflow.steps)
+            ):
+                raise TaskRunError(
+                    "invalid_workflow", f"workflow {resolve_with} needs a rebase step"
+                )
+        with tempfile.TemporaryDirectory(prefix="factory-prompts-") as prompts_tmp:
+            probe = prepare_cfg(main, rc, Path(prompts_tmp))
+            try:
+                preflight(workflow, probe)
+            except WorkflowError as exc:
+                raise TaskRunError("invalid_workflow", str(exc)) from exc
 
         run_id = str(new_id(8))
         new_branch = branch is None

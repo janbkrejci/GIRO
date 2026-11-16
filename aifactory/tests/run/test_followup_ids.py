@@ -145,7 +145,9 @@ def test_stale_run_uses_fetched_target_without_moving_its_worktree(
     assert backlog.by_id["M01-TODO-T01"].title == "Other run"
 
 
-def test_concurrent_prs_renumber_and_rewrite_only_branch_references(repo: Path) -> None:
+def test_concurrent_prs_renumber_and_rewrite_only_branch_references(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     settings = load_run_config(repo).config.settings.model_copy(update={"base_pr_merge": "auto"})
     provider = LocalProvider(repo, settings)
     first_plan, old_id = candidate(repo, T01, "First")
@@ -153,6 +155,10 @@ def test_concurrent_prs_renumber_and_rewrite_only_branch_references(repo: Path) 
     first = open_pr(repo, provider, settings, first_plan)
     second = open_pr(repo, provider, settings, second_plan)
 
+    def no_archive(*args: object, **kwargs: object) -> None:
+        pytest.fail("read-only ID reconciliation must not extract a backlog")
+
+    monkeypatch.setattr("aifactory.run.followups._snapshot", no_archive)
     assert finish(repo, provider, settings, first_plan, first).merged
     repaired = finish(repo, provider, settings, second_plan, second)
 
@@ -350,7 +356,7 @@ def test_unchanged_backlog_does_not_need_snapshots(
     def unexpected(*args: object) -> None:
         raise AssertionError("unchanged backlog must not be extracted")
 
-    monkeypatch.setattr("aifactory.run.followups._snapshot", unexpected)
+    monkeypatch.setattr("aifactory.run.followups.read_snapshot", unexpected)
     with publication_lock(repo):
         assert reconcile_ids(repo, head, "main", rc.config.settings) == (head, {})
 

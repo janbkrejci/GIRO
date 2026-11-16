@@ -113,7 +113,6 @@ import os
 import secrets
 import sqlite3
 import sys
-import tempfile
 import time
 from collections.abc import Callable, Collection, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
@@ -128,10 +127,10 @@ from aifactory.backlog import (
     has_workflow,
     is_human,
     iter_tasks,
-    load_backlog,
     unmet,
 )
 from aifactory.backlog.derived import ancestors, descendant_tasks
+from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import ConfigError
 from aifactory.engine.utils import now_iso
 from aifactory.providers import GitProvider
@@ -738,21 +737,19 @@ class ChainResult:
         }
 
 
-def _base_backlog(repo: Path, dest: Path) -> Backlog:
+def _base_backlog(repo: Path) -> Backlog:
     main = gitops.main_root(repo)
     rc = task_mod._load(main)
     settings = rc.config.settings
     try:
-        gitops.extract_backlog(main, rc.commit, settings.backlog_patterns, dest)
+        return load_backlog_at(main, rc.commit, settings)
     except (OSError, RuntimeError) as exc:
         raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
-    return load_backlog(dest, settings)
 
 
 @contextlib.contextmanager
 def _fresh_backlog(repo: Path) -> Iterator[Backlog]:
-    with tempfile.TemporaryDirectory(prefix="factory-chain-") as tmp:
-        yield _base_backlog(repo, Path(tmp))
+    yield _base_backlog(repo)
 
 
 class _ChainRecord:
@@ -1495,8 +1492,7 @@ def _sequential(
                 last = fixed
                 continue
         prefer: list[str] = []
-        with tempfile.TemporaryDirectory(prefix="factory-chain-") as tmp:
-            backlog = _base_backlog(repo, Path(tmp))
+        with _fresh_backlog(repo) as backlog:
             after = backlog.by_id.get(last.run.task_id)
             if not isinstance(after, Task):
                 return ChainResult(runs, STOP_FAILED if blocked is not None else STOP_DISABLED)
@@ -1549,9 +1545,7 @@ def _sequential(
             if not cont:
                 return ChainResult(runs, STOP_DISABLED)
             if merged:  # base moved: the next task starts from the merged change
-                fresh = Path(tmp) / "merged"
-                fresh.mkdir()
-                backlog = _base_backlog(repo, fresh)
+                backlog = _base_backlog(repo)
                 found = backlog.by_id.get(last.run.task_id)
                 if not isinstance(found, Task):
                     return ChainResult(runs, STOP_DISABLED)

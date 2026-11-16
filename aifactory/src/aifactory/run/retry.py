@@ -51,8 +51,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aifactory import failure as failures
-from aifactory.backlog import Task, load_backlog
+from aifactory.backlog import Task
 from aifactory.backlog.derived import is_done
+from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import ProjectSettings, load_run_config
 from aifactory.providers import GitProvider, ProviderError, get_provider
 from aifactory.providers import git as provider_git
@@ -471,13 +472,10 @@ def retry_run(
                 provider = get_provider(settings, main)
             except ProviderError as exc:
                 raise TaskRunError(exc.code, exc.message) from exc
-        with tempfile.TemporaryDirectory(prefix="factory-base-") as tmp:
-            base_copy = Path(tmp)
-            try:
-                gitops.extract_backlog(main, rc.commit, settings.backlog_patterns, base_copy)
-            except (OSError, RuntimeError) as exc:
-                raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
-            backlog = load_backlog(base_copy, settings)
+        try:
+            backlog = load_backlog_at(main, rc.commit, settings)
+        except (OSError, RuntimeError) as exc:
+            raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
         task = run_mod._find_task(backlog, task_id)
         if task is None:
             raise run_mod._missing_task(main, rc, backlog, task_id)

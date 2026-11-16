@@ -479,24 +479,11 @@ def _agent_uses(state: RepoState, name: str) -> list[str]:
     return out
 
 
-def _backlog_prefix(pattern: str) -> str:
-    from aifactory.backlog.roots import is_glob
-
-    parts: list[str] = []
-    for part in pattern.strip("/").split("/"):
-        if not part or part == ".":
-            continue
-        if is_glob(part):
-            break
-        parts.append(part)
-    return "/".join(parts) + "/" if parts else ""
-
-
 def _base_tasks(state: RepoState) -> list[tuple[str, object]]:
     """(id, effective workflow) of each task of the backlog in base (empty when unreadable)."""
     from aifactory.backlog.derived import effective_workflow
-    from aifactory.backlog.loader import iter_tasks, load_backlog
-    from aifactory.library.tree import read_blobs, tree_files, write_files
+    from aifactory.backlog.loader import iter_tasks
+    from aifactory.backlog.snapshot import load_backlog_at
 
     root, sha = state.root, state.base_sha
     config = git.blob_at(root, sha, CONFIG_FILE)
@@ -507,20 +494,11 @@ def _base_tasks(state: RepoState) -> list[tuple[str, object]]:
     settings = parse_project_settings(text, CONFIG_FILE, issues)
     if settings is None:
         return []
-    prefixes = sorted({_backlog_prefix(p) for p in settings.backlog_patterns})
-    paths = [CONFIG_FILE, *prefixes] if "" not in prefixes else []
     try:
-        files = [f for f in tree_files(root, sha, paths) if f.mode in ("100644", "100755")]
-        blobs = read_blobs(root, (f.blob for f in files))
-    except ProviderError:
+        backlog = load_backlog_at(root, sha, settings)
+    except (ConfigError, OSError, ValueError, RuntimeError):
         return []
-    with tempfile.TemporaryDirectory(prefix="factory-backlog-") as tmp:
-        write_files(Path(tmp), files, blobs)
-        try:
-            backlog = load_backlog(Path(tmp), settings)
-        except (ConfigError, OSError, ValueError):
-            return []
-        return [(str(t.id), effective_workflow(t)) for t in iter_tasks(backlog)]
+    return [(str(t.id), effective_workflow(t)) for t in iter_tasks(backlog)]
 
 
 def _removal(state: RepoState, type: ItemType, name: str) -> dict[str, bytes | None]:

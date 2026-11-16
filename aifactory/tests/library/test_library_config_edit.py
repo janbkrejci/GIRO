@@ -273,7 +273,9 @@ def test_remove_own_copy_falls_back_to_the_library(repo: Path, capsys: Capsys) -
     assert config.prompts["builder"].system != OWN_BUILDER
 
 
-def test_remove_in_use_without_the_library(repo: Path, capsys: Capsys) -> None:
+def test_remove_in_use_without_the_library(
+    repo: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
     error = fail(capsys, repo, "in_use", "remove", "agent", "helper")
     assert error["data"]["used_by"] == ["workflow mine step steps[0].plan"]
 
@@ -288,6 +290,22 @@ def test_remove_in_use_without_the_library(repo: Path, capsys: Capsys) -> None:
     error = fail(capsys, repo, "in_use", "remove", "workflow", "mine")
     assert error["data"]["used_by"] == ["backlog task M01-S01-T01"]
     fail(capsys, repo, "unknown_item", "remove", "workflow", "solo")
+
+    from aifactory.library.config_edit import _base_tasks, read_state
+
+    state = read_state(repo, "base")
+    task = repo / "factory/backlog/M01-core/S01-a/M01-S01-T01-x.md"
+    task.write_text(
+        task.read_text(encoding="utf-8").replace("workflow: mine", "workflow: solo"),
+        encoding="utf-8",
+    )
+
+    def no_temp(*args: object, **kwargs: object) -> None:
+        pytest.fail("workflow usage must read the committed backlog in memory")
+
+    with monkeypatch.context() as patch:
+        patch.setattr("tempfile.TemporaryDirectory", no_temp)
+        assert _base_tasks(state) == [("M01-S01-T01", "mine")]
 
 
 # ── move ──────────────────────────────────────────────────────────────────────
