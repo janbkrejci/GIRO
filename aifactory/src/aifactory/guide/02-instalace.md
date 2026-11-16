@@ -95,11 +95,11 @@ Instalace přes `winget` si může vyžádat potvrzení správce. Opakované spu
 
 ## Výchozí knihovna
 
-Instalátor (`install.sh` i `install.bat`) na počítači, který ještě knihovnu nemá, naklonuje výchozí týmovou knihovnu [HAIFA-LIBRARY](https://github.com/janbkrejci/HAIFA-LIBRARY) (veřejné repo, větev `main`). Firemní instalace nastaví jinou knihovnu proměnnou `GIRO_LIBRARY_URL` (celá git URL) v prostředí nebo v `$GIRO_HOME/env`, podobně jako `GIRO_UPDATE_REPO` pro vydání.
+Instalátor (`install.sh` i `install.bat`) na počítači, který ještě knihovnu nemá, naklonuje výchozí týmovou knihovnu [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY) (veřejné repo, větev `main`). Firemní instalace nastaví jinou knihovnu proměnnou `GIRO_LIBRARY_URL` (celá git URL) v prostředí nebo v `$GIRO_HOME/env`, podobně jako `GIRO_UPDATE_REPO` pro vydání.
 
 Při chybě klonování vznikne lokální knihovna s varováním. Před pozdějším `giro library clone` uchovej místní knihovnu včetně neodeslaných změn. Nedestruktivní `giro library seed` ponechá týmové úpravy jako `kept`; dirty knihovnu zachová s diagnostikou. Plán zobrazí `giro library seed --dry-run`, vybranou položku nahradí výslovné `--take`. Skill `factory` generuje `giro --skill`; `.factory/` overrides zůstávají.
 
-Změny knihovny se do HAIFA-LIBRARY dostávají jen pull requestem (kapitola [Knihovna a tým](#/guide/knihovna-a-tym)).
+Změny knihovny se do GIRO-LIBRARY dostávají jen pull requestem (kapitola [Knihovna a tým](#/guide/knihovna-a-tym)).
 
 ## Ověření instalace
 
@@ -122,7 +122,7 @@ Bez balíčku stačí `uv tool uninstall aifactory`. Závislosti (git, uv, gh, N
 
 Ze starší HAIFA přejdi nejprve na poslední HAIFA s alertem „HAIFA se přejmenovává na GIRO“. Přechodová akce uchová zálohu a obnoví dashboard na stejné adrese. GIRO alert nezobrazuje; aktualizace hledá v novém repo. Offline přechod po zastavení procesů: `giro migrate --confirm --haifa-bundle /cesta/haifa-H.zip`. Návrat vyžaduje zastavení zápisů a obnovu všech cest i softwaru z ověřené zálohy podle `docs/rebranding/release.md`; marker neobcházej.
 
-`factory` a `HAIFA_*` jsou kompatibilní aliasy `giro` a `GIRO_*`. Zachované technické názvy: `.factory/`, `factory/backlog/`, distribuce `aifactory`, `skill/factory`, HAIFA-LIBRARY. Storage klíče zůstávají při stejném originu. Migrační zálohy se nemažou; purge označeného home je zakázán, použij `--keep-data` / `-KeepData`.
+`factory` a `HAIFA_*` jsou kompatibilní aliasy `giro` a `GIRO_*`. Zachované technické názvy: `.factory/`, `factory/backlog/`, distribuce `aifactory`, `skill/factory`. Výchozí týmová knihovna je [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Storage klíče zůstávají při stejném originu. Migrační zálohy se nemažou; purge označeného home je zakázán, použij `--keep-data` / `-KeepData`.
 
 ## Licence
 

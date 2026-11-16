@@ -24,9 +24,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))
 from gh_fake import GhLog, install_fake_gh, prepare_shared_gh, reply  # noqa: E402
 
 Capsys = pytest.CaptureFixture[str]
-UPSTREAM = "https://github.com/janbkrejci/HAIFA-LIBRARY.git"
-FORK = "https://github.com/ada/HAIFA-LIBRARY.git"
-PR_URL = "https://github.com/janbkrejci/HAIFA-LIBRARY/pull/7"
+UPSTREAM = "https://github.com/janbkrejci/GIRO-LIBRARY.git"
+FORK = "https://github.com/ada/GIRO-LIBRARY.git"
+PR_URL = "https://github.com/janbkrejci/GIRO-LIBRARY/pull/7"
 HOOK = """#!/bin/sh
 echo "$1" >> "{log}"
 if [ "$1" = "refs/heads/main" ]; then
@@ -138,15 +138,25 @@ def _no_merge(log: GhLog) -> None:
 
 def test_default_url_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY_URL", raising=False)
     assert share.default_library_url() == share.DEFAULT_LIBRARY_URL == UPSTREAM
     assert share.default_library_url({"HAIFA_LIBRARY_URL": " git@corp:t/lib.git "}) == (
         "git@corp:t/lib.git"
     )
-    assert share.github_repo(UPSTREAM) == ("janbkrejci", "HAIFA-LIBRARY")
+    assert (
+        share.default_library_url(
+            {"GIRO_LIBRARY_URL": " git@corp:t/new.git ", "HAIFA_LIBRARY_URL": UPSTREAM}
+        )
+        == "git@corp:t/new.git"
+    )
+    assert share.github_repo(UPSTREAM) == ("janbkrejci", "GIRO-LIBRARY")
     assert share.github_repo("git@github.com:o/r.git") == ("o", "r")
     assert share.github_repo("https://dev.azure.com/o/p/_git/r") is None
-    assert share.fork_url(UPSTREAM, "ada") == FORK
-    assert share.fork_url("git@github.com:o/r.git", "ada") == "git@github.com:ada/r.git"
+    assert share.fork_url(UPSTREAM, "ada/GIRO-LIBRARY") == FORK
+    assert (
+        share.fork_url("git@github.com:o/r.git", "ada/old-name")
+        == "git@github.com:ada/old-name.git"
+    )
 
 
 def test_clone_without_url_uses_the_default_library(env: Env, capsys: Capsys) -> None:
@@ -201,12 +211,12 @@ def test_writer_sends_a_pull_request_from_a_branch(
     data = _ok(capsys, env.skill("lint"))
     pr = data["pull_request"]
     assert pr["url"] == PR_URL and pr["number"] == 7 and pr["fork"] is False
-    assert pr["repo"] == "janbkrejci/HAIFA-LIBRARY" and pr["base"] == "main"
+    assert pr["repo"] == "janbkrejci/GIRO-LIBRARY" and pr["base"] == "main"
     assert _git(env.bare, "rev-parse", pr["branch"]) == data["commit"]
     assert _git(env.bare, "rev-parse", "main") == main
     assert _git(lib, "rev-parse", "HEAD") == data["commit"]  # usable before the merge
     create = next(a for a in log.argvs() if a[:2] == ["pr", "create"])
-    assert create[create.index("--repo") + 1] == "janbkrejci/HAIFA-LIBRARY"
+    assert create[create.index("--repo") + 1] == "janbkrejci/GIRO-LIBRARY"
     assert create[create.index("--base") + 1] == "main"
     assert create[create.index("--head") + 1] == pr["branch"]
     assert not any(a[:2] == ["repo", "fork"] for a in log.argvs())
@@ -222,10 +232,17 @@ def test_writer_sends_a_pull_request_from_a_branch(
 
 
 @pytest.mark.usefixtures("_shared_gh")
+@pytest.mark.parametrize("fork_name", ["GIRO-LIBRARY", "HAIFA-LIBRARY"])
 def test_reader_sends_a_pull_request_from_a_fork(
-    env: Env, capsys: Capsys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    env: Env, capsys: Capsys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fork_name: str
 ) -> None:
     _published(env, capsys)
+    monkeypatch.setenv("GIT_CONFIG_VALUE_1", f"https://github.com/ada/{fork_name}.git")
+    if fork_name != "GIRO-LIBRARY":
+        # A regression guessing the new name must fail locally, never contact GitHub.
+        monkeypatch.setenv("GIT_CONFIG_COUNT", "3")
+        monkeypatch.setenv("GIT_CONFIG_KEY_2", f"url.{tmp_path / 'missing-fork.git'}.insteadOf")
+        monkeypatch.setenv("GIT_CONFIG_VALUE_2", FORK)
     main = _git(env.bare, "rev-parse", "main")
     log = install_fake_gh(
         tmp_path,
@@ -234,21 +251,24 @@ def test_reader_sends_a_pull_request_from_a_fork(
             "repo view": reply({"viewerPermission": "READ"}),
             "repo fork": reply(""),
             "api user": reply("ada\n"),
+            "api repos/janbkrejci/GIRO-LIBRARY/forks?per_page=100": reply(
+                f"other/GIRO-LIBRARY\nada/{fork_name}\n"
+            ),
             "pr create": reply(PR_URL + "\n"),
         },
     )
     data = _ok(capsys, env.skill("lint"))
     pr = data["pull_request"]
-    assert pr["fork"] is True and pr["head_repo"] == "ada/HAIFA-LIBRARY"
+    assert pr["fork"] is True and pr["head_repo"] == f"ada/{fork_name}"
     assert _git(env.fork, "rev-parse", pr["branch"]) == data["commit"]
     assert _git(env.bare, "for-each-ref", "refs/heads/haifa-library/") == ""
     assert _git(env.bare, "rev-parse", "main") == main
     fork = next(a for a in log.argvs() if a[:2] == ["repo", "fork"])
-    assert fork[2] == "janbkrejci/HAIFA-LIBRARY" and "--clone=false" in fork
+    assert fork[2] == "janbkrejci/GIRO-LIBRARY" and "--clone=false" in fork
     assert not any(arg.startswith("--remote") for arg in fork), fork
     create = next(a for a in log.argvs() if a[:2] == ["pr", "create"])
     assert create[create.index("--head") + 1] == f"ada:{pr['branch']}"
-    assert create[create.index("--repo") + 1] == "janbkrejci/HAIFA-LIBRARY"
+    assert create[create.index("--repo") + 1] == "janbkrejci/GIRO-LIBRARY"
     _no_merge(log)
     assert env.pushed_refs() == []
 
@@ -311,3 +331,31 @@ def test_push_branch_refuses_the_library_branch(env: Env) -> None:
     with pytest.raises(store.LibraryStoreError) as exc:
         share.push_branch(lib, str(env.bare), "0" * 40, "main")
     assert exc.value.code == "push_failed"
+
+
+@pytest.mark.usefixtures("_shared_gh")
+@pytest.mark.parametrize(
+    "lookup", [reply("other/GIRO-LIBRARY\n"), reply("", exit=1, stderr="API unavailable")]
+)
+def test_missing_fork_does_not_push_to_a_guessed_repository(
+    env: Env,
+    capsys: Capsys,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    lookup: dict[str, Any],
+) -> None:
+    _published(env, capsys)
+    log = install_fake_gh(
+        tmp_path,
+        monkeypatch,
+        {
+            "repo view": reply({"viewerPermission": "READ"}),
+            "repo fork": reply(""),
+            "api user": reply("ada\n"),
+            "api repos/janbkrejci/GIRO-LIBRARY/forks?per_page=100": lookup,
+        },
+    )
+    assert _fail(capsys, env.skill("lint"))["code"] == "pr_failed"
+    assert not _git(env.fork, "for-each-ref", "refs/heads/haifa-library/")
+    assert not any(a[:2] == ["pr", "create"] for a in log.argvs())
+    assert env.pushed_refs() == []

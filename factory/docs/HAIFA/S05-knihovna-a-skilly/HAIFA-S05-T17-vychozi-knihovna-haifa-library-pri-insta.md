@@ -1,6 +1,6 @@
 # Výchozí knihovna HAIFA-LIBRARY a změny knihovny přes pull request
 
-1. Instalace (`install.sh`, `install.bat`) na počítači bez knihovny spustí `factory library clone --seed-fallback`: naklonuje výchozí knihovnu https://github.com/janbkrejci/HAIFA-LIBRARY.git. Když klon selže (bez sítě, bez přístupu), založí lokální knihovnu ze semínka a vypíše varování. Existující knihovnu instalace nemění (už ani nespouští `factory library seed`).
+1. Instalace (`install.sh`, `install.bat`) na počítači bez knihovny spustí `factory library clone --seed-fallback`: naklonuje výchozí knihovnu https://github.com/janbkrejci/GIRO-LIBRARY.git. Když klon selže (bez sítě, bez přístupu), založí lokální knihovnu ze semínka a vypíše varování. Existující knihovnu instalace nemění (už ani nespouští `factory library seed`).
 2. Firemní instalace nastaví jinou knihovnu proměnnou `HAIFA_LIBRARY_URL` (celá git URL). `factory library clone` bez URL naklonuje výchozí knihovnu, průvodce na stránce **Tento počítač** ji má předvyplněnou.
 3. Každá změna knihovny s remote (`factory library push`, `factory library seed`, import, **Přesunout do knihovny**) se commitne lokálně a odejde jako pull request do větve knihovny (`main`), nikdy přímým pushem:
    - kdo do repa knihovny smí zapisovat (`viewerPermission` ADMIN, MAINTAIN nebo WRITE), pošle PR z větve `haifa-library/<čas>-<sha>` v repu knihovny,

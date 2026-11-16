@@ -13,7 +13,7 @@ function api(exists = false, remote: string | null = null) {
   let ready = exists
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.startsWith('/api/machine/check')) return envelope({ ok: false, findings: [finding('git_identity_missing'), finding('library_missing', 'library')], harness_repos: { claude: 2 }, checked_at: 'now' }, false)
-    if (url === '/api/library') return envelope({ exists: ready, library: '/home/.haifa/library', remote, ahead: 1, behind: 0, default_url: 'https://github.com/janbkrejci/HAIFA-LIBRARY.git', items: [] })
+    if (url === '/api/library') return envelope({ exists: ready, library: '/home/.haifa/library', remote, ahead: 1, behind: 0, default_url: 'https://github.com/janbkrejci/GIRO-LIBRARY.git', items: [] })
     if (url === '/api/library/overrides') return envelope({ library: 'abc', overrides: [], errors: [] })
     if (url === '/api/library/plan') return envelope({ digest: 'reviewed', library: '/home/.haifa/library', files: [{ path: 'agent.yaml', content: 'SECRET CONTENT', diff: '', binary: false }], items: [], blockers: [] })
     if (url === '/api/library/apply') { ready = true; return envelope({ commit: 'abc' }) }
@@ -86,10 +86,10 @@ describe('Knihovna page', () => {
   })
   it('prefills the default team library for a clone', async () => {
     const fetchMock = api(); const wrapper = mount(SetupView, { attachTo: document.body }); await flushPromises()
-    expect((wrapper.get('[data-test="library-url"]').element as HTMLInputElement).value).toBe('https://github.com/janbkrejci/HAIFA-LIBRARY.git')
+    expect((wrapper.get('[data-test="library-url"]').element as HTMLInputElement).value).toBe('https://github.com/janbkrejci/GIRO-LIBRARY.git')
     await wrapper.get('[data-test="library-clone"]').trigger('click'); await flushPromises()
     const call = fetchMock.mock.calls.find(([url]) => url === '/api/library/plan')!
-    expect(JSON.parse(call[1]!.body as string)).toEqual({ action: 'clone', options: { url: 'https://github.com/janbkrejci/HAIFA-LIBRARY.git' } })
+    expect(JSON.parse(call[1]!.body as string)).toEqual({ action: 'clone', options: { url: 'https://github.com/janbkrejci/GIRO-LIBRARY.git' } })
   })
   it('replaces errors on reload and shows an ok verdict', async () => {
     let failing = true
