@@ -1013,6 +1013,10 @@ class Overview:
                         del self._inflight[key]
                         self._delayed.discard(key)
 
+    async def item(self, entry: RepoEntry) -> JsonDict:
+        """One repository item, as in ``collect`` (``REPO_TIMEOUT``, ``timeout``/``stale``)."""
+        return await self._bounded(entry)
+
     async def collect(self) -> tuple[JsonDict, list[str]]:
         """``({repos, totals}, registry warnings)`` for every registered repository."""
         state, warnings = await asyncio.to_thread(self.registry.snapshot)

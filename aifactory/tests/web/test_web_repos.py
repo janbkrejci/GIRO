@@ -688,6 +688,64 @@ def test_live_events_per_repo(tmp_path: Path, home: Path) -> None:
     assert not thread.is_alive()
 
 
+@pytest.mark.xdist_group("live")
+def test_live_all_tags_events_with_their_repo(tmp_path: Path, home: Path) -> None:
+    setup = multi_client(home, tmp_path)
+    a, b = _two_repos(setup, tmp_path)
+    port = _free_port()
+    app = create_multi_app(home=home, static_dir=tmp_path / "nostatic", live_interval=0.1)
+    server = uvicorn.Server(
+        uvicorn.Config(
+            app, host="127.0.0.1", port=port, log_level="warning", timeout_graceful_shutdown=1
+        )
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not server.started:
+            assert time.monotonic() < deadline, "server did not start"
+            time.sleep(0.02)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/api/live", headers={"Host": "127.0.0.1"})
+        response = conn.getresponse()
+        assert response.status == 200
+        assert _read_event(response, "hello", time.monotonic() + 5)["repos"] == ["a", "b"]
+        time.sleep(0.3)  # the watchers take their baseline
+        b_task = "backlog/A1/A1-T01-first.md"
+        _append(b / b_task, "\nJen B.\n")
+        event = _read_event(response, "files", time.monotonic() + 5)
+        assert (event["repo"], event["paths"]) == ("b", [b_task])
+        # Removing a repo closes its hub: the overview stream asks for a resync and goes on.
+        remover = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        remover.request(
+            "DELETE",
+            "/api/repos/a",
+            body=json.dumps({"uninstall": False}),
+            headers={"Host": "127.0.0.1", "Content-Type": "application/json"},
+        )
+        assert remover.getresponse().status == 200
+        remover.close()
+        assert _read_event(response, "resync", time.monotonic() + 5)["repo"] == "a"
+        _append(b / b_task, "\nZnovu B.\n")
+        assert _read_event(response, "files", time.monotonic() + 5)["repo"] == "b"
+        conn.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+    assert not thread.is_alive()
+
+
+def test_repo_overview_is_one_item_of_the_overview(tmp_path: Path, home: Path) -> None:
+    client = multi_client(home, tmp_path)
+    _two_repos(client, tmp_path)
+    item = _get(client, "/api/repos/a/overview")["data"]
+    whole = _get(client, "/api/overview")["data"]["repos"]
+    assert item["id"] == "a" and item["state"] == next(r for r in whole if r["id"] == "a")["state"]
+    assert set(item) == set(whole[0])
+    assert _get(client, "/api/repos/nope/overview", 404)["error"]["code"] == "unknown_repo"
+
+
 # -- write guard (M1) and stale code ------------------------------------------------------
 
 
