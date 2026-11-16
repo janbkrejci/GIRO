@@ -254,8 +254,7 @@ which only records the outcome in the thread.
 Each repository's endpoints above are under
 ``/api/repos/{id}/`` with the same relative paths (``/health`` excepted) and their own
 ``/live`` hub; an unknown id gives HTTP 404 ``unknown_repo``, a missing folder HTTP 404
-``repo_missing``. Handlers read the repository from the request (``RepoScope``), and
-``create_app`` serves one repository the same way under ``/api/``.
+``repo_missing``. Handlers read the repository from the request (``RepoScope``).
 
 Write guard (``guard.py``): every POST, PUT, PATCH and DELETE under ``/api/`` is checked
 before the handler. ``Origin``, if sent, must be ``http://<Host>`` and ``Sec-Fetch-Site``, if
@@ -637,11 +636,6 @@ async def machine_harness_test(request: Request) -> JSONResponse:
         return JSONResponse(envelope_ok(result))
     except (ValueError, OSError, backlog.UsageError) as exc:
         return _usage_error(str(exc))
-
-
-async def health(request: Request) -> JSONResponse:
-    repo: Path = _repo(request)
-    return JSONResponse(envelope_ok({"version": __version__, "repo": str(repo)}))
 
 
 _RUN_ERROR_STATUS = {
@@ -2210,85 +2204,13 @@ def _shared_state(
 
     def roots() -> list[Path]:
         """Repositories whose GIRO runs carry the Claude limits: the registered ones."""
-        registry: Registry | None = getattr(app.state, "registry", None)
-        if registry is not None:
-            return [Path(entry.path) for entry in registry.snapshot()[0].repos]
-        repo: Path | None = getattr(app.state, "repo", None)
-        return [repo] if repo is not None else []
+        registry: Registry = app.state.registry
+        return [Path(entry.path) for entry in registry.snapshot()[0].repos]
 
     app.state.limits = (
         limits_source if limits_source is not None else LimitsSource(enabled=enabled, roots=roots)
     )
     app.state.check_machine = None  # factory check: the real machine (tests set a fake)
-
-
-def create_app(
-    repo: Path,
-    *,
-    static_dir: Path | None = None,
-    live_interval: float = 1.0,
-    launcher: Launcher | None = None,
-    code_watch: CodeWatch | None = None,
-    restart: Callable[[], None] | None = None,
-    limits_source: LimitsSource | None = None,
-    allowed_hosts: Sequence[str] = ALLOWED_HOSTS,
-) -> Starlette:
-    """The dashboard for the repository at ``repo`` (``static_dir`` overrides the build).
-
-    ``live_interval`` is how often (seconds) ``/api/live`` polls files and the trace DB.
-    ``launcher`` starts the runs (default: a ``RunLauncher``, one process per run).
-    ``code_watch`` notices a changed package (default: the installed one) and ``restart``
-    replaces the server process (default: ``server.restart_process``). ``limits_source``
-    reads the subscription limits (default: a ``LimitsSource`` with the real readers).
-    ``allowed_hosts`` are the accepted Host headers (``server.allowed_hosts``).
-    """
-    root = repo.resolve()
-    ctx = RepoContext(None, root, LiveHub(root, interval=live_interval))
-
-    async def fixed(scope: Scope) -> RepoContext:
-        return ctx
-
-    api = Mount(
-        "/api",
-        app=RepoScope(
-            Router(
-                routes=[
-                    Route("/health", health, methods=["GET"]),
-                    Route("/code", code_state, methods=["GET"]),
-                    Route("/restart", restart_dashboard, methods=["POST"]),
-                    Route("/updates", updates_check, methods=["GET"]),
-                    Route("/guide", guide_get, methods=["GET"]),
-                    Route("/updates/install", updates_install, methods=["POST"]),
-                    *_repo_routes(),
-                ]
-            ),
-            fixed,
-        ),
-    )
-
-    @asynccontextmanager
-    async def lifespan(app: Starlette) -> AsyncIterator[None]:
-        try:
-            yield
-        finally:
-            await app.state.worktree_cleanup.close()
-            await run_in_threadpool(app.state.workflow_advice.close)
-            await run_in_threadpool(app.state.task_advice.close)
-            await run_in_threadpool(app.state.intent.close)
-            await run_in_threadpool(app.state.learn.close)
-            await app.state.live.aclose()
-
-    app = _starlette(api, static_dir, lifespan, allowed_hosts)
-    app.state.workflow_advice = AdviceManager()
-    app.state.task_advice = AdviceManager(task_parameters=True)
-    app.state.intent = IntentManager()
-    app.state.learn = LearnManager()
-    app.state.home = giro_home()
-    app.state.library = machine.GlobalState()
-    app.state.repo = root
-    app.state.live = ctx.live
-    _shared_state(app, launcher, code_watch, restart, limits_source)
-    return app
 
 
 # ── more repositories ────────────────────────────────────────────────────────────────
@@ -2949,10 +2871,14 @@ def create_multi_app(
     """The dashboard for every repository in the registry of ``home`` (default: GIRO home).
 
     ``port`` is the port the server listens on (``restart_required`` compares it with the
-    registry). Each repository's API is under ``/api/repos/{repo_id}/`` with the same paths
-    as ``create_app`` serves under ``/api/``. ``user_home`` (default: the user's home) bounds
-    ``/api/fs/dirs`` and ``picker`` opens the folder dialog of ``/api/fs/pick``; the other
-    arguments are as in ``create_app``.
+    registry). Each repository's API is under ``/api/repos/{repo_id}/``. ``user_home``
+    (default: the user's home) bounds ``/api/fs/dirs`` and ``picker`` opens the folder dialog
+    of ``/api/fs/pick``. ``live_interval`` is how often (seconds) the live hubs poll files and
+    the trace DB. ``launcher`` starts the runs (default: a ``RunLauncher``, one process per
+    run). ``code_watch`` notices a changed package (default: the installed one) and
+    ``restart`` replaces the server process (default: ``server.restart_process``).
+    ``limits_source`` reads the subscription limits (default: a ``LimitsSource`` with the real
+    readers). ``allowed_hosts`` are the accepted Host headers (``server.allowed_hosts``).
     """
     home_dir = giro_home() if home is None else home
     registry = Registry(home_dir)
