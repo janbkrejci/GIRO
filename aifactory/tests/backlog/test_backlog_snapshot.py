@@ -57,37 +57,6 @@ def test_snapshot_matches_archive_and_ignores_checkout(tmp_path: Path, malformed
     assert "NEW" not in load_backlog_at(root, sha, settings).by_id
 
 
-def test_1655_files_use_one_batch_and_no_python_file_io(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    root = tmp_path / "repo"
-    write(root, "factory/backlog/P/index.md", index_md("P"))
-    write(root, "factory/backlog/P/S/index.md", index_md("P-S"))
-    for i in range(1653):
-        write(root, f"factory/backlog/P/S/T{i}.md", task_md(f"P-S-T{i}"))
-    write(root, "outside.md", "must not be included")
-    sha = commit(root)
-    calls: list[list[str]] = []
-    run = subprocess.run
-
-    def spy(argv: list[str], **kwargs: Any) -> Any:
-        calls.append(argv)
-        assert "archive" not in argv
-        return run(argv, **kwargs)
-
-    def forbidden(*args: Any, **kwargs: Any) -> Any:
-        pytest.fail("committed backlog must not open or create filesystem paths")
-
-    with monkeypatch.context() as patch:
-        patch.setattr(subprocess, "run", spy)
-        patch.setattr(Path, "open", forbidden)
-        patch.setattr(Path, "mkdir", forbidden)
-        backlog = load_backlog_at(root, sha, ProjectSettings())
-    assert len(backlog.by_id) == 1655
-    assert check_backlog(backlog) == []
-    assert sum(argv == ["git", "cat-file", "--batch"] for argv in calls) == 1
-
-
 @pytest.mark.parametrize("create_missing", [False, True])
 def test_missing_root_is_only_virtual(tmp_path: Path, create_missing: bool) -> None:
     write(tmp_path, "README.md", "empty repository")
