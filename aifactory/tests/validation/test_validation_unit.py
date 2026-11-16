@@ -106,7 +106,7 @@ def test_github_without_sandbox_repo_exits_2_before_any_subprocess(
         ]
     )
     assert code == runner.EXIT_SETUP
-    assert "HAIFA_SANDBOX_REPO" in capsys.readouterr().err
+    assert "GIRO_SANDBOX_REPO" in capsys.readouterr().err
     assert not (tmp_path / "results").exists()
     assert not (tmp_path / "work").exists()
 

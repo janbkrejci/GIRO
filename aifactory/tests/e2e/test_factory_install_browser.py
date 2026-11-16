@@ -16,7 +16,7 @@ pytestmark = [pytest.mark.browser, pytest.mark.xdist_group("e2e")]
 
 
 def test_factory_install_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     credentials = tmp_path / "claude-home"
     credentials.mkdir()
     (credentials / ".credentials.json").write_text("{}", encoding="utf-8")

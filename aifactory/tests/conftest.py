@@ -12,7 +12,7 @@
 - `-n auto` respects PYTEST_XDIST_AUTO_NUM_WORKERS; otherwise starts 1.5x as many
   workers as logical CPUs on POSIX, one per CPU (at most eight) on Windows.
 - Approve and auto-merge read CI checks without waiting for them (`review.ci` limits 0).
-- Every test gets `HAIFA_HOME` pointing at a temporary directory (the dashboard writes
+- Every test gets `GIRO_HOME` pointing at a temporary directory (the dashboard writes
   the logs of its run processes there) and fails when the real HAIFA home changed. Logs
   of other processes (a dashboard the operator runs meanwhile) are ignored: the launcher
   puts the server's pid into every log name.
@@ -224,7 +224,7 @@ Snapshot = dict[str, tuple[int, int]]
 @pytest.fixture(scope="session")
 def _real_haifa_home() -> Path:
     """The operator's HAIFA home, taken before any test changes the environment."""
-    explicit = os.environ.get("GIRO_HOME") or os.environ.get("HAIFA_HOME")
+    explicit = os.environ.get("GIRO_HOME")
     if explicit:
         return Path(explicit).expanduser()
     base = Path(os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config"))
@@ -262,12 +262,12 @@ def _haifa_home(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[Path]:
     home = tmp_path_factory.mktemp("haifa-home")
-    from aifactory.environment import SUFFIXES, names
+    from aifactory.environment import LEGACY_NAMES, SUFFIXES, canonical
 
-    # Tests must not inherit the factory runner's run ID, sandbox or machine choices.
-    for suffix in SUFFIXES:
-        for name in names(suffix):
-            monkeypatch.delenv(name, raising=False)
+    # Tests must not inherit the factory runner's run ID, sandbox or machine choices,
+    # nor a legacy name (it would only print the legacy warning).
+    for name in (*(canonical(suffix) for suffix in SUFFIXES), *LEGACY_NAMES):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(haifa_home_module.HOME_ENV, str(home))
     yield home
     after = _protected_home_snapshots(_real_haifa_home)

@@ -35,10 +35,10 @@ from fake_exe import make_executable
 from validation import runner
 
 HIDDEN_ENV_KEYS = (
-    "HAIFA_SANDBOX_REPO",
-    "HAIFA_AZURE_SANDBOX_REPO",
-    "HAIFA_VALIDATE_FAKE",
-    "HAIFA_VALIDATE_HIDDEN",
+    "GIRO_SANDBOX_REPO",
+    "GIRO_AZURE_SANDBOX_REPO",
+    "GIRO_VALIDATE_FAKE",
+    "GIRO_VALIDATE_HIDDEN",
 )
 
 
@@ -61,7 +61,7 @@ def validation_env(directory: Path) -> Iterator[Path]:
     marker = directory / "real-harness-reached"
     wire = tripwire(directory, marker)
     with pytest.MonkeyPatch.context() as mp:
-        for key in ("AIFACTORY_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH"):
+        for key in ("GIRO_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH"):
             mp.setenv(key, str(wire))
         mp.setenv("UV_NO_SYNC", "1")  # do not rebuild the venv other test workers are using
         for key in HIDDEN_ENV_KEYS:

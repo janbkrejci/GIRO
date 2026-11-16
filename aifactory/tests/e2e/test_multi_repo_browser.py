@@ -52,7 +52,7 @@ def _inspect(page: Page, repo: Path) -> None:
 
 
 def test_multi_repo_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     credentials = tmp_path / "claude-home"
     credentials.mkdir()
     (credentials / ".credentials.json").write_text("{}", encoding="utf-8")

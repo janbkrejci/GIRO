@@ -996,14 +996,14 @@ def main(argv: list[str] | None = None, *, steps: Callable[[E2E], None] | None =
     workdir = owned.add(Path(tempfile.mkdtemp(prefix="haifa-azure-e2e-")))
     out = results_mod.output_dir(args.results_dir.resolve(), "azure-e2e", moment)
     report = Report(organization, args.project, name)
-    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME", "HAIFA_HOME")}
-    os.environ["GIRO_HOME"] = os.environ["HAIFA_HOME"] = str(isolated_home(workdir))
+    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME",)}
+    os.environ["GIRO_HOME"] = str(isolated_home(workdir))
     e2e = E2E(
         Azure(organization, args.project, workdir, report.commands),
         report,
         workdir,
         owned,
-        Path(os.environ["HAIFA_HOME"]),
+        Path(os.environ["GIRO_HOME"]),
         name,
     )
     print(f"[azure-e2e] {organization}/{args.project}: repo {name}", file=sys.stderr)

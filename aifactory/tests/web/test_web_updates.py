@@ -232,17 +232,12 @@ def test_wrong_or_unavailable_release_is_rejected_and_can_retry(
 
 
 @pytest.mark.parametrize(
-    ("legacy", "new", "expected"),
-    [
-        ("", "", "janbkrejci/GIRO"),
-        ("company/releases", "", "company/releases"),
-        ("company/releases", "company/giro", "company/giro"),
-    ],
+    ("configured", "expected"),
+    [("", "janbkrejci/GIRO"), ("company/giro", "company/giro")],
 )
-def test_update_repository_follows_the_aliases(
-    monkeypatch: pytest.MonkeyPatch, legacy: str, new: str, expected: str
+def test_update_repository_follows_giro_update_repo(
+    monkeypatch: pytest.MonkeyPatch, configured: str, expected: str
 ) -> None:
-    monkeypatch.setenv("HAIFA_UPDATE_REPO", legacy)
-    monkeypatch.setenv("GIRO_UPDATE_REPO", new)
+    monkeypatch.setenv("GIRO_UPDATE_REPO", configured)
     source = updates.Updates(current="1.0.1", fetch=lambda repo: giro_release("1.0.2"))
     assert source.repository == expected

@@ -27,8 +27,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     user.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: user))
     monkeypatch.setenv("GIRO_HOME", str(tmp_path / "process-home"))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
-    monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY_URL", raising=False)
     for role in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{role}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{role}_EMAIL", "ada@example.com")

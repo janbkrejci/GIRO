@@ -200,17 +200,17 @@ def test_environment_is_scoped_to_worker(tmp_path: Path, monkeypatch: pytest.Mon
     barrier = threading.Barrier(2)
 
     def worker(identifier: str) -> str:
-        with agent_environment({"HAIFA_RUN_ID": identifier, "PI_SAFE_MODE": "1"}):
+        with agent_environment({"GIRO_RUN_ID": identifier, "PI_SAFE_MODE": "1"}):
             barrier.wait(timeout=5)
             assert env_flag("PI_SAFE_MODE")
-            return operator_env()["HAIFA_RUN_ID"]
+            return operator_env()["GIRO_RUN_ID"]
 
     with ThreadPoolExecutor(2) as pool:
         one = pool.submit(worker, "one")
         two = pool.submit(worker, "two")
         assert (one.result(), two.result()) == ("one", "two")
     assert dict(os.environ) == before
-    assert operator_env().get("HAIFA_RUN_ID") == before.get("HAIFA_RUN_ID")
+    assert operator_env().get("GIRO_RUN_ID") == before.get("GIRO_RUN_ID")
 
 
 def test_domain_module_imports_without_dashboard_initialization(tmp_path: Path) -> None:

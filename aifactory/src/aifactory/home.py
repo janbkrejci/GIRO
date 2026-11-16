@@ -1,4 +1,4 @@
-"""GIRO's machine home, with explicit HAIFA aliases and guarded legacy discovery.
+"""GIRO's machine home: explicit GIRO_HOME, else the default with guarded legacy discovery.
 
 Defaults use XDG_CONFIG_HOME/giro or ~/.config/giro (Path.home on Windows).
 Legacy-only defaults require confirmed migration; ambiguous directories fail closed.
@@ -29,7 +29,7 @@ def _env(environ: Mapping[str, str], name: str) -> str | None:
 
 
 def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
-    """Explicit GIRO_HOME (or its legacy alias), otherwise the guarded GIRO default."""
+    """Explicit GIRO_HOME, otherwise the guarded GIRO default."""
     env = os.environ if environ is None else environ
     from aifactory.environment import value
     from aifactory.versioning import UpgradeError

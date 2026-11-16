@@ -1,7 +1,7 @@
 """The run guard and backlog writes made through the factory during an agent phase.
 
 Like ``test_guard_base_moves``: the fake harness runs agent effects in-process with
-``HAIFA_RUN_ID`` of the run under test; ``foreign()`` stands for a factory command
+``GIRO_RUN_ID`` of the run under test; ``foreign()`` stands for a factory command
 of another process (the operator's terminal, the dashboard).
 """
 

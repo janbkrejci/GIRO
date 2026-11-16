@@ -1,4 +1,4 @@
-"""Distribution: version in one place, wheel contents and the ``$HAIFA_HOME/env`` file."""
+"""Distribution: version in one place, wheel contents and the ``$GIRO_HOME/env`` file."""
 
 from __future__ import annotations
 

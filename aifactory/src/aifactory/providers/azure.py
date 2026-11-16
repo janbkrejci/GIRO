@@ -71,7 +71,7 @@ from typing import Any
 from urllib.parse import quote
 
 from aifactory.config.settings import AzureSettings, ProjectSettings
-from aifactory.environment import names, value
+from aifactory.environment import canonical, value
 from aifactory.providers.base import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -171,7 +171,7 @@ class AzCli:
         raise ProviderError(
             "az_missing",
             "Unsupported Azure CLI Windows shim; install the Azure CLI MSI or set "
-            f"{' or '.join(names('AZ'))} to a native executable (not a .cmd/.bat wrapper).",
+            f"{canonical('AZ')} to a native executable (not a .cmd/.bat wrapper).",
         )
 
     def run(self, *args: str) -> str:

@@ -123,7 +123,7 @@ class FakeMachine:
 
     ``outputs`` answers exact argv tuples (pi JSON, ``pi --list-models``); ``modes``
     overrides the permission bits of files; ``environment()`` carries the temporary
-    ``HAIFA_HOME`` of the test.
+    ``GIRO_HOME`` of the test.
     """
 
     present: set[str] = field(

@@ -41,7 +41,7 @@ from aifactory import procrun
 from aifactory.check import RULE_GROUPS, Machine, Probe, SystemMachine, run_check
 from aifactory.check.context import CheckContext
 from aifactory.config.errors import ConfigError
-from aifactory.environment import child_environment, names
+from aifactory.environment import canonical, child_environment
 from aifactory.harness import CLI_BINARIES, HARNESSES
 from aifactory.harness.check import HarnessStatus, harnesses_in_config
 from aifactory.harness.settings import read as read_harness_settings
@@ -182,7 +182,7 @@ class HomeMachine:
         return child_environment(self.delegate.environment(), HOME=str(self.home_dir))
 
     def env(self, name: str) -> str | None:
-        return str(self.home_dir) if name in names("HOME") else self.delegate.env(name)
+        return str(self.home_dir) if name == canonical("HOME") else self.delegate.env(name)
 
     def which(self, program: str) -> str | None:
         choices = read_harness_settings(self.home_dir)

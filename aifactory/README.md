@@ -4,7 +4,7 @@ GIRO je lokální dashboard a CLI `giro`, které pouští kódovací agenty (Cla
 
 ## Instalace
 
-GIRO bundle `giro-<verze>.zip` se publikuje na stránce [vydání GIRO](https://github.com/janbkrejci/GIRO/releases/latest). `factory` a `HAIFA_*` jsou kompatibilní aliasy; technické cesty a distribuce `aifactory` zůstávají.
+GIRO bundle `giro-<verze>.zip` se publikuje na stránce [vydání GIRO](https://github.com/janbkrejci/GIRO/releases/latest). `factory` je kompatibilní alias, proměnné prostředí jsou jen `GIRO_*`; technické cesty a distribuce `aifactory` zůstávají.
 
 ```bash
 unzip giro-<verze>.zip

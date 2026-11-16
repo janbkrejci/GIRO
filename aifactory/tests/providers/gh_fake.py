@@ -143,7 +143,7 @@ def install_fake_gh(
     )
     monkeypatch.setenv("AIFACTORY_FAKE_GH_STATE", str(state_dir))
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
-    monkeypatch.delenv("AIFACTORY_GH", raising=False)
+    monkeypatch.delenv("GIRO_GH", raising=False)
     return GhLog(state_dir)
 
 

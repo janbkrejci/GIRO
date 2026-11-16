@@ -29,7 +29,7 @@ TASK = "backlog/P/S/P-S-T.md"
 @pytest.fixture
 def service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
-    monkeypatch.delenv("HAIFA_DATABASE_URL", raising=False)
+    monkeypatch.delenv("GIRO_DATABASE_URL", raising=False)
     with DatabaseServer(("127.0.0.1", 0), tmp_path / "server") as server:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -57,7 +57,7 @@ def checkout(root: Path) -> Path:
 
 @pytest.fixture
 def repos(service: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
-    monkeypatch.setenv("HAIFA_DATABASE_URL", service)
+    monkeypatch.setenv("GIRO_DATABASE_URL", service)
 
     def remote(root: Path, *args: str) -> str | None:
         if args[:2] == ("remote", "get-url"):
@@ -91,7 +91,7 @@ def test_remote_identity(remote: str) -> None:
 def test_missing_remote_fails_closed(
     service: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_DATABASE_URL", service)
+    monkeypatch.setenv("GIRO_DATABASE_URL", service)
     monkeypatch.setattr("aifactory.run.gitops.read_git", lambda *args: None)
     with pytest.raises(ConfigError, match="requires Git remote"):
         LocalSettings().trace_db_path(checkout(tmp_path / "repo"))
@@ -99,7 +99,7 @@ def test_missing_remote_fails_closed(
 
 def test_native_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
-    monkeypatch.delenv("HAIFA_DATABASE_URL", raising=False)
+    monkeypatch.delenv("GIRO_DATABASE_URL", raising=False)
     path = LocalSettings().trace_db_path(tmp_path)
     path.parent.mkdir(parents=True)
     conn = database.connect(path)

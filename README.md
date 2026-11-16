@@ -6,7 +6,7 @@ GIRO je lokální dashboard a CLI `giro` pro agentní úkoly ve více Git repozi
 
 GIRO bundle `giro-<verze>.zip` se publikuje na stránce [vydání GIRO](https://github.com/janbkrejci/GIRO/releases/latest). Instalaci, zálohy, návrat a odinstalaci popisuje [příručka](aifactory/src/aifactory/guide/02-instalace.md); je také v bundlu jako `INSTALL.md`.
 
-`factory` a `HAIFA_*` zůstávají kompatibilní aliasy; `.factory/`, `factory/`, distribuce `aifactory` a položka knihovny `skill/factory` zachovávají technickou identitu. Výchozí týmová knihovna je [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY).
+`factory` zůstává kompatibilní alias; proměnné prostředí jsou jen `GIRO_*`; `.factory/`, `factory/`, distribuce `aifactory` a položka knihovny `skill/factory` zachovávají technickou identitu. Výchozí týmová knihovna je [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY).
 
 ## První spuštění
 

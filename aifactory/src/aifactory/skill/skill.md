@@ -21,7 +21,7 @@ Goal in. Release out.
 
 Startup with legacy HAIFA data in the default `haifa` folder returns `migration_required` and writes nothing; stop HAIFA, then move the folder to the GIRO home or select `GIRO_HOME` explicitly. Two distinct unmarked homes block startup. A home marked by an earlier migration is checked on every start; do not remove the marker to bypass recovery.
 
-`factory` remains a compatibility alias of `giro`; `HAIFA_*` are legacy aliases of `GIRO_*`. A nonempty new name wins within a layer; process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Browser preferences keep their storage keys at the same origin. Purging a marked migration home is refused; use `--keep-data` / `-KeepData` to preserve data.
+`factory` remains a compatibility alias of `giro`. Settings are read only from `GIRO_*` variables; a legacy `HAIFA_*` (or `AIFACTORY_GH`/`AIFACTORY_AZ`) variable is ignored with a warning naming its `GIRO_*` replacement. Process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Browser preferences keep their storage keys at the same origin. Purging a marked migration home is refused; use `--keep-data` / `-KeepData` to preserve data.
 
 ## Prerequisites
 

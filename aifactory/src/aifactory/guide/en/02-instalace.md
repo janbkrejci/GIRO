@@ -126,7 +126,7 @@ Without the bundle, use `uv tool uninstall aifactory`. Dependencies (git, uv, gh
 
 If startup finds only the old HAIFA home (`~/.config/haifa`), it stops with `migration_required` and writes nothing. Stop HAIFA and move the folder to `~/.config/giro`, or set `GIRO_HOME`. Do not bypass the marker of an earlier migration.
 
-`factory` remains a compatibility alias of `giro`; `HAIFA_*` are legacy aliases of `GIRO_*`. A nonempty new name wins within a layer; process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Browser preferences keep their storage keys at the same origin. Purging a marked migration home is refused; use `--keep-data` / `-KeepData` to preserve data.
+`factory` remains a compatibility alias of `giro`. Settings are read only from `GIRO_*` variables; a legacy `HAIFA_*` (or `AIFACTORY_GH`/`AIFACTORY_AZ`) variable is ignored with a warning naming its `GIRO_*` replacement. Process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Browser preferences keep their storage keys at the same origin. Purging a marked migration home is refused; use `--keep-data` / `-KeepData` to preserve data.
 
 ## License <!-- section:licence -->
 

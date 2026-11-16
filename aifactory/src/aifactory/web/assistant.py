@@ -63,7 +63,6 @@ from typing import Any
 
 from aifactory import gitrun
 from aifactory import guide as guide_chapters
-from aifactory.environment import aliased
 from aifactory.harness import canonical
 from aifactory.harness import load as load_harness
 from aifactory.harness import settings as harness_settings
@@ -476,12 +475,7 @@ def prepare_workdir(work: Path, home: Path, repo_id: str | None = None) -> None:
     script = work / "guide"
     content = (
         "#!/bin/sh\n"
-        + "".join(
-            f"{name}={_sh_quote(item)} "
-            for name, item in aliased(
-                {"GIRO_HOME": str(home), "GIRO_GUIDE_REPO": repo_id or ""}
-            ).items()
-        )
+        + f"GIRO_HOME={_sh_quote(str(home))} GIRO_GUIDE_REPO={_sh_quote(repo_id or '')} "
         + f"exec {_sh_quote(sys.executable)} "
         '-m aifactory.web.assistant_gate "$@"\n'
     )
@@ -995,7 +989,8 @@ class AssistantManager:
         guard = RepoGuard(repos, work, turn, run_id)
         guard.snapshot()
         environment = {
-            **aliased({"GIRO_RUN_ID": run_id, "GIRO_HOME": str(self.home)}),
+            "GIRO_RUN_ID": run_id,
+            "GIRO_HOME": str(self.home),
             "CLAUDE_SAFE_MODE": "1",
             "CODEX_SAFE_MODE": "1",
             "PI_SAFE_MODE": "1",

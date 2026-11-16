@@ -1,16 +1,17 @@
-"""GIRO settings and their supported legacy aliases, before env-file flattening.
+"""GIRO settings (``GIRO_*``) from the process environment and the env file.
 
-Canonical names are ``GIRO_*``. ``HAIFA_*`` (and ``AIFACTORY_GH``/``AIFACTORY_AZ``) are
-still read. This is the only module that spells the legacy names: code names a setting
-by its ``GIRO_*`` name (or suffix) and reads it with ``value``; a child environment gets
-every spelling through ``aliased``/``child_environment``.
+Only ``GIRO_*`` names are read and set, also for child processes. The pre-GIRO names
+(``HAIFA_*``, ``AIFACTORY_GH``/``AIFACTORY_AZ``) are no longer read: when one is set,
+the first read prints one warning per process naming its ``GIRO_*`` replacement, so a
+user with an old variable does not silently get another home or setting. This is the
+only module that spells the legacy names.
 """
 
 from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import TextIO
 
 CANONICAL_PREFIX = "GIRO_"
@@ -37,67 +38,51 @@ SUFFIXES = (
     "AZ",
 )
 
-# The legacy prefixes each setting is still read under, in order of precedence.
-# The ``gh``/``az`` executables were ``AIFACTORY_GH``/``AIFACTORY_AZ`` before GIRO.
-_LEGACY: dict[str, tuple[str, ...]] = {
-    **{suffix: ("HAIFA_",) for suffix in SUFFIXES},
-    "GH": ("AIFACTORY_",),
-    "AZ": ("AIFACTORY_",),
+LEGACY_NAMES: dict[str, str] = {
+    **{f"HAIFA_{suffix}": f"{CANONICAL_PREFIX}{suffix}" for suffix in SUFFIXES},
+    "AIFACTORY_GH": f"{CANONICAL_PREFIX}GH",
+    "AIFACTORY_AZ": f"{CANONICAL_PREFIX}AZ",
 }
-_PREFIXES = (CANONICAL_PREFIX, "HAIFA_", "AIFACTORY_")
+"""Pre-GIRO names (no longer read) and the ``GIRO_*`` name that replaces each."""
 
-
-def _suffix(name: str) -> str:
-    for prefix in _PREFIXES:
-        if name.startswith(prefix):
-            return name.removeprefix(prefix)
-    return name
-
-
-def names(name: str) -> tuple[str, ...]:
-    """Every spelling of setting `name` (a suffix or any spelling), canonical first.
-
-    A name that is no known setting is returned alone.
-    """
-    suffix = _suffix(name)
-    if suffix not in _LEGACY:
-        return (name,)
-    return (CANONICAL_PREFIX + suffix, *(prefix + suffix for prefix in _LEGACY[suffix]))
+_warned = False
 
 
 def canonical(name: str) -> str:
-    """The ``GIRO_*`` name of setting `name`."""
-    return names(name)[0]
+    """The ``GIRO_*`` name of setting `name` (its suffix or its ``GIRO_*`` name).
+
+    A name that is no known setting is returned unchanged.
+    """
+    suffix = name.removeprefix(CANONICAL_PREFIX)
+    return CANONICAL_PREFIX + suffix if suffix in SUFFIXES else name
 
 
-def aliased(values: Mapping[str, str]) -> dict[str, str]:
-    """`values` with every known setting under all its spellings (for a child's env)."""
-    out: dict[str, str] = {}
-    for key, item in values.items():
-        for spelling in names(key):
-            out[spelling] = item
-    return out
+def legacy_in(layers: Iterable[Mapping[str, object]]) -> list[str]:
+    """The legacy names set (non-empty) in any of `layers`, sorted."""
+    return sorted({name for layer in layers for name in LEGACY_NAMES if layer.get(name)})
 
 
-def _conflict(layer: Mapping[str, str], spellings: tuple[str, ...]) -> str | None:
-    """The first legacy spelling whose value differs from the canonical one, if any."""
-    new = spellings[0]
-    if not layer.get(new):
-        return None
-    return next((old for old in spellings[1:] if layer.get(old) and layer[old] != layer[new]), None)
+def warn_legacy(*layers: Mapping[str, object], stderr: TextIO | None = None) -> None:
+    """Warn once per process about legacy names set in `layers` (their values are not read)."""
+    global _warned
+    if _warned:
+        return
+    found = legacy_in(layers)
+    if not found:
+        return
+    _warned = True
+    replacements = ", ".join(f"{old} -> {LEGACY_NAMES[old]}" for old in found)
+    print(
+        f"giro: warning: legacy environment variables are ignored, rename them: {replacements}",
+        file=sys.stderr if stderr is None else stderr,
+    )
 
 
 def value(name: str, environ: Mapping[str, str] | None = None) -> str | None:
-    """Read a setting from one layer; empty means unset, invalid values stay invalid."""
+    """Read setting `name` (``GIRO_*`` only); empty means unset, invalid values stay invalid."""
     env = os.environ if environ is None else environ
-    spellings = names(name)
-    old = _conflict(env, spellings)
-    if old is not None:
-        print(
-            f"giro: warning: {spellings[0]} conflicts with {old}; {spellings[0]} wins",
-            file=sys.stderr,
-        )
-    return next((env[n] for n in spellings if env.get(n)), None)
+    warn_legacy(env)
+    return env.get(canonical(name)) or None
 
 
 def resolve(
@@ -106,38 +91,36 @@ def resolve(
     *,
     stderr: TextIO | None = None,
 ) -> dict[str, str]:
-    """Normalize aliases, keeping shell precedence over either env-file spelling."""
-    out = sys.stderr if stderr is None else stderr
-    result = dict(process)
+    """Lay the env file under the process environment; the shell wins for each setting.
+
+    The env file cannot set ``HOME``, ``XDG_CONFIG_HOME`` or ``GIRO_HOME``. Legacy names
+    from either layer are neither read nor copied; they only cause the warning.
+    """
     settings = file or {}
+    warn_legacy(process, {k: v for k, v in settings.items() if v}, stderr=stderr)
+    result = dict(process)
     for key, item in settings.items():
-        if key not in {"HOME", "XDG_CONFIG_HOME", *names("HOME")}:
-            if item is not None and key not in result:
-                result[key] = item
+        if key in {"HOME", "XDG_CONFIG_HOME", canonical("HOME")} or key in LEGACY_NAMES:
+            continue
+        if item is not None and key not in result:
+            result[key] = item
     for suffix in SUFFIXES:
-        spellings = names(suffix)
+        name = canonical(suffix)
         layers = (process,) if suffix == "HOME" else (process, settings)
-        selected = None
-        for layer in layers:
-            plain = {n: v for n in spellings if (v := layer.get(n))}
-            old = _conflict(plain, spellings)
-            if old is not None:
-                print(
-                    f"giro: warning: {spellings[0]} conflicts with {old}; "
-                    f"{spellings[0]} wins in this layer",
-                    file=out,
-                )
-            candidate = next((plain[n] for n in spellings if n in plain), None)
-            if selected is None and candidate:
-                selected = candidate
+        selected = next((item for layer in layers if (item := layer.get(name))), None)
         if selected is not None:
-            for spelling in spellings:
-                result[spelling] = selected
+            result[name] = selected
     return result
 
 
 def child_environment(base: Mapping[str, str] | None = None, **overrides: str) -> dict[str, str]:
-    """A child sees identical aliases; explicit per-call values replace both names."""
+    """The environment of a child process; a known setting may be given by its suffix.
+
+    Legacy names are left out: a child never sees them (and does not warn again).
+    """
     env = resolve(os.environ if base is None else base)
-    env.update(aliased(overrides))
+    for legacy in LEGACY_NAMES:
+        env.pop(legacy, None)
+    for key, item in overrides.items():
+        env[canonical(key)] = item
     return env

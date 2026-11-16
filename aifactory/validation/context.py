@@ -8,7 +8,7 @@ harness calls the worker in this process instead (``validation.inprocess``).
 In ``--remote local`` every command gets a fake script, so a real
 harness can never be reached there; in ``--remote github`` and ``--remote
 azure`` only the commands
-asked for with ``fake=True`` (B1) do. Every command gets ``HAIFA_VALIDATE_HIDDEN``
+asked for with ``fake=True`` (B1) do. Every command gets ``GIRO_VALIDATE_HIDDEN``
 (the hidden test of ``validation.hidden``), which only the worker reads.
 """
 
@@ -145,7 +145,7 @@ class Context:
     workdir: Path
     owned: Owned
     r5_samples: int = 3
-    # the directory of the hidden test; passed to validation.worker as HAIFA_VALIDATE_HIDDEN,
+    # the directory of the hidden test; passed to validation.worker as GIRO_VALIDATE_HIDDEN,
     # which the worker consumes (agents never get it) to place the test for code test steps
     hidden: Path | None = None
     harnesses: dict[str, str] = field(default_factory=dict)  # effective harness per step

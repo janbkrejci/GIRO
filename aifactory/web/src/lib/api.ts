@@ -180,7 +180,7 @@ function toIssues(raw: unknown): ApiIssue[] {
 export interface Health {
   app: string
   version: string
-  /** The dashboard's home folder (HAIFA_HOME) with the registry. */
+  /** The dashboard's home folder (GIRO_HOME) with the registry. */
   home: string
 }
 

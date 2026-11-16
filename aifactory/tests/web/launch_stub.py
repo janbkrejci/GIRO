@@ -1,10 +1,10 @@
 """A stand-in for the run process the dashboard starts (``test_web_launcher``; not a test).
 
 Run as ``python launch_stub.py task run|return|resolve ID --repo ROOT --json [...]``. The
-behaviour per task comes from the JSON file named by ``$HAIFA_LAUNCH_STUB``
+behaviour per task comes from the JSON file named by ``$GIRO_LAUNCH_STUB``
 (``{task_id: {"mode": ..., "code": ..., "message": ..., "delay": ...}}``; a missing task is
 ``claim-wait``). First it records ``<control>.<task_id>.<pid>.json`` (argv, cwd, session,
-pid and parent pid, stdin, ``HAIFA_HOME``; no session on Windows). Modes:
+pid and parent pid, stdin, ``GIRO_HOME``; no session on Windows). Modes:
 
 - ``claim-wait``: claims a ``running`` row with its own pid and sleeps until killed;
 - ``claim-exit``: claims, finishes ``succeeded`` and prints an ok envelope;
@@ -29,7 +29,7 @@ from aifactory.run.errors import TaskRunError
 from aifactory.run.store import RUNNING, SUCCEEDED, TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_fail, envelope_ok
 
-STUB_ENV = "HAIFA_LAUNCH_STUB"
+STUB_ENV = "GIRO_LAUNCH_STUB"
 TAIL_MARKER = "STUB-TAIL-MARKER"
 MAX_WAIT_S = 120.0
 

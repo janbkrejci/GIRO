@@ -323,7 +323,7 @@ def test_init_library_writes_the_factory_skill(
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("GIRO_HOME", str(home / ".config" / "haifa"))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")
@@ -360,7 +360,7 @@ def test_seed_offers_missing_triager(tmp_path: Path, monkeypatch: pytest.MonkeyP
     from aifactory.library.reseed import seed_library
 
     monkeypatch.setenv("GIRO_HOME", str(tmp_path / "haifa"))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")

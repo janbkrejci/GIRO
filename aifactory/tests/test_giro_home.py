@@ -11,55 +11,94 @@ from typing import Any
 import pytest
 import yaml
 
-from aifactory import cli, migration_guard
+from aifactory import cli, environment, migration_guard
 from aifactory.engine.utils import agent_environment, operator_env
-from aifactory.environment import SUFFIXES, aliased, child_environment, names, resolve, value
+from aifactory.environment import (
+    LEGACY_NAMES,
+    SUFFIXES,
+    canonical,
+    child_environment,
+    resolve,
+    value,
+)
 from aifactory.home import haifa_home, load_env_file
 from aifactory.versioning import UpgradeError
 from aifactory.web.server import APP_NAME
 
 
+@pytest.fixture(name="unwarned")
+def unwarned_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The legacy warning has not been printed yet in this process."""
+    monkeypatch.setattr(environment, "_warned", False)
+
+
 @pytest.mark.parametrize("suffix", SUFFIXES)
-def test_alias_precedence_and_child_normalization(suffix: str) -> None:
-    new, old = names(suffix)
-    err = io.StringIO()
-    result = resolve({new: "new", old: "legacy"}, stderr=err)
-    assert result[new] == result[old] == "new"
-    assert new in err.getvalue() and old in err.getvalue()
-    assert "legacy" not in err.getvalue()
-    assert value(suffix, {new: "", old: "legacy"}) == "legacy"
+def test_giro_names_are_read_and_set_shell_first(suffix: str) -> None:
+    name = canonical(suffix)
+    assert name == f"GIRO_{suffix}"
+    assert value(suffix, {name: "shell"}) == value(name, {name: "shell"}) == "shell"
+    assert value(suffix, {name: ""}) is None
     if suffix != "HOME":
-        result = resolve({old: "shell"}, {new: "file"})
-        assert result[new] == result[old] == "shell"
-        result = resolve({new: ""}, {new: "file", old: "old-file"}, stderr=err)
-        assert result[new] == result[old] == "file"
-    result = child_environment({new: "parent", old: "old-parent"}, **{old: "child"})
-    assert result[new] == result[old] == "child"
+        assert resolve({name: "shell"}, {name: "file"})[name] == "shell"
+        assert resolve({name: ""}, {name: "file"})[name] == "file"
+    assert child_environment({name: "parent"}, **{suffix: "child"})[name] == "child"
+
+
+@pytest.mark.parametrize("legacy", sorted(LEGACY_NAMES))
+def test_legacy_name_is_not_read_or_set(legacy: str, unwarned: None) -> None:
+    new = LEGACY_NAMES[legacy]
+    err = io.StringIO()
+    assert value(new, {legacy: "old"}) is None
+    result = resolve({legacy: "old"}, {legacy: "old-file"}, stderr=err)
+    assert new not in result
+    child = child_environment({}, **{new: "child"})
+    assert child[new] == "child" and legacy not in child
+
+
+def test_legacy_names_warn_once_per_process_without_their_values(
+    unwarned: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert value("HOME", {"HAIFA_HOME": "/secret/old", "AIFACTORY_GH": "/opt/gh"}) is None
+    value("HOME", {"HAIFA_HOME": "/secret/old"})
+    err = capsys.readouterr().err
+    assert err.count("giro: warning") == 1
+    assert "HAIFA_HOME -> GIRO_HOME" in err and "AIFACTORY_GH -> GIRO_GH" in err
+    assert "/secret/old" not in err and "/opt/gh" not in err
+
+
+def test_env_file_legacy_names_warn_and_are_not_copied(tmp_path: Path, unwarned: None) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "env").write_text("HAIFA_LIBRARY=/old\nOPEN_KEY=1\n")
+    (home / "env").chmod(0o600)
+    env = {"GIRO_HOME": str(home)}
+    err = io.StringIO()
+    assert load_env_file(env, stderr=err) == ["OPEN_KEY"]
+    assert "HAIFA_LIBRARY" not in env and "GIRO_LIBRARY" not in env
+    assert "HAIFA_LIBRARY -> GIRO_LIBRARY" in err.getvalue()
 
 
 def test_env_file_keeps_shell_origin_and_cannot_redirect_home(tmp_path: Path) -> None:
     selected = tmp_path / "selected"
     selected.mkdir()
-    (selected / "env").write_text(
-        "GIRO_LIBRARY=file\nGIRO_HOME=/wrong\nHAIFA_HOME=/wrong\nHOME=/wrong\n"
-    )
+    (selected / "env").write_text("GIRO_LIBRARY=file\nGIRO_HOME=/wrong\nHOME=/wrong\n")
     (selected / "env").chmod(0o600)
-    env = {"HAIFA_HOME": str(selected), "HAIFA_LIBRARY": "shell"}
+    env = {"GIRO_HOME": str(selected), "GIRO_LIBRARY": "shell"}
     load_env_file(env)
-    assert env["GIRO_HOME"] == env["HAIFA_HOME"] == str(selected)
-    assert env["GIRO_LIBRARY"] == env["HAIFA_LIBRARY"] == "shell"
+    assert env["GIRO_HOME"] == str(selected)
+    assert env["GIRO_LIBRARY"] == "shell"
     assert haifa_home(env) == selected
 
 
-def test_worker_environment_overrides_both_run_aliases(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_worker_environment_overrides_the_run_id(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GIRO_RUN_ID", "parent")
-    with agent_environment({"HAIFA_RUN_ID": "worker"}):
+    with agent_environment({"GIRO_RUN_ID": "worker"}):
         env = operator_env()
-    assert env["GIRO_RUN_ID"] == env["HAIFA_RUN_ID"] == "worker"
+    assert env["GIRO_RUN_ID"] == "worker"
 
 
 @pytest.mark.parametrize("platform", ["darwin", "linux", "win32"])
-def test_default_paths_and_explicit_aliases(
+def test_default_paths_and_explicit_home(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str
 ) -> None:
     monkeypatch.setattr(sys, "platform", platform)
@@ -68,8 +107,7 @@ def test_default_paths_and_explicit_aliases(
         haifa_home({"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(tmp_path / "xdg")})
         == tmp_path / "xdg/giro"
     )
-    assert haifa_home({"HAIFA_HOME": str(tmp_path / "legacy")}) == tmp_path / "legacy"
-    assert haifa_home({"GIRO_HOME": str(tmp_path / "new"), "HAIFA_HOME": "old"}) == tmp_path / "new"
+    assert haifa_home({"GIRO_HOME": str(tmp_path / "new")}) == tmp_path / "new"
 
 
 def test_legacy_only_and_empty_collision_do_not_write(tmp_path: Path) -> None:
@@ -162,14 +200,12 @@ def test_migration_locks_share_canonical_home_identity(tmp_path: Path) -> None:
     assert caught.value.code == "update_busy"
 
 
-def test_invalid_new_library_url_does_not_fall_back_to_legacy() -> None:
+def test_invalid_library_url_is_refused() -> None:
     from aifactory.library.share import default_library_url
     from aifactory.library.store import LibraryStoreError
 
     with pytest.raises(LibraryStoreError):
-        default_library_url(
-            {"GIRO_LIBRARY_URL": " ", "HAIFA_LIBRARY_URL": "https://valid.example/library"}
-        )
+        default_library_url({"GIRO_LIBRARY_URL": " "})
 
 
 def test_legacy_names_are_spelled_only_in_environment() -> None:
@@ -181,21 +217,3 @@ def test_legacy_names_are_spelled_only_in_environment() -> None:
         and ("HAIFA_" in (text := path.read_text(encoding="utf-8")) or "AIFACTORY_" in text)
     ]
     assert offenders == []
-
-
-def test_every_legacy_spelling_still_works() -> None:
-    assert names("HOME") == ("GIRO_HOME", "HAIFA_HOME")
-    assert names("HAIFA_RUN_ID") == ("GIRO_RUN_ID", "HAIFA_RUN_ID")
-    assert names("GH") == ("GIRO_GH", "AIFACTORY_GH")
-    assert names("AIFACTORY_AZ") == ("GIRO_AZ", "AIFACTORY_AZ")
-    assert names("PATH") == ("PATH",)
-    assert value("GIRO_GH", {"AIFACTORY_GH": "/opt/gh"}) == "/opt/gh"
-    assert value("RUN_ID", {"HAIFA_RUN_ID": "r1"}) == "r1"
-    assert aliased({"GIRO_RUN_ID": "r1", "PATH": "/bin"}) == {
-        "GIRO_RUN_ID": "r1",
-        "HAIFA_RUN_ID": "r1",
-        "PATH": "/bin",
-    }
-    child = child_environment({"AIFACTORY_AZ": "/opt/az"}, GIRO_RUN_ID="r2")
-    assert child["GIRO_AZ"] == child["AIFACTORY_AZ"] == "/opt/az"
-    assert child["GIRO_RUN_ID"] == child["HAIFA_RUN_ID"] == "r2"

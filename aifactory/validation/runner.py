@@ -52,7 +52,7 @@ from validation.sandbox import (
 from validation.scenarios import ORDER
 
 EXIT_OK, EXIT_FAILED, EXIT_SETUP = 0, 1, 2
-SANDBOX_ENV = "HAIFA_SANDBOX_REPO"
+SANDBOX_ENV = "GIRO_SANDBOX_REPO"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -65,8 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("local", "github", "azure"),
         default="local",
         help="local: bare repo in a temp dir, fake harness, no cost; "
-        "github: the HAIFA_SANDBOX_REPO sandbox with the real harnesses; "
-        "azure: the HAIFA_AZURE_SANDBOX_REPO sandbox on Azure DevOps with the real harnesses",
+        "github: the GIRO_SANDBOX_REPO sandbox with the real harnesses; "
+        "azure: the GIRO_AZURE_SANDBOX_REPO sandbox on Azure DevOps with the real harnesses",
     )
     parser.add_argument(
         "--results-dir",
@@ -122,7 +122,7 @@ def _load_env() -> None:
 # overrides the harness and model of every agent of the roster, so a run would no longer
 # validate the roster. The isolated home leaves them out and links everything else.
 MACHINE_HARNESS_FILES = frozenset({"harnesses.json", "harness-tests.json"})
-HOME_ENV = "HAIFA_HOME"
+HOME_ENV = "GIRO_HOME"
 
 
 def isolated_haifa_home(workdir: Path, source: Path | None = None) -> Path:
@@ -154,11 +154,7 @@ def isolated_haifa_home(workdir: Path, source: Path | None = None) -> Path:
 
 def _worker_json(argv: list[str]) -> tuple[int, dict[str, Any]]:
     """A factory command through the worker without the fake (github preflight)."""
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if k not in {"GIRO_VALIDATE_FAKE", "HAIFA_VALIDATE_FAKE"}
-    }
+    env = {k: v for k, v in os.environ.items() if k not in {"GIRO_VALIDATE_FAKE"}}
     proc = subprocess.run(
         [sys.executable, "-m", "validation.worker", *argv],
         cwd=AIFACTORY_DIR,
@@ -431,8 +427,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             owned.add(workdir)
 
-    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME", "HAIFA_HOME")}
-    os.environ["GIRO_HOME"] = os.environ["HAIFA_HOME"] = str(isolated_haifa_home(workdir))
+    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME",)}
+    os.environ["GIRO_HOME"] = str(isolated_haifa_home(workdir))
     try:
         return _run(args, names, roster, target, started, owned, workdir)
     finally:

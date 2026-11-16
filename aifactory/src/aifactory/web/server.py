@@ -21,7 +21,7 @@ from typing import Final
 import uvicorn
 from starlette.types import ASGIApp
 
-from aifactory.environment import aliased, value
+from aifactory.environment import value
 
 HOST: Final = "127.0.0.1"
 """The default address of the dashboard."""
@@ -122,7 +122,7 @@ def restart_process() -> None:
     Windows has no exec: ``os.execv`` starts a second process and leaves the console to both,
     so the new dashboard gets its own console window and this process exits.
     """
-    os.environ.update(aliased({RESTART_ENV: "1"}))
+    os.environ[RESTART_ENV] = "1"
     sys.stdout.flush()
     sys.stderr.flush()
     if sys.platform == "win32":

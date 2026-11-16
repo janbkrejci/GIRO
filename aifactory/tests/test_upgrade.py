@@ -387,7 +387,7 @@ def test_handoff_keeps_the_bundle_and_starts_the_script(tmp_path: Path, uv_log: 
         restart=["python.exe", "factory.exe", "obs"],
         environ={
             "PSModulePath": "C:/pwsh/Modules",
-            "HAIFA_OBS_RESTART": "1",
+            "GIRO_OBS_RESTART": "1",
             "GIRO_HOME": os.environ["GIRO_HOME"],
         },
         spawn=_record(calls),
@@ -396,7 +396,7 @@ def test_handoff_keeps_the_bundle_and_starts_the_script(tmp_path: Path, uv_log: 
     assert not uv_log.exists()  # nothing installed while this process runs
     [(argv, env)] = calls
     assert argv[:2] == ["powershell", "-NoProfile"] and "-File" in argv
-    assert "PSModulePath" not in env and env["HAIFA_OBS_RESTART"] == "1"
+    assert "PSModulePath" not in env and env["GIRO_OBS_RESTART"] == "1"
     script, plan_file = Path(argv[-2]), Path(argv[-1])
     assert script.read_bytes() == upgrade.HANDOFF_SCRIPT.read_bytes()
     text = script.read_text("utf-8")

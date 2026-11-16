@@ -111,10 +111,10 @@ def operator_env() -> dict[str, str]:
     same `python3` the engineer gets in their terminal. The ADW's own imports
     are unaffected; this env is only ever handed to child processes.
     """
-    from aifactory.environment import child_environment, names
+    from aifactory.environment import canonical, child_environment
 
     env = child_environment(os.environ, **_agent_environment.get() or {})
-    for channel in (*names("VALIDATE_FAKE"), *names("VALIDATE_HIDDEN")):
+    for channel in (canonical("VALIDATE_FAKE"), canonical("VALIDATE_HIDDEN")):
         env.pop(channel, None)
     venv = env.pop("VIRTUAL_ENV", "")
     if not venv:

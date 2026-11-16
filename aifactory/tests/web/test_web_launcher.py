@@ -65,7 +65,7 @@ class Stub:
 @pytest.fixture(name="stub")
 def stub_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Stub:
     stub = Stub(tmp_path / "stub.json")
-    monkeypatch.setenv("HAIFA_LAUNCH_STUB", str(stub.path))
+    monkeypatch.setenv("GIRO_LAUNCH_STUB", str(stub.path))
     return stub
 
 

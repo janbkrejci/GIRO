@@ -2,7 +2,7 @@
 
 ``write_hidden(workdir)`` writes ``<workdir>/hidden/test_text_hidden_slugify.py``:
 outside the sandbox repo and every worktree. ``Context`` points
-``HAIFA_VALIDATE_HIDDEN`` at that directory for every ``factory`` command, but
+``GIRO_VALIDATE_HIDDEN`` at that directory for every ``factory`` command, but
 the variable is only a channel into ``validation.worker``: the worker pops it
 from ``os.environ`` (agents inherit ``os.environ`` through ``operator_env`` and
 so never see it) and ``install``s a wrapper around the engine's code test step

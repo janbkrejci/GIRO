@@ -72,7 +72,7 @@ def test_guide_launch_removes_model_tools_and_fixes_mcp_scope(
     assert server["required"] is True
     assert server["enabled_tools"] == ["guide"]
     assert server["args"][-2:] == ["--repo", "alpha"]
-    assert server["env"]["HAIFA_GUIDE_REPO"] == "alpha"
+    assert server["env"]["GIRO_GUIDE_REPO"] == "alpha"
     assert config["features"]["shell_tool"] is False
     assert config["features"]["view_image"] is False
     assert config["features"]["plugins"] is False

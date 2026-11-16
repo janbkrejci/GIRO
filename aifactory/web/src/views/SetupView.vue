@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '@/lib/i18n'
 import { setupErrorText } from '@/lib/setupMessages'
-// #/setup "Knihovna" (opened from the library chip of the topbar): the library in $HAIFA_HOME
+// #/setup "Knihovna" (opened from the library chip of the topbar): the library in $GIRO_HOME
 // first (#/setup/library scrolls to it), then the check of this computer (only findings that need
 // an action, in groups) and the dashboard's own settings. Library findings show in the library section.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'

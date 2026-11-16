@@ -12,7 +12,6 @@ from collections.abc import Callable
 from typing import Any
 
 from aifactory import __version__
-from aifactory.environment import aliased
 from aifactory.upgrade import editable_install, run_upgrade
 from aifactory.versioning import UpgradeError, version_key
 from aifactory.web.server import RESTART_ENV, exit_process, restart_command
@@ -135,7 +134,7 @@ class Updates:
                 self._state["bundle"],
                 current=self.current,
                 expected_version=self._state["target_version"],
-                environ={**os.environ, **aliased({RESTART_ENV: "1"})},
+                environ={**os.environ, RESTART_ENV: "1"},
                 restart=restart_command(),
                 bundle_brand="giro",
             )

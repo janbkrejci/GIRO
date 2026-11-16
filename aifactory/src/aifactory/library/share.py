@@ -52,7 +52,7 @@ _GITHUB = re.compile(
 
 
 def default_library_url(environ: Mapping[str, str] | None = None) -> str:
-    """``$GIRO_LIBRARY_URL`` (or its legacy alias), else GIRO-LIBRARY."""
+    """``$GIRO_LIBRARY_URL``, else GIRO-LIBRARY."""
     env = os.environ if environ is None else environ
     selected = value(LIBRARY_URL_ENV, env)
     if selected is None:

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '@/lib/i18n'
 import { setupErrorText } from '@/lib/setupMessages'
-// The library section of #/setup (page Knihovna, #/setup/library): the library lives in $HAIFA_HOME
+// The library section of #/setup (page Knihovna, #/setup/library): the library lives in $GIRO_HOME
 // of this computer. Without a library it sets one up (from the seed or a clone of the team library).
 // On top, the library findings of the machine check. Items of the library by type on the left, the selected item on the right
 // with the registered repos that override it with their own copy ("Diff", "move the repo copy

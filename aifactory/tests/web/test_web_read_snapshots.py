@@ -192,7 +192,7 @@ def test_roster_cache_follows_config_base_library_and_registry(
         library.mkdir()
         git(library, "init", "-b", "main")
         git(library, "commit", "--allow-empty", "-m", "library")
-        monkeypatch.setenv("HAIFA_LIBRARY", str(library))
+        monkeypatch.setenv("GIRO_LIBRARY", str(library))
         assert counts()["codex"] == 0
         assert len(reads) == 5
         git(library, "commit", "--allow-empty", "-m", "advance")
