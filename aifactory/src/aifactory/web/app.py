@@ -209,14 +209,10 @@ tasks into the free ``max_parallel_runs`` slots, HTTP 200 also when nothing star
 ``.../control/stop`` (every running run, in the background; HTTP 202, the progress is in
 the overview's ``factory.control``).
 The hidden terminal (``terminal.py``, multi-repository app only):
-``GET /api/terminal`` returns ``{enabled, cwd, shell, pty}`` in the JSON envelope;
-``POST /api/terminal/exec`` (``{command, cwd?}``) streams NDJSON ``out`` (stream, text)
-and ``exit`` (code, cwd) events. The default cwd is the user's home. Standalone ``cd``
-changes the client's cwd without launching a shell. Commands run without stdin or TTY;
-disconnect or a 600 s timeout kills the process group. No commands or output are stored.
+``GET /api/terminal`` returns ``{enabled, cwd, shell, pty}`` in the JSON envelope.
 There is no login: both allowed server hosts and the request client must be loopback
-(``server.LOOPBACK``), otherwise GET reports disabled and POST returns HTTP 403
-``terminal_disabled``. The normal Origin, Sec-Fetch-Site and JSON write guard applies.
+(``server.LOOPBACK``), otherwise GET reports disabled. The normal Origin, Sec-Fetch-Site
+and JSON write guard applies.
 ``POST /api/terminal/sessions`` (``{cols, rows, cwd?}``) creates a POSIX login/interactive
 PTY shell and returns ``{id}``; Windows returns 501 ``terminal_pty_unsupported``.
 ``GET /api/terminal/sessions/{id}/stream`` streams raw bytes to one client (409 if attached).
@@ -330,7 +326,7 @@ from aifactory.web.repos import (
     remove_repo,
     repo_status,
 )
-from aifactory.web.terminal import terminal_exec, terminal_get
+from aifactory.web.terminal import terminal_get
 from aifactory.web.terminal_pty import close_sessions, terminal_session
 from aifactory.web.updates import Updates
 from aifactory.web.workflow_advice import AdviceManager
@@ -1398,14 +1394,6 @@ async def learn_dismiss(request: Request) -> JSONResponse:
     )
 
 
-async def task_advice_options(request: Request) -> JSONResponse:
-    try:
-        data = await run_in_threadpool(request.app.state.task_advice.options, _repo(request))
-    except (TaskEditError, ConfigError, TaskRunError) as exc:
-        return _edit_error(exc)
-    return JSONResponse(envelope_ok(data))
-
-
 async def task_advice_start(request: Request) -> JSONResponse:
     try:
         data = await run_in_threadpool(
@@ -2095,7 +2083,6 @@ def _repo_routes() -> list[BaseRoute]:
         Route("/backlog", backlog_list, methods=["GET"]),
         Route("/backlog/summary", backlog_summary, methods=["GET"]),
         Route("/backlog/names", backlog_names, methods=["GET"]),
-        Route("/backlog/task-advice/options", task_advice_options, methods=["GET"]),
         Route("/backlog/task-advice", task_advice_start, methods=["POST"]),
         Route("/backlog/task-advice/{job_id}", task_advice_get, methods=["GET"]),
         Route("/backlog/workflow-advice", workflow_advice_start, methods=["POST"]),
@@ -2979,7 +2966,6 @@ def create_multi_app(
         routes=[
             Route("/health", multi_health, methods=["GET"]),
             Route("/terminal", terminal_get, methods=["GET"]),
-            Route("/terminal/exec", terminal_exec, methods=["POST"]),
             Route("/terminal/sessions", terminal_session, methods=["POST"]),
             Route("/terminal/sessions/{id}/stream", terminal_session, methods=["GET"]),
             Route("/terminal/sessions/{id}/input", terminal_session, methods=["POST"]),

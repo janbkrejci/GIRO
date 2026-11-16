@@ -71,8 +71,8 @@ def test_repeat_select_cost_and_save(tmp_path: Path, monkeypatch: pytest.MonkeyP
     app.state.task_advice = AdviceManager(runner, task_parameters=True)
     task_path = repo / "backlog/P01/S01/P01-S01-T01-first.md"
     original = task_path.read_text()
+    options = app.state.task_advice.options(repo)  # what the start validates against
     with TestClient(app, base_url="http://127.0.0.1:4700") as client:
-        options = client.get("/api/backlog/task-advice/options").json()["data"]
         assert options["default"] == {"harness": "claude", "model": "sonnet"}
         assert [h["name"] for h in options["harnesses"]] == ["claude", "codex"]
         assert "gpt-5.5" in options["harnesses"][1]["models"]
