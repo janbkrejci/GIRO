@@ -32,6 +32,11 @@ Batch commands (one git process each, whatever the number of items; every read r
   (split only when the command line would get too long).
 - ``update_index(root, changes, env=...)``: several index entries in one
   ``update-index -z --index-info``.
+- ``read_filtered(root, items)``: blob contents as a checkout writes them (attribute
+  filters such as CRLF conversion applied) in one ``cat-file --batch --filters``; the
+  path comes in ``%(rest)`` (git 2.37 has no ``<rev>:<path>`` form there). When the batch
+  fails, one ``cat-file --filters`` per blob.
+- ``head_state(root)``: the ``HEAD`` commit and its branch in one ``rev-parse``.
 - ``write_blobs(root, contents)``: store several blobs in one ``fast-import``;
   ``blob_id(content, like=sha)`` computes a blob id without git.
 
@@ -42,6 +47,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import secrets
 import threading
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -76,7 +82,7 @@ def _remember(cache: dict[Any, Any], key: object, value: object) -> None:
         cache[key] = value
 
 
-def _stamp(path: Path) -> tuple[int, int, int] | None:
+def stamp(path: Path) -> tuple[int, int, int] | None:
     """What changes when git rewrites ``path`` (it replaces files by renaming a lock file)."""
     try:
         info = os.stat(path)
@@ -174,36 +180,51 @@ def resolve(root: Path | str, ref: str) -> str | None:
     found = dirs(root)
     files = _ref_files(found, ref) if found is not None else None
     key = (str(found.common_dir if found else root), ref)
-    stamp: tuple[object, ...] | None = None
+    current: tuple[object, ...] | None = None
     if files is not None:
-        stamp = tuple(_stamp(f) for f in files)
+        current = tuple(stamp(f) for f in files)
         cached = _REFS.get(key)
-        if cached is not None and cached[0] == stamp:
+        if cached is not None and cached[0] == current:
             return cached[1]
     result = gitrun.run(
         root, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}", read_only=True
     )
     if not result.ok or not result.out:
         return None
-    if stamp is not None:
-        _remember(_REFS, key, (stamp, result.out))
+    if current is not None:
+        _remember(_REFS, key, (current, result.out))
     return result.out
+
+
+def head_state(root: Path | str) -> tuple[str | None, str | None]:
+    """(``HEAD`` commit, branch ``refs/heads/...``) of the checkout; None for each unknown.
+
+    One ``rev-parse HEAD --symbolic-full-name HEAD``. A detached ``HEAD`` has no branch;
+    an unborn branch (no commit yet) costs a second process (``symbolic-ref``).
+    """
+    result = gitrun.run(root, "rev-parse", "HEAD", "--symbolic-full-name", "HEAD", read_only=True)
+    lines = result.text.split()
+    if result.ok and len(lines) == 2:
+        ref = lines[1] if lines[1].startswith("refs/") else None
+        return lines[0], ref
+    branch = gitrun.run(root, "symbolic-ref", "-q", "HEAD", read_only=True)
+    return None, branch.out if branch.ok and branch.out else None
 
 
 def remote_url(root: Path | str, remote: str) -> str | None:
     """``git remote get-url <remote>``, or None when there is no such remote."""
     found = dirs(root)
-    stamp: tuple[object, ...] | None = None
+    current: tuple[object, ...] | None = None
     key = (str(found.git_dir if found else root), remote)
     if found is not None:
-        stamp = (_stamp(found.common_dir / "config"), _stamp(found.git_dir / "config.worktree"))
+        current = (stamp(found.common_dir / "config"), stamp(found.git_dir / "config.worktree"))
         cached = _REMOTES.get(key)
-        if cached is not None and cached[0] == stamp:
+        if cached is not None and cached[0] == current:
             return cached[1]
     result = gitrun.run(root, "remote", "get-url", remote, read_only=True)
     url = result.out if result.ok and result.out else None
-    if stamp is not None:
-        _remember(_REMOTES, key, (stamp, url))
+    if current is not None:
+        _remember(_REMOTES, key, (current, url))
     return url
 
 
@@ -452,3 +473,67 @@ def write_blobs(root: Path | str, contents: Sequence[bytes]) -> list[str]:
     if len(ids) != len(contents):
         raise ValueError(f"git fast-import returned {len(ids)} ids for {len(contents)} blobs")
     return ids
+
+
+def read_filtered(
+    root: Path | str, items: Iterable[tuple[str, str]]
+) -> dict[tuple[str, str], bytes | None]:
+    """The checkout bytes of each ``(blob sha, path)``: the blob with the attribute filters
+    of ``path`` applied (``cat-file --filters``); None when the blob is missing.
+
+    One ``cat-file --batch --filters`` for all items. Its header gives the unfiltered size,
+    so every item is followed by a request for a name that cannot exist; its ``missing``
+    line marks where the filtered content ends. When the batch fails, one process per item.
+    """
+    wanted = list(dict.fromkeys(items))
+    if not wanted:
+        return {}
+    for sha, path in wanted:
+        if "\n" in path or not sha or " " in sha:
+            raise ValueError(f"cannot request {sha!r} {path!r}")
+    end = f"giro-end-{secrets.token_hex(16)}"
+    request = "".join(f"{sha} {path}\n{end}\n" for sha, path in wanted)
+    result = gitrun.run(
+        root,
+        "cat-file",
+        "--batch=%(objectname) %(objectsize) %(rest)",
+        "--filters",
+        input=request.encode("utf-8", "surrogateescape"),
+        read_only=True,
+    )
+    if result.ok:
+        parsed = _split_filtered(result.stdout, wanted, end.encode())
+        if parsed is not None:
+            return parsed
+    return {item: _read_one_filtered(root, *item) for item in wanted}
+
+
+def _split_filtered(
+    data: bytes, wanted: list[tuple[str, str]], end: bytes
+) -> dict[tuple[str, str], bytes | None] | None:
+    marker = b"\n" + end + b" missing\n"
+    found: dict[tuple[str, str], bytes | None] = {}
+    offset = 0
+    for item in wanted:
+        line_end = data.find(b"\n", offset)
+        if line_end < 0:
+            return None
+        header = data[offset:line_end]
+        if header.endswith(b" missing"):
+            if data[line_end + 1 : line_end + 1 + len(end) + 9] != end + b" missing\n":
+                return None
+            found[item] = None
+            offset = line_end + 1 + len(end) + 9
+            continue
+        stop = data.find(marker, line_end + 1)
+        if stop < 0:
+            return None
+        # The marker starts with the newline that ends every --batch answer.
+        found[item] = data[line_end + 1 : stop]
+        offset = stop + len(marker)
+    return found
+
+
+def _read_one_filtered(root: Path | str, sha: str, path: str) -> bytes | None:
+    result = gitrun.run(root, "cat-file", "--filters", f"--path={path}", sha, read_only=True)
+    return result.stdout if result.ok else None

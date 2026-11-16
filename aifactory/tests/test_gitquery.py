@@ -143,3 +143,41 @@ def test_blobs_and_index(repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: 
     listed = gitrun.run(repo, "ls-files", "-s", env=env, check=True).text
     assert {line.split("\t")[1] for line in listed.splitlines()} == {"a.txt", "x.txt", "bin"}
     assert f"100755 {ids[2]}" in listed
+
+
+def test_head_state(repo: Path, tmp_path: Path) -> None:
+    head = _git(repo, "rev-parse", "HEAD")
+    assert gitquery.head_state(repo) == (head, "refs/heads/main")
+    _git(repo, "checkout", "-q", "--detach")
+    assert gitquery.head_state(repo) == (head, None)
+    unborn = tmp_path / "unborn"
+    unborn.mkdir()
+    _git(unborn, "init", "-q", "-b", "trunk")
+    assert gitquery.head_state(unborn) == (None, "refs/heads/trunk")
+
+
+@pytest.mark.parametrize("batch", [True, False])
+def test_read_filtered_applies_checkout_filters(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, batch: bool
+) -> None:
+    from gitspy import GitCall, spy_git
+    from gitspy import result as fake
+
+    (repo / ".gitattributes").write_text("*.crlf text eol=crlf\n")
+    (repo / "x.crlf").write_bytes(b"one\ntwo\n")
+    (repo / "empty.crlf").write_bytes(b"")
+    (repo / "plain bin").write_bytes(b"a\nb\x00\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "attrs")
+    items = [
+        (_git(repo, "rev-parse", f"HEAD:{p}"), p) for p in ("x.crlf", "empty.crlf", "plain bin")
+    ]
+    items.append(("0" * 40, "gone.crlf"))
+
+    def broken(call: GitCall) -> object:
+        return fake(call.argv, "", 128) if any("--batch" in a for a in call.argv) else None
+
+    calls = spy_git(monkeypatch, None if batch else broken)  # type: ignore[arg-type]
+    found = gitquery.read_filtered(repo, items)
+    assert [found[i] for i in items] == [b"one\r\ntwo\r\n", b"", b"a\nb\x00\n", None]
+    assert len(calls) == (1 if batch else 1 + len(items))
