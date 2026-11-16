@@ -99,3 +99,50 @@ def test_cleanup_stops_real_process_in_worktree(tmp_path: Path) -> None:
             if child.poll() is None:
                 child.kill()
                 child.wait(timeout=5)
+
+
+def test_cleanup_skips_sibling_with_same_name_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "run-1"
+    root.mkdir()
+    sibling = tmp_path / "run-10"
+    inside = process(100001, tmp_path / "python", root / "src")
+    outside = process(100002, tmp_path / "python", tmp_path)
+    neighbour = process(100003, sibling / "python", sibling)
+    monkeypatch.setattr(psutil, "process_iter", lambda: [inside, outside, neighbour])
+    monkeypatch.setattr(psutil, "wait_procs", lambda *_args, **_kwargs: ([], []))
+
+    cleanup.stop_directory_processes(root)
+
+    inside.terminate.assert_called_once()
+    outside.terminate.assert_not_called()
+    neighbour.terminate.assert_not_called()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlinks need privileges on Windows")
+def test_cleanup_matches_resolved_and_given_root_without_resolving_processes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = tmp_path / "real" / "run-1"
+    real.mkdir(parents=True)
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    via_link = process(100001, tmp_path / "python", link / "src")
+    via_real = process(100002, tmp_path / "python", real.resolve())
+    monkeypatch.setattr(psutil, "process_iter", lambda: [via_link, via_real])
+    monkeypatch.setattr(psutil, "wait_procs", lambda *_args, **_kwargs: ([], []))
+    resolved: list[Path] = []
+    original = Path.resolve
+
+    def counting_resolve(self: Path, strict: bool = False) -> Path:
+        resolved.append(self)
+        return original(self, strict)
+
+    monkeypatch.setattr(Path, "resolve", counting_resolve)
+
+    cleanup.stop_directory_processes(link)
+
+    via_link.terminate.assert_called_once()
+    via_real.terminate.assert_called_once()
+    assert resolved == [link]
