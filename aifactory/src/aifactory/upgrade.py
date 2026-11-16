@@ -481,8 +481,8 @@ def run_upgrade(
                 data={**result.to_json(), "returncode": proc.returncode},
             )
         result.installed = True
-        # The transition coordinator preserves the library verbatim. GIRO subsequently
-        # offers its non-destructive seed plan; --all would destroy local customizations.
+        # The refresh offers the non-destructive seed plan; --all would destroy local
+        # customizations.
         if not refresh:
             return result
         warning = refresh_library(uv, environ)

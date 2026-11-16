@@ -19,7 +19,7 @@ function updateErrorCode(error: unknown, fallback: UpdateErrorCode): UpdateError
   return fallback
 }
 
-export function useUpdates(options: { reload?: () => void; wait?: (ms: number) => Promise<void>; migration?: boolean } = {}) {
+export function useUpdates(options: { reload?: () => void; wait?: (ms: number) => Promise<void> } = {}) {
   const state = ref<UpdateState>({ status: 'checking', current_version: '' })
   let busy = false
   let disposed = false
@@ -45,7 +45,7 @@ export function useUpdates(options: { reload?: () => void; wait?: (ms: number) =
     state.value = { ...state.value, status: 'installing', error: null, error_code: undefined }
     try {
       const before = await fetchCode()
-      await postGlobal<UpdateState>(options.migration ? '/updates/migrate' : '/updates/install')
+      await postGlobal<UpdateState>('/updates/install')
       await watchRestart(before.started, state.value.current_version)
     } catch (error) {
       if (!disposed) state.value = { ...state.value, status: error instanceof ApiError && ['runs_active', 'update_busy'].includes(error.code) ? 'waiting' : 'error', error_code: updateErrorCode(error, 'install_failed'), error: errorText(error) }

@@ -56,9 +56,8 @@ def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
             )
         raise UpgradeError(
             "migration_required",
-            f"Legacy data found at {legacy}. Stop HAIFA and use its transition button, "
-            "or run giro migrate --confirm --haifa-bundle PATH to the verified last HAIFA ZIP. "
-            "Nothing has been written.",
+            f"Legacy HAIFA data found at {legacy}. Stop HAIFA, move the folder to {target} "
+            "or select GIRO_HOME explicitly. Nothing has been written.",
         )
     return target
 

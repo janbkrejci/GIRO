@@ -457,7 +457,7 @@ def test_cli_on_windows_refuses_while_the_dashboard_runs(
     assert code == 2 and obj["error"]["code"] == "dashboard_running"
 
 
-def test_transition_explicitly_accepts_giro_zip_with_aifactory_wheel(tmp_path: Path) -> None:
+def test_giro_zip_with_aifactory_wheel_is_accepted(tmp_path: Path) -> None:
     bundle = make_bundle(tmp_path, version="1.0.1", brand="giro")
     result = upgrade.run_upgrade(
         str(bundle),
@@ -479,7 +479,7 @@ def test_transition_explicitly_accepts_giro_zip_with_aifactory_wheel(tmp_path: P
     assert error.value.code == "up_to_date"
 
 
-def test_transition_rejects_legacy_root_and_renamed_distribution(tmp_path: Path) -> None:
+def test_giro_brand_rejects_legacy_root_and_renamed_distribution(tmp_path: Path) -> None:
     old_root = make_bundle(tmp_path / "legacy", version="1.0.1")
     with pytest.raises(UpgradeError, match="release identity"):
         upgrade.run_upgrade(
@@ -504,7 +504,7 @@ def test_transition_rejects_legacy_root_and_renamed_distribution(tmp_path: Path)
         )
 
 
-def test_transition_install_never_reseeds_library_and_passes_environment(
+def test_install_without_refresh_never_reseeds_library_and_passes_environment(
     tmp_path: Path, uv_log: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("UV_EXIT", "1")

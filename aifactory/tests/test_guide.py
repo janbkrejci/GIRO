@@ -113,7 +113,7 @@ def test_bundle_install_guide_is_the_installation_chapter() -> None:
     assert "[Řešení problémů]" not in text and "kapitole Řešení problémů" in text
     assert text.count("\n") == source.count("\n")
     assert "giro-9.9.9.zip" in text
-    assert "haifa-H.zip" in text
+    assert "haifa-H.zip" not in text
     assert "uv tool uninstall aifactory" in text
     assert "--keep-data" in text
     assert "GIRO_LIBRARY_URL" in text

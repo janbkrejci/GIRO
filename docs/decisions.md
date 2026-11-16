@@ -170,8 +170,9 @@ upgradovaném počítači nejsou součástí přechodu.
 
 ## 2026-11-14: GIRO — identita a podporovaný přechod (S12-T01)
 
-Implementační kontrakt a inventura jsou v [docs/rebranding/giro.md](rebranding/giro.md).
-Jde o rozhodnutí pro T02–T07; současný produkt ani hosting se tímto zápisem nemění.
+Přechod proběhl; jeho kontrakt a přechodový kód odstranilo OPT-S05-T01 (viz níže).
+Platí identita, technické názvy a aliasy prostředí; body o migraci a publikaci
+poslední HAIFA jsou historické.
 Toto rozhodnutí pro rebranding zpřesňuje dosavadní popis distribuce a návratu;
 S11 identita podle common Git dir a lokální provozní volby zůstávají zachované.
 
@@ -230,24 +231,6 @@ S11 identita podle common Git dir a lokální provozní volby zůstávají zacho
   Produkt poskytuje workflow a PR/approve/merge, nikoli obecnou automatickou
   publikaci každého uživatelského projektu. Slogan nesmí takovou funkci slibovat.
 
-## 2026-11-15 — Provozní zdroje a přenos HAIFA → GIRO (T05)
-
-- [Migrační postup](rebranding/repository-migration.md) určuje přenos všech heads
-  a tags do nového `janbkrejci/GIRO` se zachováním objektových SHA; GitHub PR,
-  issues a releasy zůstávají v původním HAIFA. Read-only inventura nenašla
-  otevřené PR/issues; existující devět větví se zachová bez automatického merge.
-- Uchovaný zdroj poslední HAIFA je přesně
-  `4dd3ddf1ea18f672674123df94dc4643a4868f52` (T04), nikoli rebrandingový main.
-  T06 jej sváže s `haifa-transition-source` a `HAIFA_TRANSITION_SHA`; nejprve
-  ověří GIRO G, potom vydá H a vypne všechny HAIFA Actions. G_SHA a skutečná
-  čísla H/G se zaznamenají z konkrétních T06 běhů, nikoli odhadem před vydáním.
-- Nové repo se importuje s vypnutými Actions, protože přenesené historické
-  větve mohou obsahovat starší publikační workflow. Původní public repo i jeho
-  poslední HAIFA latest zůstanou dostupné. Knihovna zůstává HAIFA-LIBRARY dle T01.
-- Přesun vývojářského checkoutu je volitelná samostatná odstávka. Pouhá změna
-  remote nemění registry ID; přesun common Git dir mění klíč lokálních voleb,
-  proto vyžaduje opravu worktree vazeb, registry a nastavení ze zálohy.
-
 ## 2026-11-16: GIRO-LIBRARY a cesta vývojového checkoutu
 
 Vlastník výslovně požádal o přejmenování `janbkrejci/HAIFA-LIBRARY` na
@@ -261,3 +244,15 @@ UUID knihovny, `skill/factory`, metadata návrhů a historické záznamy zůstá
 Lokální knihovny bez remote ani vlastní vzdálené knihovny se nepřepojují.
 Při přesunu checkoutu se opraví Git worktrees, cesta a zobrazovaný název v
 registraci dashboardu a klíč lokálních nastavení; ID registrace `haifa` zůstává.
+
+## 2026-11-16: Odstranění přechodového kódu HAIFA → GIRO (OPT-S05-T01)
+
+Přechod na GIRO proběhl (HAIFA-S12-T06). Odstraněno bez náhrady: přechodové
+tlačítko dashboardu a jeho API, předání dashboardu poslední HAIFA, příkaz
+`giro migrate`, release workflow poslední HAIFA s jeho gate a provozní dokumenty
+přechodu (cutover, migrace repozitáře, kontrakt názvů a protokol vydání). Aktualizace hledají jen GIRO bundle v
+`GIRO_UPDATE_REPO` (alias `HAIFA_UPDATE_REPO`), jinak `janbkrejci/GIRO`; hodnota
+`janbkrejci/HAIFA` už nemá výjimku. Start nad samotným legacy home dál končí
+`migration_required` bez zápisu a radí přesun složky nebo `GIRO_HOME`;
+`migration_guard` dál kontroluje homes označené dřívější migrací. Aliasy `factory`
+a `HAIFA_*`, technické názvy a běžný upgrade včetně Windows handoff zůstávají.

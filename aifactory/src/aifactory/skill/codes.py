@@ -350,9 +350,7 @@ _CODES: tuple[tuple[str, str, str], ...] = (
     ("skills_sync_failed", "2", "giro skills sync could not write .agents/skills"),
     # giro upgrade.
     ("runs_active", "2", "stop active runs and writers before migration"),
-    ("restart_failed", "2", "inspect the retained migration journal and restart diagnostic"),
-    ("rollback_failed", "2", "stop writers and restore the verified retained backup"),
-    ("migration_required", "2", "confirm the offline migration or use the HAIFA transition"),
+    ("migration_required", "2", "move the legacy HAIFA home or select GIRO_HOME explicitly"),
     ("migration_collision", "2", "inspect and back up both homes; choose GIRO_HOME explicitly"),
     ("migration_pending", "2", "finish the recorded transition or restore its verified backup"),
     ("migration_unavailable", "2", "fix permissions or unavailable migration protection"),

@@ -63,7 +63,6 @@ SUBCOMMANDS: tuple[tuple[str, str], ...] = (
         "learn",
         "collect objections that keep coming back in task runs into lessons: scan, accept, dismiss",
     ),
-    ("migrate", "explicit offline migration of legacy HAIFA data with a retained rollback bundle"),
     ("upgrade", "install a newer GIRO from a giro-<version>.zip bundle"),
     ("obs", "serve the local dashboard (127.0.0.1 unless --host) and open it"),
 )
@@ -107,11 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     for name, help_text in SUBCOMMANDS:
         child = sub.add_parser(name, help=help_text, description=help_text)
-        if name == "migrate":
-            from aifactory.home_migration import add_arguments
-
-            add_arguments(child)
-        elif name == "check":
+        if name == "check":
             _add_check_command(child)
         elif name == "init":
             _add_init_command(child)
@@ -3198,10 +3193,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     from aifactory.versioning import UpgradeError
 
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if arguments and arguments[0] == "migrate":
-        from aifactory.home_migration import migration_command
-
-        return migration_command(arguments[1:])
     if arguments == ["--version"] or "--help" in arguments:
         return _main(argv)
     try:
