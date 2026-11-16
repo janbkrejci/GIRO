@@ -20,10 +20,11 @@ holds the target open.
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import sys
-import tempfile
 import time
+import uuid
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -363,24 +364,35 @@ def _replace(source: str, target: Path) -> None:
     os.replace(source, target)
 
 
-def atomic_write(path: Path, data: str | bytes, *, mode: int = 0o600, fsync: bool = False) -> None:
+def atomic_write(
+    path: Path, data: str | bytes, *, mode: int | None = None, fsync: bool = False
+) -> None:
     """Replace `path` with `data` (str as UTF-8, newlines kept) in one step.
 
-    The data goes to a temporary file in the same directory, created with `mode`
-    (POSIX), and replaces `path` with ``os.replace``. Readers see the old or the new
-    file, never a part. A failure leaves `path` as it was and removes the temporary file.
+    The data goes to a temporary file in the same directory and replaces `path` with
+    ``os.replace``. Readers see the old or the new file, never a part. A failure leaves
+    `path` as it was and removes the temporary file. Permissions (POSIX): `mode` when
+    given, else the mode of the existing `path`, else ``0o666`` minus the umask, like
+    ``Path.write_text``.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = data.encode("utf-8") if isinstance(data, str) else data
-    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    if mode is None:
+        with suppress(OSError):
+            mode = stat.S_IMODE(path.stat().st_mode)
+    temporary = path.parent / f".{path.name}.{uuid.uuid4().hex[:12]}.tmp"
+    # The kernel applies the umask to 0o666; reading it with os.umask would race threads.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    fd = os.open(temporary, flags, 0o666)
     try:
         with os.fdopen(fd, "wb") as stream:
-            fchmod(stream.fileno(), mode)
+            if mode is not None:
+                fchmod(stream.fileno(), mode)
             stream.write(payload)
             if fsync:
                 stream.flush()
                 os.fsync(stream.fileno())
-        _replace(temporary, path)
+        _replace(str(temporary), path)
     except BaseException:
         with suppress(OSError):
             os.unlink(temporary)

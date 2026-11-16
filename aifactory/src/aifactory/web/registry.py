@@ -251,7 +251,7 @@ class Registry:
 
     def _write(self, raw: JsonDict) -> None:
         text = yaml.safe_dump(raw, sort_keys=False, allow_unicode=True, default_flow_style=False)
-        oscompat.atomic_write(self.path, text)
+        oscompat.atomic_write(self.path, text, mode=0o600)
 
     def _mutate(self, fn: Callable[[JsonDict, RegistryState], bool]) -> RegistryState:
         """Apply ``fn`` to the raw mapping under the lock; write when it returns True."""

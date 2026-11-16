@@ -214,4 +214,4 @@ def require_quiet(home: Path) -> None:
 
 def write_manifest(home: Path, manifest: dict[str, object]) -> None:
     path = home / MARKER
-    oscompat.atomic_write(path, json.dumps(manifest, indent=2))
+    oscompat.atomic_write(path, json.dumps(manifest, indent=2), mode=0o600)
