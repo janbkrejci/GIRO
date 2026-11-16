@@ -1,300 +1,65 @@
-"""``giro config set|remove|move``: manage the repo's own copies of library items.
+"""The plan of ``giro config set|remove|move``: the change, its blockers, validation and digest.
 
-A repo inherits agents, workflows, skills and extensions from the library
-(``aifactory.library.inherit``); what it has in ``.factory/`` (and ``.claude/skills/``) is
-its own copy and wins. ``set agent NAME`` changes only the bindings of the agent in
-``agents.yaml`` (harness, model, thinking, tools, writes, color); an agent the repo
-inherits gets an entry that overrides just those keys. ``remove TYPE NAME`` deletes the
-repo copy, refused with ``in_use`` while the library lacks the item and a workflow of the
-repo or ``roles.yaml`` names the agent, a backlog task in base names the workflow, or a
-roster agent binds the skill or extension. ``move TYPE NAME`` ("Move to library") writes
-the repo copy into the library and deletes it from the repo: the library commit is made
-first (lock, fetch, push without force, fast-forward), then the repo change.
-
-``agents.yaml`` is edited by a ruamel.yaml round trip (``config.yaml`` and ``roles.yaml``
-are only read), so comments and key order stay.
-
-Every command computes a plan with a ``digest`` (``publish.plan_digest`` over the changed
-paths, for ``move`` combined with the library plan). Targets: ``worktree`` (the default:
-the files are written to the working tree, nothing is committed; ``giro config commit``
-commits them later), ``direct`` (``--commit``: one commit on base through
-``providers.publish``, pushed before base moves, the files reach the checkout afterwards)
-and ``pr`` (``--commit --pr``). ``--dry-run`` returns the plan of the target; ``--expect
-DIGEST`` refuses a plan that changed since (``plan_changed``). The worktree target reads
-the working tree, the others the tree of base. The planned configuration must load and
-every workflow of the repo must pass its preflight (``invalid_plan``).
-
-Blockers (the first one is raised, exit 2): ``run_in_progress`` and ``invalid_plan``
-(worktree); ``dirty_paths``, ``invalid_plan``, ``not_on_base``, ``run_in_progress``,
-``base_behind`` and ``base_diverged`` (direct); ``dirty_paths`` and ``invalid_plan`` (pr).
-
-Raised: ``invalid_value``, ``unknown_item``, ``invalid_item``, ``in_use``,
-``library_missing`` (move without a library), ``unknown_base``, ``invalid_config``,
-``plan_changed`` and the publish codes (``commit_failed``, ``base_moved``,
-``push_failed``, ``fetch_failed``).
+Planning writes nothing; ``execute`` writes a plan.
 """
 
 from __future__ import annotations
 
-import contextlib
-import functools
 import hashlib
-import os
 import re
-import tempfile
-from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 
 from aifactory import yamlload
+from aifactory.backlog.derived import effective_workflow
+from aifactory.backlog.loader import iter_tasks
+from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config.errors import ConfigError, ConfigIssue
-from aifactory.config.loader import (
-    AGENTS_FILE,
-    EXTENSIONS_DIR,
-    PROMPTS_DIR,
-    ROLES_FILE,
-    SKILLS_DIR,
-    SKILLS_MIRROR_DIR,
-    WORKFLOWS_DIR,
-)
+from aifactory.config.loader import AGENTS_FILE, EXTENSIONS_DIR, ROLES_FILE
 from aifactory.config.settings import CONFIG_FILE, ProjectSettings, parse_project_settings
-from aifactory.config.source import FACTORY_DIR
-from aifactory.engine.role_registry import Issue, RoleRegistry, load_roles
-from aifactory.library.model import ITEM_TYPES, Item, ItemType, check_name
-from aifactory.library.store import LibraryStoreError, NewFile, SeedItem
-from aifactory.oscompat import atomic_write
+from aifactory.config.source import FACTORY_DIR, OverlaySource
+from aifactory.config.yamledit import edit_yaml, roster_add, roster_remove, roster_set
+from aifactory.engine.role_registry import Issue
+from aifactory.harness import CLI_BINARIES, THINKING_LEVELS, canonical
+from aifactory.harness.check import binary_name, installed_path
+from aifactory.library.agent import expand_writes
+from aifactory.library.config_edit.state import (
+    Change,
+    Command,
+    RepoState,
+    Target,
+    _yaml,
+    read_state,
+)
+from aifactory.library.inherit import library_snapshot, with_item
+from aifactory.library.install import _repo_root
+from aifactory.library.install_commit import _dirty, _store, validate_source
+from aifactory.library.load import check_repo_item, library_path
+from aifactory.library.model import ITEM_TYPES, AgentDefaults, Item, ItemType, check_name
+from aifactory.library.store import LibraryStoreError, NewFile, SeedItem, import_items
 from aifactory.providers import git
-from aifactory.providers.base import ProviderError, PullRequest
+from aifactory.providers.base import ProviderError
 from aifactory.providers.publish import (
     DIRECT,
     PR,
     Blocker,
     PlannedFile,
     PublishPlan,
+    direct_blockers,
     plan_digest,
+    run_blocker,
+    uses_pr,
 )
+from aifactory.workflow.model import RoleStep, WorkflowError, walk
+from aifactory.workflow.parse import parse_workflow
 
 if TYPE_CHECKING:
     from aifactory.library.inherit import LibrarySnapshot
     from aifactory.library.store import LibraryPlan
-    from aifactory.providers.publish import RunStore
-
-Command = Literal["set", "remove", "move"]
-Target = Literal["worktree", "direct", "pr"]
-BINDING_KEYS = ("harness", "model", "thinking", "tools", "writes", "color")
-_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
-_ROOTS = (FACTORY_DIR + "/", SKILLS_DIR + "/", SKILLS_MIRROR_DIR + "/")
-_RUNTIME_DIRS = ("data", "worktrees")
-
-
-def _shared(path: str) -> bool:
-    """A path of the shared configuration (never local.yaml, runtime data or the trace DB)."""
-    if not path.startswith(_ROOTS):
-        return False
-    if not path.startswith(FACTORY_DIR + "/"):
-        return True
-    rest = path[len(FACTORY_DIR) + 1 :]
-    first = rest.split("/", 1)[0]
-    if rest == "local.yaml" or first in _RUNTIME_DIRS:
-        return False
-    return not ("/" not in rest and rest.startswith("trace.db"))
-
-
-# ── the state of the repo ─────────────────────────────────────────────────────
-
-
-@dataclass
-class RepoState:
-    """The shared configuration of the repo: the working tree or the tree of base."""
-
-    root: Path
-    mode: Literal["worktree", "base"]
-    base: str
-    base_sha: str
-    files: dict[str, bytes]
-    executable: set[str] = field(default_factory=set)
-    blobs: dict[str, str] = field(default_factory=dict)  # base mode: blob of each path
-
-    def apply(self, change: Mapping[str, bytes | None], executable: set[str]) -> RepoState:
-        files = dict(self.files)
-        exe = set(self.executable)
-        for path, data in change.items():
-            exe.discard(path)
-            if data is None:
-                files.pop(path, None)
-            else:
-                files[path] = data
-                if path in executable:
-                    exe.add(path)
-        return RepoState(self.root, self.mode, self.base, self.base_sha, files, exe, self.blobs)
-
-    # ── parsed files ──
-
-    @functools.cached_property
-    def settings(self) -> ProjectSettings:
-        issues: list[ConfigIssue] = []
-        data = self.files.get(CONFIG_FILE)
-        text = data.decode("utf-8", "replace") if data is not None else None
-        found = parse_project_settings(text, CONFIG_FILE, issues)
-        if found is None:
-            raise _config_error(ConfigError(issues))
-        return found
-
-    @functools.cached_property
-    def roles(self) -> RoleRegistry:
-        """The role registry of the repo (the packaged one when roles.yaml does not load)."""
-        from aifactory.config.loader import load_config
-        from aifactory.config.source import OverlaySource
-
-        try:
-            return load_config(OverlaySource(None, self.factory_files())).roles
-        except ConfigError:
-            return load_roles()
-
-    @functools.cached_property
-    def roster(self) -> list[dict[str, Any]]:
-        raw = _yaml(self.files.get(AGENTS_FILE))
-        agents = raw.get("agents") if isinstance(raw, dict) else None
-        if not isinstance(agents, list):
-            return []
-        return [a for a in agents if isinstance(a, dict) and isinstance(a.get("name"), str)]
-
-    def roster_entry(self, slot: str) -> dict[str, Any] | None:
-        return next((a for a in self.roster if a["name"] == slot), None)
-
-    def factory_files(self) -> dict[str, bytes | None]:
-        return {p: d for p, d in self.files.items() if p.startswith(FACTORY_DIR + "/")}
-
-    def workflows(self) -> dict[str, bytes]:
-        prefix = WORKFLOWS_DIR + "/"
-        return {
-            p[len(prefix) : -len(".yaml")]: d
-            for p, d in sorted(self.files.items())
-            if p.startswith(prefix) and p.endswith(".yaml") and "/" not in p[len(prefix) :]
-        }
-
-    # ── items ──
-
-    def item_paths(self, type: ItemType, name: str) -> list[str]:
-        """The files of an item in the repo (the roster entry is not a file of its own)."""
-        if type == "workflow":
-            rel = f"{WORKFLOWS_DIR}/{name}.yaml"
-            return [rel] if rel in self.files else []
-        if type == "agent":
-            prefixes: tuple[str, ...] = (f"{PROMPTS_DIR}/{name}/",)
-        elif type == "skill":
-            prefixes = (f"{SKILLS_DIR}/{name}/", f"{SKILLS_MIRROR_DIR}/{name}/")
-        else:
-            prefixes = (f"{EXTENSIONS_DIR}/{name}/",)
-        return sorted(p for p in self.files if p.startswith(prefixes))
-
-    def has(self, type: ItemType, name: str) -> bool:
-        if type == "agent" and self.roster_entry(name) is not None:
-            return True
-        return bool(self.item_paths(type, name))
-
-    @contextlib.contextmanager
-    def materialized(self) -> Iterator[Path]:
-        with tempfile.TemporaryDirectory(prefix="factory-config-") as tmp:
-            base = Path(tmp)
-            for rel, data in self.files.items():
-                path = base / rel
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(data)
-                path.chmod(0o755 if rel in self.executable else 0o644)
-            yield base
-
-
-def _yaml(data: bytes | None) -> Any:
-    if data is None:
-        return None
-    try:
-        return yamlload.safe_load(data.decode("utf-8"))
-    except (UnicodeDecodeError, yaml.YAMLError):
-        return None
-
-
-def _config_error(exc: Exception) -> LibraryStoreError:
-    issues = []
-    if isinstance(exc, ConfigError):
-        issues = [Issue("invalid_config", i.message, i.path) for i in exc.issues]
-    return LibraryStoreError(
-        "invalid_config", "the configuration of the repo does not load", issues=issues
-    )
-
-
-def _worktree_files(root: Path) -> tuple[dict[str, bytes], set[str]]:
-    files: dict[str, bytes] = {}
-    exe: set[str] = set()
-    for top in _ROOTS:
-        base = root / top
-        if not base.is_dir() or base.is_symlink():
-            continue
-        for dirpath, dirnames, filenames in os.walk(base):
-            here = Path(dirpath)
-            rel_dir = here.relative_to(root).as_posix()
-            if rel_dir == FACTORY_DIR:
-                dirnames[:] = [d for d in dirnames if d not in _RUNTIME_DIRS]
-            dirnames[:] = [d for d in dirnames if d != ".git" and not (here / d).is_symlink()]
-            for name in filenames:
-                path = here / name
-                rel = f"{rel_dir}/{name}"
-                if path.is_symlink() or not path.is_file() or not _shared(rel):
-                    continue
-                files[rel] = path.read_bytes()
-                if os.access(path, os.X_OK) and os.name != "nt":
-                    exe.add(rel)
-    return files, exe
-
-
-def read_state(root: Path, mode: Literal["worktree", "base"]) -> RepoState:
-    """The shared configuration of the working tree, or of the tree of base."""
-    from aifactory.config.run import worktree_base
-    from aifactory.library.tree import read_blobs, tree_files
-
-    base = worktree_base(root)
-    base_sha = git.rev_parse(root, f"refs/heads/{base}")
-    if base_sha is None:
-        raise LibraryStoreError("unknown_base", f"base {base!r} does not exist in {root}")
-    if mode == "worktree":
-        files, exe = _worktree_files(root)
-        return RepoState(root, mode, base, base_sha, files, exe)
-    try:
-        found = [
-            f
-            for f in tree_files(root, base_sha, list(_ROOTS))
-            if f.mode in ("100644", "100755") and _shared(f.path)
-        ]
-        blobs = read_blobs(root, (f.blob for f in found))
-    except ProviderError as exc:
-        raise LibraryStoreError(exc.code, exc.message) from exc
-    return RepoState(
-        root,
-        mode,
-        base,
-        base_sha,
-        {f.path: blobs[f.blob] for f in found},
-        {f.path for f in found if f.mode == "100755"},
-        {f.path: f.blob for f in found},
-    )
-
-
-# ── the change ────────────────────────────────────────────────────────────────
-
-
-@dataclass
-class Change:
-    files: dict[str, bytes | None] = field(default_factory=dict)  # None = delete
-    executable: set[str] = field(default_factory=set)
-    removed: list[dict[str, Any]] = field(default_factory=list)
-    bindings: dict[str, dict[str, Any]] = field(default_factory=dict)
-    warnings: list[str] = field(default_factory=list)
-    keys: list[str] = field(default_factory=list)  # set: the binding keys given
-    library_items: list[SeedItem] = field(default_factory=list)  # move: written first
-    moved: Item | None = None  # move: the item as the library will hold it
 
 
 def _diff(before: RepoState, after: RepoState, change: Change) -> None:
@@ -309,6 +74,10 @@ def _diff(before: RepoState, after: RepoState, change: Change) -> None:
             change.executable.add(path)
 
 
+BINDING_KEYS = ("harness", "model", "thinking", "tools", "writes", "color")
+_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+
+
 def _bindings(entry: Mapping[str, Any] | None) -> dict[str, Any]:
     entry = entry or {}
     out = {k: entry.get(k) for k in BINDING_KEYS}
@@ -318,7 +87,6 @@ def _bindings(entry: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 def _edit_agents(state: RepoState, edit: Any) -> bytes:
-    from aifactory.config.yamledit import edit_yaml
 
     data = state.files.get(AGENTS_FILE, b"")
     try:
@@ -339,16 +107,13 @@ def _check_type(type: str, name: str, what: str = "name") -> ItemType:
 
 
 def _check_harness(value: str) -> str:
-    from aifactory import harness
-
     try:
-        return harness.canonical(value)
+        return canonical(value)
     except ValueError as exc:
         raise LibraryStoreError("invalid_value", f"--harness {value!r}: {exc}") from exc
 
 
 def _check_thinking(value: str) -> str:
-    from aifactory.harness import THINKING_LEVELS
 
     if value not in THINKING_LEVELS:
         raise LibraryStoreError(
@@ -381,8 +146,6 @@ def plan_set(
     color: str | None = None,
 ) -> Change:
     """The change of ``config set agent SLOT``: only the bindings in ``agents.yaml``."""
-    from aifactory.config.yamledit import roster_add, roster_set
-    from aifactory.library.agent import expand_writes
 
     if type != "agent":
         raise LibraryStoreError("invalid_value", f"config set takes agents only, not {type!r}")
@@ -457,8 +220,6 @@ def _uses(state: RepoState, type: ItemType, name: str) -> list[str]:
 
 
 def _agent_uses(state: RepoState, name: str) -> list[str]:
-    from aifactory.workflow.model import RoleStep, WorkflowError, walk
-    from aifactory.workflow.parse import parse_workflow
 
     out: list[str] = []
     roles = state.roles
@@ -482,9 +243,6 @@ def _agent_uses(state: RepoState, name: str) -> list[str]:
 
 def _base_tasks(state: RepoState) -> list[tuple[str, object]]:
     """(id, effective workflow) of each task of the backlog in base (empty when unreadable)."""
-    from aifactory.backlog.derived import effective_workflow
-    from aifactory.backlog.loader import iter_tasks
-    from aifactory.backlog.snapshot import load_backlog_at
 
     root, sha = state.root, state.base_sha
     config = git.blob_at(root, sha, CONFIG_FILE)
@@ -505,8 +263,6 @@ def _base_tasks(state: RepoState) -> list[tuple[str, object]]:
 def _removal(state: RepoState, type: ItemType, name: str) -> dict[str, bytes | None]:
     files: dict[str, bytes | None] = dict.fromkeys(state.item_paths(type, name))
     if type == "agent" and state.roster_entry(name) is not None:
-        from aifactory.config.yamledit import roster_remove
-
         files[AGENTS_FILE] = _edit_agents(state, lambda doc: roster_remove(doc, name))
     return files
 
@@ -535,7 +291,6 @@ def plan_remove(state: RepoState, library: LibrarySnapshot, type: str, name: str
 
 def repo_item(state: RepoState, kind: ItemType, name: str) -> Item:
     """The copy of the item in the repo state; ``unknown_item`` or ``invalid_item``."""
-    from aifactory.library.load import check_repo_item
 
     if not state.item_paths(kind, name):
         raise LibraryStoreError("unknown_item", f"the repo has no own copy of {kind} {name!r}")
@@ -588,7 +343,6 @@ def _agent_yaml(state: RepoState, library: LibrarySnapshot, item: Item) -> bytes
 
 def _library_item(item: Item, agent_yaml: bytes | None) -> SeedItem:
     """The files of `item` in the library layout."""
-    from aifactory.library.load import library_path
 
     rel = library_path(item.type, item.name)
     files: list[NewFile] = []
@@ -616,7 +370,6 @@ def plan_move(state: RepoState, library: LibrarySnapshot, type: str, name: str) 
     An agent's roster entry keeps only its bindings (an override of the library agent);
     an entry left with only its name is removed.
     """
-    from aifactory.config.yamledit import roster_remove, roster_set
 
     kind = _check_type(type, name)
     if library.commit is None:
@@ -629,8 +382,6 @@ def plan_move(state: RepoState, library: LibrarySnapshot, type: str, name: str) 
     change = Change(moved=item)
     agent_yaml = _agent_yaml(state, library, item) if kind == "agent" else None
     if agent_yaml is not None:
-        from aifactory.library.model import AgentDefaults
-
         defaults = yamlload.safe_load(agent_yaml).get("defaults") or {}
         change.moved = replace(item, defaults=AgentDefaults.model_validate(defaults))
     change.library_items.append(_library_item(item, agent_yaml))
@@ -734,14 +485,11 @@ def _planned_files(state: RepoState, change: Change) -> list[PlannedFile]:
 
 
 def _missing_harnesses() -> frozenset[str]:
-    from aifactory import harness
-    from aifactory.harness.check import installed_path
 
-    return frozenset(n for n in harness.CLI_BINARIES if installed_path(n) is None)
+    return frozenset(n for n in CLI_BINARIES if installed_path(n) is None)
 
 
 def _harness_warnings(change: Change, missing: frozenset[str]) -> list[str]:
-    from aifactory.harness.check import binary_name
 
     out = []
     for slot, binding in change.bindings.items():
@@ -758,9 +506,6 @@ def _validate(
     state: RepoState, change: Change, missing: frozenset[str], library: LibrarySnapshot
 ) -> list[Issue]:
     """The planned configuration loads (with the library as it will be) and preflights."""
-    from aifactory.config.source import OverlaySource
-    from aifactory.library.inherit import with_item
-    from aifactory.library.install_commit import validate_source
 
     if not any(p.startswith(FACTORY_DIR + "/") for p in change.files):
         return []
@@ -769,18 +514,6 @@ def _validate(
         library = with_item(library, change.moved)
     source = OverlaySource(None, after.factory_files())
     return validate_source(source, after.workflows(), missing, library)
-
-
-def _dirty(root: Path, files: Sequence[PlannedFile]) -> list[str]:
-    from aifactory.library.install_commit import _dirty as dirty
-
-    return dirty(root, files)
-
-
-def _store(root: Path) -> RunStore | None:
-    from aifactory.library.install_commit import _store as store
-
-    return store(root)
 
 
 def plan_config(
@@ -795,9 +528,6 @@ def plan_config(
     **options: Any,
 ) -> ConfigPlan:
     """The plan of ``config set|remove|move`` for its target; writes nothing."""
-    from aifactory.library.inherit import library_snapshot
-    from aifactory.library.install import _repo_root
-    from aifactory.providers.publish import uses_pr
 
     root = _repo_root(path)
     state = read_state(root, "base" if commit else "worktree")
@@ -826,7 +556,6 @@ def finish_plan(
     name: str,
 ) -> ConfigPlan:
     """The plan of a computed change: blockers, validation, warnings and the digest."""
-    from aifactory.providers.publish import direct_blockers, run_blocker
 
     files = _planned_files(state, change)
     blockers: list[Blocker] = []
@@ -925,277 +654,8 @@ def _library_plan(
     """The library write of a move (a dry run of ``store.import_items``)."""
     if not change.library_items:
         return None
-    from aifactory.library.store import import_items
 
     source, subject = _library_source(type, name, root)
     result = import_items(change.library_items, source, subject, dry_run=True, environ=environ)
     change.warnings += result.warnings
     return result.plan
-
-
-# ── run ───────────────────────────────────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class ConfigResult:
-    plan: ConfigPlan
-    dry_run: bool
-    written: bool = False
-    committed: bool = False
-    commit: str | None = None
-    pushed: bool = False
-    advanced: bool = False
-    branch: str | None = None
-    pr: PullRequest | None = None
-    extra_warnings: tuple[str, ...] = ()
-    library_commit: str | None = None  # move: the library commit written first
-    merged: bool = False
-
-    @property
-    def warnings(self) -> list[str]:
-        return list(self.plan.warnings) + list(self.extra_warnings)
-
-    def to_json(self) -> dict[str, Any]:
-        pr = None
-        if self.pr is not None:
-            pr = {"id": self.pr.id, "url": self.pr.url, "branch": self.pr.branch}
-        return {
-            **self.plan.to_json(),
-            "dry_run": self.dry_run,
-            "written": self.written,
-            "committed": self.committed,
-            "commit": self.commit,
-            "pushed": self.pushed,
-            "advanced": self.advanced,
-            "branch": self.branch,
-            "pr": pr,
-            "merged": self.merged,
-            **({"library_commit": self.library_commit} if self.plan.command == "move" else {}),
-        }
-
-
-def _subject(plan: ConfigPlan) -> str:
-    if plan.command == "set":
-        return f"factory: set agent {plan.name} ({', '.join(plan.change.keys) or 'bindings'})"
-    if plan.command == "move":
-        return f"factory: move {plan.type} {plan.name} to the library"
-    return f"factory: remove {plan.type} {plan.name}"
-
-
-def _body(plan: ConfigPlan) -> str:
-    lines = [f"- {f.action} `{f.path}`" for f in plan.publish.files]
-    return (
-        f"{_subject(plan)}:\n\n" + "\n".join(lines) + f"\n\nPlan digest: `{plan.publish.digest}`\n"
-    )
-
-
-_STOPS = (FACTORY_DIR, SKILLS_DIR, SKILLS_MIRROR_DIR)
-
-
-def _prune_up(root: Path, folder: Path) -> None:
-    stops = {(root / s).resolve() for s in _STOPS} | {root.resolve()}
-    current = folder.resolve()
-    while current not in stops and root.resolve() in current.parents:
-        try:
-            current.rmdir()
-        except OSError:
-            return
-        current = current.parent
-
-
-def write_worktree(root: Path, change: Change) -> None:
-    """Write the change to the working tree: atomic replaces, deletions, empty folders go."""
-    for path, data in sorted(change.files.items()):
-        target = root / path
-        if data is None:
-            if target.is_file() or target.is_symlink():
-                target.unlink()
-                _prune_up(root, target.parent)
-            continue
-        atomic_write(target, data, mode=0o755 if path in change.executable else 0o644)
-
-
-def run_config(
-    command: Command,
-    path: Path,
-    *,
-    type: str,
-    name: str,
-    dry_run: bool = False,
-    commit: bool = False,
-    pr: bool = False,
-    expect: str | None = None,
-    message: str | None = None,
-    environ: Mapping[str, str] | None = None,
-    **options: Any,
-) -> ConfigResult:
-    """Plan, then write to the working tree or commit to base; see the module docstring.
-
-    ``move`` writes the library first and stops there when that fails.
-    """
-    plan = plan_config(
-        command, path, type=type, name=name, commit=commit, pr=pr, environ=environ, **options
-    )
-    return execute_plan(plan, dry_run=dry_run, expect=expect, message=message, environ=environ)
-
-
-def execute_plan(
-    plan: ConfigPlan,
-    *,
-    dry_run: bool = False,
-    expect: str | None = None,
-    message: str | None = None,
-    environ: Mapping[str, str] | None = None,
-) -> ConfigResult:
-    """Return the dry run, or check ``--expect`` and the blockers and write the plan."""
-    command = plan.command
-    if dry_run:
-        return ConfigResult(plan, True)
-    if expect is not None and expect.strip() != plan.publish.digest:
-        raise LibraryStoreError(
-            "plan_changed",
-            "the plan changed since it was reviewed (--expect); run --dry-run again",
-            data=plan.to_json(),
-        )
-    if plan.blockers:
-        first = plan.blockers[0]
-        issues = plan.issues if first.code == "invalid_plan" else []
-        raise LibraryStoreError(first.code, first.message, data=plan.to_json(), issues=issues)
-    if not plan.changed:
-        return ConfigResult(plan, False)
-    library_commit = _write_library(plan, environ)
-    try:
-        result = _write_repo(plan, command, message)
-    except LibraryStoreError as exc:
-        if library_commit is None:
-            raise
-        data = dict(exc.data or plan.to_json())
-        data["library_commit"] = library_commit
-        data["fix"] = "run the same giro config move again; the library is done"
-        raise LibraryStoreError(
-            exc.code,
-            f"{exc.message}; the library already has the item "
-            f"({library_commit[:12]}), run the move again to delete the repo copy",
-            data=data,
-            issues=exc.issues,
-        ) from exc
-    if library_commit is not None:
-        result = replace(result, library_commit=library_commit)
-    return result
-
-
-def _write_library(plan: ConfigPlan, environ: Mapping[str, str] | None) -> str | None:
-    """Move: write the library first (lock, fetch, a pull request when shared, fast-forward)."""
-    if not plan.library_changed or plan.library_plan is None:
-        return None
-    from aifactory.library.store import import_items
-
-    source, subject = _library_source(plan.type, plan.name, plan.state.root)
-    written = import_items(
-        plan.change.library_items,
-        source,
-        subject,
-        environ=environ,
-        expect_head=plan.library_plan.head,
-    )
-    return written.commit
-
-
-def _write_repo(plan: ConfigPlan, command: Command, message: str | None) -> ConfigResult:
-    """Write the repo side of the plan: the working tree, a commit on base or a PR."""
-    from aifactory.config.commit import CONFIG_BRANCH_PREFIX
-    from aifactory.providers import get_provider, publish
-
-    root = plan.state.root
-    if not plan.publish.files:
-        return ConfigResult(plan, False)
-    if plan.target == "worktree":
-        write_worktree(root, plan.change)
-        return ConfigResult(
-            plan,
-            False,
-            written=True,
-            extra_warnings=(
-                f"written to the working tree only; runs use {plan.state.base} until "
-                "giro config commit",
-            ),
-        )
-    subject = (message or "").strip() or _subject(plan)
-    settings = plan.state.settings
-    try:
-        if plan.target == "pr":
-            provider = get_provider(settings, root)
-            result = publish.publish_pr(
-                root,
-                provider=provider,
-                settings=settings,
-                plan=plan.publish,
-                message=subject,
-                body=_body(plan),
-                prefix=CONFIG_BRANCH_PREFIX,
-            )
-            if settings.base_pr_merge == "auto":
-                store = _store(root)
-                try:
-                    result = publish.finish_pr(
-                        root,
-                        provider=provider,
-                        settings=settings,
-                        plan=plan.publish,
-                        result=result,
-                        message=subject,
-                        store=store,
-                        materialize=True,
-                        command=f"config {command}",
-                    )
-                finally:
-                    if store is not None:
-                        store.close()
-        else:
-            store = _store(root)
-            try:
-                result = publish.publish_direct(
-                    root,
-                    settings=settings,
-                    plan=plan.publish,
-                    message=subject,
-                    store=store,
-                    materialize=True,
-                    command=f"config {command}",
-                )
-            finally:
-                if store is not None:
-                    store.close()
-    except ProviderError as exc:
-        raise LibraryStoreError(exc.code, exc.message, data=plan.to_json()) from exc
-    except RuntimeError as exc:
-        raise LibraryStoreError("commit_failed", str(exc), data=plan.to_json()) from exc
-    return ConfigResult(
-        plan,
-        False,
-        committed=True,
-        commit=result.commit,
-        pushed=result.pushed,
-        advanced=result.advanced,
-        branch=result.branch,
-        pr=result.pr,
-        extra_warnings=tuple(result.warnings),
-        merged=result.merged,
-    )
-
-
-__all__ = [
-    "Change",
-    "ConfigPlan",
-    "ConfigResult",
-    "RepoState",
-    "execute_plan",
-    "finish_plan",
-    "plan_config",
-    "plan_move",
-    "plan_remove",
-    "plan_set",
-    "read_state",
-    "run_config",
-    "write_worktree",
-]

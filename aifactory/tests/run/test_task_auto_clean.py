@@ -17,8 +17,10 @@ from run_repo import T01, T02, Script, fake_env, git, make_run_repo, ok, write
 from aifactory import oscompat
 from aifactory.backlog import Task, load_backlog
 from aifactory.providers import git as pgit
-from aifactory.review import clean_worktrees, flow
+from aifactory.review import clean_worktrees
+from aifactory.review.context import _context
 from aifactory.run import TaskRunStore, run_task
+from aifactory.run.cleanup import clean
 
 
 @pytest.fixture
@@ -237,11 +239,11 @@ def test_orphan_cleanup_prunes_stale_git_registration(repo: Path) -> None:
 
 
 def test_orphan_cleanup_refuses_main_checkout_as_root(repo: Path) -> None:
-    ctx = flow._context(repo, None)
+    ctx = _context(repo, None)
     try:
         settings = ctx.rc.config.settings.model_copy(update={"worktrees_dir": "."})
         ctx.rc = replace(ctx.rc, config=replace(ctx.rc.config, settings=settings))
-        cleaned = flow._clean(ctx)
+        cleaned = clean(ctx)
         assert any("unsafe worktrees directory" in warning for warning in cleaned.warnings)
         assert (repo / "src/app/__init__.py").is_file()
         assert (repo / ".git").is_dir()

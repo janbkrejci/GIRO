@@ -269,7 +269,8 @@ def test_remove_in_use_without_the_library(
     assert error["data"]["used_by"] == ["backlog task M01-S01-T01"]
     fail(capsys, repo, "unknown_item", "remove", "workflow", "solo")
 
-    from aifactory.library.config_edit import _base_tasks, read_state
+    from aifactory.library.config_edit.plan import _base_tasks
+    from aifactory.library.config_edit.state import read_state
 
     state = read_state(repo, "base")
     task = repo / "factory/backlog/M01-core/S01-a/M01-S01-T01-x.md"

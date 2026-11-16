@@ -155,7 +155,7 @@ def test_publish_keeps_previous_error_while_operation_is_live(
 ) -> None:
     from types import SimpleNamespace
 
-    from aifactory.review import flow
+    from aifactory.review import rework
     from aifactory.review.errors import ReviewError
     from aifactory.review.publish import PublishResult
 
@@ -176,7 +176,7 @@ def test_publish_keeps_previous_error_while_operation_is_live(
     )
     store.finish("r1", "succeeded", None, None)
     store.set_pr_error("r1", "previous push failed")
-    monkeypatch.setattr(flow, "_context", lambda *args: SimpleNamespace(store=store))
+    monkeypatch.setattr(rework, "_context", lambda *args: SimpleNamespace(store=store))
 
     def publishing(*args: object) -> PublishResult:
         assert [(r.task_id, r.workflow) for r in store.live_operations()] == [("T01", "publish")]
@@ -187,12 +187,12 @@ def test_publish_keeps_previous_error_while_operation_is_live(
         store.set_pr_error("r1", "new publication failed")
         return PublishResult(run=row, pr=None, pr_error="new publication failed")
 
-    monkeypatch.setattr(flow, "_publish", publishing)
+    monkeypatch.setattr(rework, "_publish", publishing)
     if failure == "interrupted":
         with pytest.raises(ReviewError, match="publication interrupted"):
-            flow.publish_task(tmp_path, "T01")
+            rework.publish_task(tmp_path, "T01")
     else:
-        assert flow.publish_task(tmp_path, "T01").pr_error == "new publication failed"
+        assert rework.publish_task(tmp_path, "T01").pr_error == "new publication failed"
     reopened = TaskRunStore(tmp_path / "trace.db")
     try:
         assert reopened.conn.execute("SELECT COUNT(*) FROM task_operations").fetchone()[0] == 0

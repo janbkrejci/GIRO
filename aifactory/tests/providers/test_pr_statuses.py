@@ -33,7 +33,7 @@ from aifactory.providers import (
 from aifactory.providers.azure import AzureProvider
 from aifactory.providers.github import LIST_LIMIT, GitHubProvider
 from aifactory.review import sync
-from aifactory.review.flow import _Ctx
+from aifactory.run.cleanup import RunContext
 from aifactory.run.store import SyncPrRow, TaskPrRow, TaskRunStore
 
 HEAD = "a" * 40
@@ -282,7 +282,7 @@ def _refresh(tmp_path: Path, name: str, provider: GitProvider) -> tuple[Any, ...
     try:
         _rows(store)
         result = sync.SyncResult(pr=None, created=False, updated=False)
-        sync._refresh_all(_Ctx(tmp_path, None, store, provider), result)  # type: ignore[arg-type]
+        sync._refresh_all(RunContext(tmp_path, None, store, provider), result)  # type: ignore[arg-type]
         prs = [(r.branch, r.state, r.merge_sha) for r in store._prs("1 = 1", ())]
         syncs = [(r.branch, r.state, r.merge_sha) for r in store._sync_prs("1 = 1", ())]
         return result.states, result.warnings, sorted(prs), syncs
