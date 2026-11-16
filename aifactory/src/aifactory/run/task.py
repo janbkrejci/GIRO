@@ -30,14 +30,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest import mock
 
-from aifactory import database, gitops
 from aifactory import failure as failures
+from aifactory import gitops
 from aifactory import harness as harness_mod
 from aifactory.backlog import (
     Backlog,
     Task,
-    effective_test_timeout,
-    effective_workflow,
     has_workflow,
     is_human,
     load_backlog,
@@ -47,11 +45,7 @@ from aifactory.backlog.derived import ancestors
 from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import (
     ConfigError,
-    FactoryConfig,
-    ProjectSettings,
     RunConfig,
-    check_timeout,
-    load_local,
     load_run_config,
 )
 from aifactory.config.runtime import (
@@ -87,6 +81,7 @@ from aifactory.run.stack import stack_point, stacked_on
 from aifactory.run.unchanged import finish_unchanged, only_spec_changes, unchanged
 from aifactory.run.workdir import agent_workdir, project_workdir, validate_base_dirs
 from aifactory.runstore.base import _now
+from aifactory.runstore.read import task_runs_for
 from aifactory.runstore.rows import (
     FAILED,
     RUNNING,
@@ -118,7 +113,14 @@ from aifactory.workflow import (
     run_workflow,
     walk,
 )
-from aifactory.workflow.parse import INTERNAL_WORKFLOWS, RESOLVE_WORKFLOW, named_workflow
+from aifactory.workflow.parse import (
+    INTERNAL_WORKFLOWS,
+    RESOLVE_WORKFLOW,
+    named_workflow,
+    no_workflow_error,
+    resolve_test_timeout,
+    resolve_workflow,
+)
 
 if TYPE_CHECKING:  # review imports run; a runtime import would be a cycle
     from aifactory.review.automerge import AutoMergeResult
@@ -195,41 +197,6 @@ def task_prompt(
     if note and note.strip():
         text += f"\n## Note\n{note.strip()}\n"
     return text
-
-
-def no_workflow_error(task: Task) -> TaskRunError:
-    return TaskRunError(
-        "no_workflow", f"task {task.id} has no workflow, set `workflow:` on it or a container"
-    )
-
-
-def resolve_workflow(task: Task, config: FactoryConfig) -> Workflow:
-    """The task's workflow, see ``named_workflow``."""
-    name = effective_workflow(task)
-    if name is None:
-        raise no_workflow_error(task)
-    if not isinstance(name, str) or not name.strip():
-        raise TaskRunError("invalid_workflow", f"task {task.id}: workflow {name!r} is not a name")
-    return named_workflow(name, config, task.id)
-
-
-def resolve_test_timeout(task: Task, settings: ProjectSettings) -> int:
-    """Time limit in seconds of every ``test`` step of the run.
-
-    The task's ``test_timeout``, else the nearest ``index.md`` ``test_timeout`` above
-    it, else ``test_timeout`` from ``.factory/config.yaml``, else 600.
-    """
-    value = effective_test_timeout(task)
-    if value is not None:
-        try:
-            return check_timeout(value)
-        except ValueError as exc:
-            raise TaskRunError(
-                "invalid_test_timeout", f"task {task.id}: test_timeout {value!r} {exc}"
-            ) from exc
-    if settings.test_timeout is not None:
-        return settings.test_timeout
-    return DEFAULT_TEST_TIMEOUT
 
 
 def _exclude_lines(ignored: tuple[str, ...]) -> list[str]:
@@ -1190,22 +1157,6 @@ def _finish_resolve(
     return error
 
 
-def existing_store(repo: Path) -> TaskRunStore | None:
-    """The store of the trace DB of `repo`, or None when there is no trace DB yet."""
-    try:
-        main = gitops.main_root(repo)
-    except TaskRunError:
-        main = repo.resolve()
-    try:
-        local = load_local(main)
-    except ConfigError as exc:
-        raise TaskRunError("invalid_config", str(exc)) from exc
-    db = local.trace_db_path(main)
-    if not database.available(db):
-        return None
-    return TaskRunStore(db)
-
-
 def session_dir_of(repo: Path, run_id: str) -> Path:
     """The session directory of run `run_id`: ``<data_dir>/sessions/<run_id>``.
 
@@ -1217,28 +1168,3 @@ def session_dir_of(repo: Path, run_id: str) -> Path:
     except TaskRunError:
         main = repo.resolve()
     return data_dir(main, _load(main)) / "sessions" / run_id
-
-
-def task_runs_for(repo: Path, task_id: str) -> list[TaskRunRow]:
-    """Every run of `task_id`, newest first. Creates nothing when there is no trace DB yet.
-
-    Outside a git repository (a bare backlog directory) `repo` itself is the root.
-    """
-    store = existing_store(repo)
-    if store is None:
-        return []
-    try:
-        return store.for_task(task_id)
-    finally:
-        store.close()
-
-
-def task_prs_for(repo: Path, task_id: str) -> list[TaskPrRow]:
-    """Every pull request of `task_id`, newest first; `[]` when there is no trace DB yet."""
-    store = existing_store(repo)
-    if store is None:
-        return []
-    try:
-        return store.prs_for_task(task_id)
-    finally:
-        store.close()

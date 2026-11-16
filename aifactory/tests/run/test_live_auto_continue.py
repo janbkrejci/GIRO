@@ -118,7 +118,7 @@ def test_off_during_lock_retry_stops_retry_and_drains_members(
                 raise TaskRunError("trace_db_locked", "another worker")
             return super().start(task_id, **kwargs)
 
-    monkeypatch.setattr("aifactory.run.queue.time.sleep", lambda _: None)
+    monkeypatch.setattr("aifactory.run.chain.time.sleep", lambda _: None)
     runner = BusyRunner(repo)
     chain = run_chain(repo, T01, max_parallel=3, runner=runner, pr_files=no_files)
     assert attempts == [T01, T02]

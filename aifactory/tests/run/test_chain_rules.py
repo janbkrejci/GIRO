@@ -45,9 +45,10 @@ from aifactory.run import (
     STOP_EXHAUSTED,
     STOP_FAILED,
     ChainResult,
-    queue,
+    queue_select,
     run_chain,
 )
+from aifactory.run import chain as chain_mod
 from aifactory.run import task as task_mod
 from aifactory.run.heal import heal
 from aifactory.run.policy import DISABLED
@@ -250,15 +251,15 @@ def test_off_between_selection_and_start(repo: Path, monkeypatch: pytest.MonkeyP
     """Was ``test_live_auto_continue.py::test_off_between_selection_and_start``."""
     setup_chain(repo)
     fake(repo, monkeypatch)
-    select = queue.select_next
+    select = queue_select.select_next
 
-    def select_then_off(*args: Any, **kwargs: Any) -> queue.Selection:
+    def select_then_off(*args: Any, **kwargs: Any) -> queue_select.Selection:
         result = select(*args, **kwargs)
         assert result.next is not None
         RepositorySettings(repo).update({"auto_continue": False})
         return result
 
-    monkeypatch.setattr(queue, "select_next", select_then_off)
+    monkeypatch.setattr(chain_mod, "select_next", select_then_off)
     chain = run_chain(repo, T01)
     assert chain.stop == "disabled" and ids(chain) == [T01]
     assert chain.waiting[0].detail.startswith(DISABLED)

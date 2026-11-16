@@ -49,7 +49,7 @@ from aifactory.config import ConfigError
 from aifactory.errors import TaskRunError
 from aifactory.run import members
 from aifactory.run.members import DEFAULT_COMMAND, command_prefix, set_command_prefix
-from aifactory.run.task import existing_store
+from aifactory.runstore.read import existing_store
 from aifactory.runstore.rows import TaskRunRow
 
 _POLL = 0.05

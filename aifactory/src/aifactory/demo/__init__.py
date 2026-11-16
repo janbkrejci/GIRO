@@ -160,7 +160,7 @@ def is_demo(path: Path | str, home: Path | None = None) -> bool:
 
 
 def _live_runs(root: Path) -> list[str]:
-    from aifactory.run.task import existing_store
+    from aifactory.runstore.read import existing_store
 
     try:
         store = existing_store(root)

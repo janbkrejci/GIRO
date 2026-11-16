@@ -20,6 +20,9 @@ from typing import TYPE_CHECKING, Any
 import yaml
 
 from aifactory import packagedata, yamlload
+from aifactory.backlog import effective_test_timeout, effective_workflow
+from aifactory.config.settings import check_timeout
+from aifactory.engine.quality import DEFAULT_TEST_TIMEOUT
 from aifactory.engine.role_registry import (
     CodeStepDef,
     Issue,
@@ -43,7 +46,9 @@ from aifactory.workflow.model import (
 )
 
 if TYPE_CHECKING:
+    from aifactory.backlog import Task
     from aifactory.config.loader import FactoryConfig
+    from aifactory.config.settings import ProjectSettings
 
 __all__ = [
     "DEFAULT_WORKFLOWS_DIR",
@@ -51,6 +56,9 @@ __all__ = [
     "INTERNAL_WORKFLOWS",
     "load_workflow",
     "named_workflow",
+    "no_workflow_error",
+    "resolve_test_timeout",
+    "resolve_workflow",
     "outline",
     "parse_workflow",
 ]
@@ -661,3 +669,38 @@ def named_workflow(name: str, config: FactoryConfig, task_id: str) -> Workflow:
         f"workflow {name!r} of task {task_id} is neither in .factory/workflows/ in base "
         "nor in the library",
     )
+
+
+def no_workflow_error(task: Task) -> TaskRunError:
+    return TaskRunError(
+        "no_workflow", f"task {task.id} has no workflow, set `workflow:` on it or a container"
+    )
+
+
+def resolve_workflow(task: Task, config: FactoryConfig) -> Workflow:
+    """The task's workflow, see ``named_workflow``."""
+    name = effective_workflow(task)
+    if name is None:
+        raise no_workflow_error(task)
+    if not isinstance(name, str) or not name.strip():
+        raise TaskRunError("invalid_workflow", f"task {task.id}: workflow {name!r} is not a name")
+    return named_workflow(name, config, task.id)
+
+
+def resolve_test_timeout(task: Task, settings: ProjectSettings) -> int:
+    """Time limit in seconds of every ``test`` step of the run.
+
+    The task's ``test_timeout``, else the nearest ``index.md`` ``test_timeout`` above
+    it, else ``test_timeout`` from ``.factory/config.yaml``, else 600.
+    """
+    value = effective_test_timeout(task)
+    if value is not None:
+        try:
+            return check_timeout(value)
+        except ValueError as exc:
+            raise TaskRunError(
+                "invalid_test_timeout", f"task {task.id}: test_timeout {value!r} {exc}"
+            ) from exc
+    if settings.test_timeout is not None:
+        return settings.test_timeout
+    return DEFAULT_TEST_TIMEOUT

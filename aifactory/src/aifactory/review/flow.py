@@ -81,7 +81,7 @@ from aifactory.workflow.parse import CI_FIX_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW,
 
 if TYPE_CHECKING:
     from aifactory.run.allow_writes import AllowWritesResult
-    from aifactory.run.queue import ChainResult
+    from aifactory.run.chain import ChainResult
 
 
 @dataclass
@@ -379,7 +379,7 @@ def approve_task(
     finally:
         ctx.store.close()
     if merged_by == MERGED_BY_OPERATOR:
-        from aifactory.run.queue import continue_after_merge
+        from aifactory.run.chain import continue_after_merge
 
         result.chain = continue_after_merge(repo, task_id, provider=ctx.provider, code=code)
     return result
@@ -831,7 +831,8 @@ def publish_task(
         ctx.store.finish_operation(operation_id)
         ctx.store.close()
 
-    from aifactory.run.queue import _fresh_backlog, auto_merge_enabled, run_chain
+    from aifactory.run.chain import _fresh_backlog, run_chain
+    from aifactory.run.queue_select import auto_merge_enabled
 
     def first() -> TaskRunResult:
         # A retry's journal includes the replayed review of the finished attempt.

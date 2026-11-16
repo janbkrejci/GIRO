@@ -18,7 +18,7 @@ from aifactory.config import ConfigError, load_run_config
 from aifactory.errors import TaskRunError
 from aifactory.providers import GitProvider
 from aifactory.review.errors import ReviewError
-from aifactory.run.queue import auto_merge_enabled
+from aifactory.run.queue_select import auto_merge_enabled
 from aifactory.run.stack import open_stack, stacked_on
 from aifactory.runstore.rows import STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow
 from aifactory.runstore.store import TaskRunStore

@@ -2324,7 +2324,7 @@ def _task_show(args: argparse.Namespace, root: Path) -> int:
         task_to_json,
         waits_for,
     )
-    from aifactory.run import task_prs_for, task_runs_for
+    from aifactory.runstore.read import task_prs_for, task_runs_for
 
     backlog = load_for_edit(root)
     issues = check_backlog(backlog)
@@ -2399,7 +2399,7 @@ def _run_blocked_text(run: TaskRunRow) -> str:
 
 
 def _task_runs(args: argparse.Namespace, root: Path) -> int:
-    from aifactory.run import task_runs_for
+    from aifactory.runstore.read import task_runs_for
 
     runs = task_runs_for(root, args.task_id)
     if args.json:
@@ -2423,8 +2423,8 @@ def _task_priority(root: Path, backlog: Any) -> dict[str, dict[str, Any]]:
     import sqlite3
 
     from aifactory.errors import TaskRunError
-    from aifactory.run.queue import priority_map
-    from aifactory.run.task import existing_store
+    from aifactory.run.queue_select import priority_map
+    from aifactory.runstore.read import existing_store
 
     try:
         store = existing_store(root)
@@ -2713,7 +2713,7 @@ def _member_run(
     `code` reaches the resolve run only (tests).
     """
     from aifactory.run import run_task
-    from aifactory.run.queue import member_auto_merge
+    from aifactory.run.chain import member_auto_merge
 
     result = run_task(
         root,
@@ -2958,7 +2958,7 @@ def _task_clean(args: argparse.Namespace, root: Path) -> int:
 def _task_stop(args: argparse.Namespace, root: Path) -> int:
     from aifactory.errors import TaskRunError
     from aifactory.run import stop as run_stop
-    from aifactory.run import task_runs_for
+    from aifactory.runstore.read import task_runs_for
 
     task_id: str = args.task_id
     run_id: str | None = args.run
@@ -2978,8 +2978,9 @@ def _task_stop(args: argparse.Namespace, root: Path) -> int:
 
 def _task_pause(args: argparse.Namespace, root: Path, *, resume: bool) -> int:
     from aifactory.errors import TaskRunError
-    from aifactory.run import pause_run, resume_run, task_runs_for
+    from aifactory.run import pause_run, resume_run
     from aifactory.run import stop as run_stop
+    from aifactory.runstore.read import task_runs_for
 
     task_id: str = args.task_id
     run_id: str | None = args.run

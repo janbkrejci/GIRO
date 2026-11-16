@@ -45,7 +45,7 @@ from aifactory.review import ci
 from aifactory.review.errors import ReviewError
 from aifactory.review.prbody import branch_cost, run_checks, run_cost
 from aifactory.run.stack import open_stack
-from aifactory.run.task import existing_store
+from aifactory.runstore.read import existing_store
 from aifactory.runstore.rows import SUCCEEDED, TaskPrRow, TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 from aifactory.web.backlog import UsageError

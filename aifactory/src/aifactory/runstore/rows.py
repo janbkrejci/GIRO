@@ -33,7 +33,7 @@ MERGED_BY_OPERATOR = "operator"
 CHAIN_FINISHED = "finished"
 
 
-# the stop of a chain whose finished task has auto-continue off (``queue.STOP_DISABLED``)
+# the stop of a chain whose finished task has auto-continue off (``chain.STOP_DISABLED``)
 _CHAIN_DISABLED = "disabled"
 
 

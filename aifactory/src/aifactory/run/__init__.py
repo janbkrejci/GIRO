@@ -18,8 +18,8 @@ run (``resolve.py``) rebases a conflicting PR branch onto base. After every
 agent call ``TaskWriteGuard`` (``aifactory.guard``) checks both the worktree and the
 main checkout and rolls back what the task scope (``aifactory.scope``) does not allow.
 
-Auto-continue (``queue.py``, repository-local ``auto_continue`` in GIRO_HOME):
-after a run opens its PR, ``run_chain`` may start the next
+Auto-continue (``chain.py``, selection in ``queue_select.py``, repository-local
+``auto_continue`` in GIRO_HOME): after a run opens its PR, ``run_chain`` may start the next
 ready task of the step, then of the project; a task waiting on an unmerged PR
 is skipped. With ``auto_merge`` the finished task"s PR is merged first
 (``review.automerge``) and the chain continues only after that merge. Runs of
@@ -52,31 +52,33 @@ from typing import TYPE_CHECKING
 from aifactory.lazyexports import lazy_exports
 
 if TYPE_CHECKING:
-    from aifactory.run.members import ChainRunner, ProcessRunner
-    from aifactory.run.pause import PauseGate, pause_run, resume_run
-    from aifactory.run.queue import (
-        SKIP_REASONS,
+    from aifactory.run.chain import (
         STOP_DISABLED,
         STOP_EXHAUSTED,
         STOP_FAILED,
         STOP_NOT_MERGED,
         ChainResult,
         FactoryStart,
+        continue_after_merge,
+        retry_chain,
+        run_chain,
+        start_factory,
+    )
+    from aifactory.run.members import ChainRunner, ProcessRunner
+    from aifactory.run.pause import PauseGate, pause_run, resume_run
+    from aifactory.run.queue_select import (
+        SKIP_REASONS,
         Occupancy,
         Skip,
         Slots,
         auto_continue_enabled,
         auto_merge_enabled,
-        continue_after_merge,
-        retry_chain,
-        run_chain,
         select_next,
         select_ready,
-        start_factory,
     )
     from aifactory.run.retry import retry_run
     from aifactory.run.stop import StopResult, running_run, stop_run
-    from aifactory.run.task import TaskRunResult, run_task, task_prompt, task_prs_for, task_runs_for
+    from aifactory.run.task import TaskRunResult, run_task, task_prompt
 
 __getattr__, __dir__ = lazy_exports(
     __name__,
@@ -90,25 +92,27 @@ __getattr__, __dir__ = lazy_exports(
             "pause_run",
             "resume_run",
         ),
-        "aifactory.run.queue": (
-            "SKIP_REASONS",
+        "aifactory.run.chain": (
             "STOP_DISABLED",
             "STOP_EXHAUSTED",
             "STOP_FAILED",
             "STOP_NOT_MERGED",
             "ChainResult",
             "FactoryStart",
+            "continue_after_merge",
+            "retry_chain",
+            "run_chain",
+            "start_factory",
+        ),
+        "aifactory.run.queue_select": (
+            "SKIP_REASONS",
             "Occupancy",
             "Skip",
             "Slots",
             "auto_continue_enabled",
             "auto_merge_enabled",
-            "continue_after_merge",
-            "retry_chain",
-            "run_chain",
             "select_next",
             "select_ready",
-            "start_factory",
         ),
         "aifactory.run.retry": ("retry_run",),
         "aifactory.run.stop": (
@@ -120,8 +124,6 @@ __getattr__, __dir__ = lazy_exports(
             "TaskRunResult",
             "run_task",
             "task_prompt",
-            "task_prs_for",
-            "task_runs_for",
         ),
     },
 )
@@ -157,6 +159,4 @@ __all__ = [
     "start_factory",
     "stop_run",
     "task_prompt",
-    "task_prs_for",
-    "task_runs_for",
 ]

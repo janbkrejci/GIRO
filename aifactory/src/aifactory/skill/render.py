@@ -118,7 +118,8 @@ def placeholders(parser: argparse.ArgumentParser | None = None) -> dict[str, str
     from aifactory.backlog.taskfile import FIELD_ORDER, RUNS_HEADING, RUNS_PLACEHOLDER
     from aifactory.engine.role_registry import CODE_ACTIONS
     from aifactory.harness import THINKING_LEVELS
-    from aifactory.run.queue import SKIP_REASONS, STOP_REASONS
+    from aifactory.run.chain import STOP_REASONS
+    from aifactory.run.queue_select import SKIP_REASONS
 
     return {
         "version": __version__,

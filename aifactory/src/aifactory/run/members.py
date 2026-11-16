@@ -3,7 +3,7 @@
 ``run_task`` cannot run twice in one process at once: it changes the working
 directory (``os.chdir`` into the worktree), sets environment variables and the
 engine depends on the process's cwd. With ``max_parallel_runs`` above 1,
-``queue.run_chain`` therefore starts every task of the chain as its own process,
+``chain.run_chain`` therefore starts every task of the chain as its own process,
 ``<prefix> task run ID --repo ROOT --json --member``, the same way the dashboard
 starts runs (``web.launcher``): ``start_new_session``, stdin closed, the repository
 root as cwd, stdout (the JSON envelope) and stderr (the narration) in two new files
@@ -46,7 +46,8 @@ from aifactory import home, oscompat
 from aifactory.config import ConfigError
 from aifactory.errors import TaskRunError
 from aifactory.run.policy import acceptance
-from aifactory.run.task import TaskRunResult, existing_store, task_runs_for
+from aifactory.run.task import TaskRunResult
+from aifactory.runstore.read import existing_store, task_runs_for
 from aifactory.runstore.rows import FAILED, STARTED_AUTO_CONTINUE, STARTED_MANUAL, TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 

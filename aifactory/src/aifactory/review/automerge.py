@@ -67,7 +67,8 @@ from aifactory.review import flow as review_flow
 from aifactory.review.ci import checks_reason, settled_checks
 from aifactory.review.errors import ReviewError
 from aifactory.review.flow import ApproveResult, approve_task
-from aifactory.run.queue import WAITS_FOR_STACK, auto_merge_enabled
+from aifactory.run.chain import WAITS_FOR_STACK
+from aifactory.run.queue_select import auto_merge_enabled
 from aifactory.run.stack import open_stack
 from aifactory.run.task import TaskRunResult
 from aifactory.runstore.rows import MERGED_BY_AUTO, STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow

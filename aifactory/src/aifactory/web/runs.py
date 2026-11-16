@@ -24,7 +24,8 @@ from typing import Any
 from aifactory.engine.quality import TEST_SLOT_EVENT
 from aifactory.errors import TaskRunError
 from aifactory.harness.agent_dirs import remove_agent_dirs
-from aifactory.run.task import existing_store, session_dir_of
+from aifactory.run.task import session_dir_of
+from aifactory.runstore.read import existing_store
 from aifactory.runstore.rows import TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 
@@ -385,7 +386,8 @@ def publish_run(repo: Path, run_id: str, launcher: Any = None) -> tuple[JsonDict
     store.close()
     if launcher is not None:
         from aifactory.backlog import Task
-        from aifactory.run.queue import _base_backlog, auto_merge_enabled
+        from aifactory.run.chain import _base_backlog
+        from aifactory.run.queue_select import auto_merge_enabled
 
         task = _base_backlog(repo).by_id.get(row.task_id)
         if isinstance(task, Task) and auto_merge_enabled(repo):

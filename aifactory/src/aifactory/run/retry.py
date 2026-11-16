@@ -36,7 +36,7 @@ What the retry does, in order; any refusal before the claim changes nothing:
    replay ends at the last ``test`` before the first review, so the tests run again on
    the rebased code before anything is reviewed.
 7. Runs the workflow replaying the journal (``aifactory.workflow.journal``) and publishes
-   the PR like ``task run``. ``queue.retry_chain`` (``factory task retry`` and the
+   the PR like ``task run``. ``chain.retry_chain`` (``factory task retry`` and the
    dashboard) then auto-merges and auto-continues like ``task run``.
 """
 
@@ -89,7 +89,12 @@ from aifactory.workflow import (
     walk,
 )
 from aifactory.workflow.interpreter import PLAN_REVIEW_PHASE
-from aifactory.workflow.parse import CI_FIX_WORKFLOW, INTERNAL_WORKFLOWS
+from aifactory.workflow.parse import (
+    CI_FIX_WORKFLOW,
+    INTERNAL_WORKFLOWS,
+    resolve_test_timeout,
+    resolve_workflow,
+)
 from aifactory.workflow.rebase import rebase_onto
 
 if TYPE_CHECKING:  # task.py imports this module at run time
@@ -529,8 +534,8 @@ def retry_run(
         outputs = output_paths(task, settings)
         workdir = project_workdir(settings)
         scope = task_scope(task, outputs)
-        test_timeout = run_mod.resolve_test_timeout(task, settings)
-        workflow = run_mod.resolve_workflow(task, rc.config)
+        test_timeout = resolve_test_timeout(task, settings)
+        workflow = resolve_workflow(task, rc.config)
         with tempfile.TemporaryDirectory(prefix="factory-prompts-") as prompts_tmp:
             probe = prepare_cfg(main, rc, Path(prompts_tmp))
             try:

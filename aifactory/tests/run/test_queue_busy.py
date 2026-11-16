@@ -30,7 +30,7 @@ def test_factory_start_keeps_locked_candidate(
             raise TaskRunError("trace_db_locked", "held by another process")
         return launch(task_id)
 
-    monkeypatch.setattr("aifactory.run.queue.time.sleep", lambda _: None)
+    monkeypatch.setattr("aifactory.run.chain.time.sleep", lambda _: None)
     result = start_factory(repo, start, max_parallel=1, pr_files=no_files)
     assert attempts == [T01] * (3 if persistent else 2)
     assert launch.calls == ([] if persistent else [T01])
@@ -55,7 +55,7 @@ def test_parallel_chain_waits_for_same_candidate_and_drains_active_runs(
                 raise TaskRunError("trace_db_locked", "held by another process")
             return super().start(task_id, **kwargs)
 
-    monkeypatch.setattr("aifactory.run.queue.time.sleep", lambda _: None)
+    monkeypatch.setattr("aifactory.run.chain.time.sleep", lambda _: None)
     runner = BusyRunner(repo)
     result = run_chain(repo, T01, max_parallel=3, runner=runner, pr_files=no_files)
     assert not runner.active()

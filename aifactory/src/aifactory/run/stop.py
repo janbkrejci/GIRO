@@ -25,8 +25,8 @@ import psutil
 
 from aifactory import oscompat
 from aifactory.errors import TaskRunError
-from aifactory.run.task import existing_store
 from aifactory.runstore.base import _alive
+from aifactory.runstore.read import existing_store
 from aifactory.runstore.rows import RUNNING, TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 

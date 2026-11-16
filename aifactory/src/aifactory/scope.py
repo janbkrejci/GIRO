@@ -130,7 +130,7 @@ def task_scope(task: Task, outputs: OutputPaths) -> TaskScope:
     )
 
 
-# -- overlap of write paths (auto-continue with parallel runs, ``queue.Occupancy``) --
+# -- overlap of write paths (auto-continue with parallel runs, ``queue_select.Occupancy``) --
 
 _WILDCARDS = ("*", "?", "[")
 

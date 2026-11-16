@@ -106,7 +106,7 @@ from aifactory.config.source import CommitSource
 from aifactory.errors import TaskRunError
 from aifactory.registry import Registry, RepoEntry
 from aifactory.repo_vet import trace_db_of
-from aifactory.run.queue import Slots
+from aifactory.run.queue_select import Slots
 from aifactory.web.backlog import (
     BOARD_STATES,
     _display_runtime,

@@ -7,7 +7,7 @@ import pytest
 
 from aifactory import oscompat
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.queue import Slots
+from aifactory.run.queue_select import Slots
 from aifactory.runstore import runs as store_module
 from aifactory.runstore.rows import TaskRunRow
 from aifactory.runstore.store import TaskRunStore

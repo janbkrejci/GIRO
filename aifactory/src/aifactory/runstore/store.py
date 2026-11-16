@@ -23,7 +23,7 @@ object; ``error`` stays the free text. ``finish`` records them, ``mark_stopped``
 failed, stopped or aborted run recorded before the columns existed reads as ``other``,
 or ``blocked`` when its error starts with ``blocked: `` (``TaskRunRow.shown_failure_kind``).
 
-``task_chains`` has one row per auto-continue chain (``queue.run_chain``): its runs
+``task_chains`` has one row per auto-continue chain (``chain.run_chain``): its runs
 in start order, the tasks the last selection skipped and why, the tasks that ran
 alone (wide writes), its automatic actions after a failure (``events``, ``run.heal``),
 and the chain's state (``running``, ``finished`` with its
@@ -40,7 +40,7 @@ commit (``queue_prefs``, ``set_queue_order``, ``set_excluded``, ``set_archived``
 (``failure_kind`` ``blocked``, including existing tasks from ``blocked_by``): ``finish`` of a
 blocked run writes the row, ``finish`` of a succeeded run of the task deletes it, and so
 does ``clear_priority`` (the operator in the kanban). The selection puts these tasks and
-their blockers before the kanban's queue (``queue.priority_order``); a task no longer
+their blockers before the kanban's queue (``queue_select.priority_order``); a task no longer
 ``todo`` (done, cancelled) has no priority any more (``prune_priority``). ``queue_prefs``
 returns the rows with the queue preferences.
 

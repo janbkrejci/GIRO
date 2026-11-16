@@ -27,7 +27,7 @@ from aifactory.repo_vet import trace_db_of
 from aifactory.review import sync as review_sync
 from aifactory.review.errors import ReviewError
 from aifactory.review.sync import SyncResult
-from aifactory.run.queue import continue_after_merge
+from aifactory.run.chain import continue_after_merge
 from aifactory.runstore.rows import TaskRunRow
 from aifactory.web.launcher import Launcher
 

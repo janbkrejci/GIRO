@@ -21,8 +21,8 @@ from typing import Any
 from aifactory import gitops
 from aifactory.config.settings import CONFIG_FILE, parse_project_settings
 from aifactory.errors import TaskRunError
-from aifactory.run.queue import Slots
-from aifactory.run.task import existing_store
+from aifactory.run.queue_select import Slots
+from aifactory.runstore.read import existing_store
 from aifactory.runstore.rows import RUNNING, TaskChainRow, TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 

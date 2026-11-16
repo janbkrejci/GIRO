@@ -523,7 +523,7 @@ def test_publish_auto_merge_uses_launcher(
     from thread_launcher import ThreadLauncher
 
     from aifactory.errors import TaskRunError
-    from aifactory.run import queue
+    from aifactory.run import chain, queue_select
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
     from run_repo import T01, make_run_repo
@@ -553,7 +553,8 @@ def test_publish_auto_merge_uses_launcher(
         store.set_pr_error("publish-me", "push_failed: server error")
     finally:
         store.close()
-    monkeypatch.setattr(queue, "auto_merge_enabled", lambda repo: isinstance(repo, Path))
+    for module in (chain, queue_select):
+        monkeypatch.setattr(module, "auto_merge_enabled", lambda repo: isinstance(repo, Path))
     called: list[str] = []
 
     class Launcher(ThreadLauncher):
@@ -617,7 +618,8 @@ def test_delete_archived_cleans_session_and_absent_worktree(
     shared_active: bool,
 ) -> None:
     from aifactory.harness.agent_dirs import claude_project_dirs
-    from aifactory.run.task import existing_store, session_dir_of
+    from aifactory.run.task import session_dir_of
+    from aifactory.runstore.read import existing_store
 
     monkeypatch.setenv(
         "CLAUDE_CONFIG_DIR", ("\\\\?\\" if os.name == "nt" else "") + str(tmp_path / "claude")

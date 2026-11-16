@@ -176,9 +176,9 @@ def test_continuation_respects_slots_and_writes(
     finally:
         store.close()
     # Keep the synthetic PR open during approve's cleanup and report its file scope.
-    from aifactory.run import queue
+    from aifactory.run import chain
 
-    monkeypatch.setattr(queue, "_pr_files_default", lambda _: lambda pr: ["src/app/two.py"])
+    monkeypatch.setattr(chain, "_pr_files_default", lambda _: lambda pr: ["src/app/two.py"])
     provider = provider_for(repo, monkeypatch)
     real_status = provider.status
     monkeypatch.setattr(

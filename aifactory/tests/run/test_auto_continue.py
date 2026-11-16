@@ -27,7 +27,7 @@ from aifactory.run import (
     select_next,
 )
 from aifactory.run import task as task_mod
-from aifactory.run.queue import (
+from aifactory.run.queue_select import (
     SKIP_REASONS,
     blockers_of,
     priority_map,
@@ -318,7 +318,7 @@ def test_locked_start_retries_same_task_without_exhausting_queue(
         return original(root, task_id, **kwargs)
 
     monkeypatch.setattr(task_mod, "run_task", run)
-    monkeypatch.setattr("aifactory.run.queue.time.sleep", lambda _: None)
+    monkeypatch.setattr("aifactory.run.chain.time.sleep", lambda _: None)
     chain = run_chain(repo, T01, auto=True)
     if persistent:
         assert attempts == [T01, T02, T02, T02]

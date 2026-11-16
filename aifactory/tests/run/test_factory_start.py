@@ -17,7 +17,7 @@ from aifactory.engine.utils import now_iso
 from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run import start_factory
-from aifactory.run.queue import _start_with_lock_retry
+from aifactory.run.chain import _start_with_lock_retry
 from aifactory.runstore.rows import TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 
@@ -314,7 +314,7 @@ def test_lock_retry_rechecks_policy_only_for_automatic_starts(
             raise TaskRunError("trace_db_locked", "held by another process")
         return "claimed"
 
-    monkeypatch.setattr("aifactory.run.queue.time.sleep", lambda _: None)
+    monkeypatch.setattr("aifactory.run.chain.time.sleep", lambda _: None)
     if automatic:
         # Omitting the origin must keep the automatic barrier enabled by default.
         with pytest.raises(TaskRunError) as caught:

@@ -414,7 +414,7 @@ def test_publish_finishes_merge_and_continues(
     build(script, "two")
     review(script)
     # Parallel children normally run as processes; keep this test's fake harness local.
-    from aifactory.run import queue
+    from aifactory.run import chain
 
     if parallel == 1:
         result = publish_task(repo, T01)
@@ -425,8 +425,8 @@ def test_publish_finishes_merge_and_continues(
     else:
         # The first publication/merge runs in-process even for a parallel chain.
         # Stop automatic selection so no fake harness must cross process boundaries.
-        monkeypatch.setattr(queue, "_max_parallel", lambda repo: 2)
-        monkeypatch.setattr(queue, "auto_continue_enabled", lambda task: False)
+        monkeypatch.setattr(chain, "_max_parallel", lambda repo: 2)
+        monkeypatch.setattr(chain, "auto_continue_enabled", lambda task: False)
         result = publish_task(repo, T01)
         assert result.chain is not None and result.chain.max_parallel == 2
     assert result.chain.runs[0].run.run_id == first.run.run_id
