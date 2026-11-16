@@ -26,4 +26,4 @@ Outside a giro run, `just check` and `just e2e` are the full gate.
 
 Never commit credentials, runtime databases, agent transcripts or local machine configuration.
 
-GIRO uses `giro` as the primary CLI and “Goal in. Release out.” as its slogan. `factory`/`HAIFA_*` remain compatibility aliases; `.factory/`, `factory/`, distribution `aifactory`, library item `skill/factory` and HAIFA-LIBRARY keep their technical identities. Release targets and active legacy URLs are distinguished in `docs/rebranding/giro.md` and `docs/rebranding/release.md`.
+GIRO uses `giro` as the primary CLI and “Goal in. Release out.” as its slogan. `factory`/`HAIFA_*` remain compatibility aliases; `.factory/`, `factory/`, distribution `aifactory` and library item `skill/factory` keep their technical identities. The default library repository is `janbkrejci/GIRO-LIBRARY`. Release targets and active legacy URLs are distinguished in `docs/rebranding/giro.md` and `docs/rebranding/release.md`.

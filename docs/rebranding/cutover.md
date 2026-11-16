@@ -34,13 +34,15 @@ runners. Pages endpoint 404; žádná změna DNS, registries nebo cizích balí�
 
 ## Místní vývoj a knihovna
 
-Checkout zůstává `/Users/jbk/Documents/HAIFA`. `origin` míří na GIRO;
+Při cutoveru zůstal checkout `/Users/jbk/Documents/HAIFA`; následný pokyn
+vlastníka z 2026-11-16 jej přesouvá na `/Users/jbk/Documents/GIRO`. `origin` míří na GIRO;
 `haifa-history` zachovává původní HAIFA. Upstreamy zachovaných vývojových větví
 míří na GIRO. Registry ID, provozní data, `.factory/`, task ID a historie zůstávají.
 Po dobu cutoveru bylo automatické pokračování a slučování pozastavené.
 Další stroje zatím nebyly přepnuty ani ověřeny; jejich vlastník použije oddíl 6
-[provozního postupu](repository-migration.md). HAIFA-LIBRARY zůstává na původní
-adrese jako dokumentovaná kompatibilní výjimka; její data se nepřepisují.
+[provozního postupu](repository-migration.md). Následné rozhodnutí
+z 2026-11-16 přejmenovává knihovnu na [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY)
+a mění výchozí URL; historie, UUID a lokální data knihovny zůstávají.
 
 ## Vydání a ověření
 

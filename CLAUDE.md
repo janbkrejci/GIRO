@@ -44,4 +44,4 @@ Packages under `aifactory/src/aifactory/` and how they connect:
 - Code, comments and docstrings are in English. The README, `docs/decisions.md` and backlog tasks are in Czech.
 - `docs/decisions.md` holds the design decisions in force. Update it when a change replaces one.
 
-Use `giro` in new command examples. `factory` and `HAIFA_*` are compatibility aliases. Keep `.factory/`, `factory/`, Python distribution `aifactory`, the `skill/factory` item and HAIFA-LIBRARY identity. Public GIRO download URLs become active only after cutover T06; see `docs/rebranding/release.md`.
+Use `giro` in new command examples. `factory` and `HAIFA_*` are compatibility aliases. Keep `.factory/`, `factory/`, Python distribution `aifactory`, the `skill/factory` item and the library UUID. The default library repository is `janbkrejci/GIRO-LIBRARY`. Public GIRO download URLs become active only after cutover T06; see `docs/rebranding/release.md`.

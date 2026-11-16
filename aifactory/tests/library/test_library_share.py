@@ -24,9 +24,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))
 from gh_fake import GhLog, install_fake_gh, prepare_shared_gh, reply  # noqa: E402
 
 Capsys = pytest.CaptureFixture[str]
-UPSTREAM = "https://github.com/janbkrejci/HAIFA-LIBRARY.git"
-FORK = "https://github.com/ada/HAIFA-LIBRARY.git"
-PR_URL = "https://github.com/janbkrejci/HAIFA-LIBRARY/pull/7"
+UPSTREAM = "https://github.com/janbkrejci/GIRO-LIBRARY.git"
+FORK = "https://github.com/ada/GIRO-LIBRARY.git"
+PR_URL = "https://github.com/janbkrejci/GIRO-LIBRARY/pull/7"
 HOOK = """#!/bin/sh
 echo "$1" >> "{log}"
 if [ "$1" = "refs/heads/main" ]; then
@@ -138,11 +138,18 @@ def _no_merge(log: GhLog) -> None:
 
 def test_default_url_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY_URL", raising=False)
     assert share.default_library_url() == share.DEFAULT_LIBRARY_URL == UPSTREAM
     assert share.default_library_url({"HAIFA_LIBRARY_URL": " git@corp:t/lib.git "}) == (
         "git@corp:t/lib.git"
     )
-    assert share.github_repo(UPSTREAM) == ("janbkrejci", "HAIFA-LIBRARY")
+    assert (
+        share.default_library_url(
+            {"GIRO_LIBRARY_URL": " git@corp:t/new.git ", "HAIFA_LIBRARY_URL": UPSTREAM}
+        )
+        == "git@corp:t/new.git"
+    )
+    assert share.github_repo(UPSTREAM) == ("janbkrejci", "GIRO-LIBRARY")
     assert share.github_repo("git@github.com:o/r.git") == ("o", "r")
     assert share.github_repo("https://dev.azure.com/o/p/_git/r") is None
     assert share.fork_url(UPSTREAM, "ada") == FORK
@@ -201,12 +208,12 @@ def test_writer_sends_a_pull_request_from_a_branch(
     data = _ok(capsys, env.skill("lint"))
     pr = data["pull_request"]
     assert pr["url"] == PR_URL and pr["number"] == 7 and pr["fork"] is False
-    assert pr["repo"] == "janbkrejci/HAIFA-LIBRARY" and pr["base"] == "main"
+    assert pr["repo"] == "janbkrejci/GIRO-LIBRARY" and pr["base"] == "main"
     assert _git(env.bare, "rev-parse", pr["branch"]) == data["commit"]
     assert _git(env.bare, "rev-parse", "main") == main
     assert _git(lib, "rev-parse", "HEAD") == data["commit"]  # usable before the merge
     create = next(a for a in log.argvs() if a[:2] == ["pr", "create"])
-    assert create[create.index("--repo") + 1] == "janbkrejci/HAIFA-LIBRARY"
+    assert create[create.index("--repo") + 1] == "janbkrejci/GIRO-LIBRARY"
     assert create[create.index("--base") + 1] == "main"
     assert create[create.index("--head") + 1] == pr["branch"]
     assert not any(a[:2] == ["repo", "fork"] for a in log.argvs())
@@ -239,16 +246,16 @@ def test_reader_sends_a_pull_request_from_a_fork(
     )
     data = _ok(capsys, env.skill("lint"))
     pr = data["pull_request"]
-    assert pr["fork"] is True and pr["head_repo"] == "ada/HAIFA-LIBRARY"
+    assert pr["fork"] is True and pr["head_repo"] == "ada/GIRO-LIBRARY"
     assert _git(env.fork, "rev-parse", pr["branch"]) == data["commit"]
     assert _git(env.bare, "for-each-ref", "refs/heads/haifa-library/") == ""
     assert _git(env.bare, "rev-parse", "main") == main
     fork = next(a for a in log.argvs() if a[:2] == ["repo", "fork"])
-    assert fork[2] == "janbkrejci/HAIFA-LIBRARY" and "--clone=false" in fork
+    assert fork[2] == "janbkrejci/GIRO-LIBRARY" and "--clone=false" in fork
     assert not any(arg.startswith("--remote") for arg in fork), fork
     create = next(a for a in log.argvs() if a[:2] == ["pr", "create"])
     assert create[create.index("--head") + 1] == f"ada:{pr['branch']}"
-    assert create[create.index("--repo") + 1] == "janbkrejci/HAIFA-LIBRARY"
+    assert create[create.index("--repo") + 1] == "janbkrejci/GIRO-LIBRARY"
     _no_merge(log)
     assert env.pushed_refs() == []
 

@@ -364,7 +364,7 @@ def _add_library_commands(parser: argparse.ArgumentParser) -> None:
         description=(
             "Clone the library from URL into the library path and return its status. Without "
             "URL the default library is cloned: $GIRO_LIBRARY_URL, else "
-            "https://github.com/janbkrejci/HAIFA-LIBRARY.git. An "
+            "https://github.com/janbkrejci/GIRO-LIBRARY.git. An "
             "existing library is refused (library_exists), a failed clone is clone_failed and "
             "a remote without a valid library.yaml (format, id, name) is invalid_library; "
             "nothing is left behind. The remote is stored as origin without user and password. "

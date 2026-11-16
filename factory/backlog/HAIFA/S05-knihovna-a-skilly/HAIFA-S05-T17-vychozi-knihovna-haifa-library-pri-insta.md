@@ -7,7 +7,7 @@ depends_on: []
 ---
 
 ## Zadání
-Výchozí týmová knihovna je https://github.com/janbkrejci/HAIFA-LIBRARY (veřejné repo, větev `main`). Instalace HAIFA ji má rovnou naklonovat a lokální změny knihovny se mají do ní dostávat jen pull requestem.
+Výchozí týmová knihovna je https://github.com/janbkrejci/GIRO-LIBRARY (veřejné repo, větev `main`). Instalace HAIFA ji má rovnou naklonovat a lokální změny knihovny se mají do ní dostávat jen pull requestem.
 
 Dnes `install.ps1` / `install.sh` volají `factory library init` (lokální knihovna ze semínka bez remote). `factory library clone URL` existuje, ale URL se musí zadat. Průvodce v dashboardu má pole „URL týmové knihovny“ prázdné. `factory library seed`, import a „Přesunout do knihovny“ pushují přímo do `main` knihovny, když má remote.
 

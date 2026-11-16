@@ -58,7 +58,7 @@ formátu, nikoli pokyn k plošnému přejmenování.
 | `aifactory/src/aifactory/upgrade.py`, `upgrade_handoff.ps1`, `web/updates.py`, `web/server.py`, `web/app.py` | ZIP detekce GIRO a přechodová HAIFA dle oddílu 7; nový restart `giro obs`, interní restart env alias dle oddílu 3; nové logy/dočasné prefixy `giro-*`, staré nesmazat | T04 připraví HAIFA; T02 GIRO; A09–A12 |
 | `aifactory/bundle/{build.py,release.py,install.sh,install.ps1,install.bat,uninstall.sh,uninstall.ps1,uninstall.bat}`, `justfile` | GIRO ZIP, wheel stále aifactory; kontrola kolize `giro` na PATH, shodná precedence env a bezpečný uninstall; T04 zachová starý bundle | T04 → T02; A03, A09–A12 |
 | `aifactory/src/aifactory/web/updates.py`, `aifactory/bundle/release.py`, instalační kapitola guide, `README.md`, `.github/workflows/ci.yml` | `janbkrejci/HAIFA` → navržené `janbkrejci/GIRO` pro budoucí vydání; staré URL patří historii a HAIFA updateru; neaktivovat fiktivní instalační URL před T06 | T04, T02, T03, T05, T06; A10, A13 |
-| `aifactory/src/aifactory/library/{share.py,store.py,remote.py,reseed.py}`, instalátory, guide | Default URL **zůstává** `https://github.com/janbkrejci/HAIFA-LIBRARY.git`; library.yaml, `min_factory_version`, seed type/name, `haifa-library/` větve a `.git/haifa-pull-requests.json` zachovat kvůli návrhům a historii | T02, T03, T05; A07, A14 |
+| `aifactory/src/aifactory/library/{share.py,store.py,remote.py,reseed.py}`, instalátory, guide | Default URL je od rozhodnutí vlastníka 2026-11-16 `https://github.com/janbkrejci/GIRO-LIBRARY.git`; library.yaml, `min_factory_version`, seed type/name, `haifa-library/` větve a `.git/haifa-pull-requests.json` zachovat kvůli návrhům a historii | T02, T03, T05; A07, A14 |
 | `aifactory/web/index.html`, `src/App.vue`, `src/lib/library.ts`, CSS/ikony v `aifactory/web/`, `aifactory/web/package.json`, `bun.lock` | Titulek, wordmark a aktivní diagnostika GIRO; privátní frontend package `giro-dashboard`. Respektovat převzatý vzhled a licence, bez redesignu | T03; A01, A15 |
 | `aifactory/src/aifactory/web/server.py` APP_NAME `haifa-dashboard` | Nová health identita `giro-dashboard`; koordinovat backend, klienta a health/restart testy v obou větvích vydání | T02, T04; A11 |
 | `aifactory/web/src/lib/{theme.ts,i18n/index.ts,overview.ts,backlog.ts,review.ts,assistant.ts}`, `aifactory/web/src/components/backlog/FollowUpDialog.vue` | Storage klíče **ponechat** přesně dle seznamu níže: preference, rozepsaná práce a idempotence nesmějí zaniknout | T03; A15 |
@@ -240,7 +240,7 @@ Read-only kontrola 2026-11-14:
   založení. T06 znovu ověří jméno i oprávnění a zapíše skutečný owner/repo;
   při obsazení či nejasném vlastnictví zastaví publikaci a rozhodne o novém cíli,
   který musí být konzistentně změněn v kontraktu, T04 updateru i všech GIRO zdrojích.
-- [HAIFA-LIBRARY](https://github.com/janbkrejci/HAIFA-LIBRARY) je dostupná.
+- [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY) je dostupná.
   Zvolená kompatibilní výjimka: hosting knihovny **nepřejmenovávat**, zachovat
   default URL i existující klony/forky/PR. GIRO není vázáno na jméno remote;
   T05 inventarizuje nastavení a T06 případně upraví jen aktivní popis/README knihovny
@@ -331,7 +331,7 @@ není úspěch. Implementační task přidá regresní testy, včetně všech se
 | A04 | T02 → T07 | Pro každou env dvojici otestovat novou, legacy, obě, prázdnou, neplatnou a konflikt shell/env. Efektivní hodnota i subprocess shodné; secret hodnoty se neobjeví v diagnostice. Explicitní home nenastartuje druhou prázdnou továrnu. |
 | A05 | T02 → T07 | Clean/legacy-only/new-only/oba home, oba včetně prázdného cíle, symlink a Windows case varianta podle tabulky oddílu 4. Konflikt bez manifestu odmítne zápisy a workery, zdroj nedotčený; platná dokončená migrace použije jediný cíl. |
 | A06 | T04 + T02 → T07 | Aktivní task, aktivní upgrade, nedostatečná práva/místo, poškozená data, pád po každém migračním kroku: žádné tiché přepsání, druhý start ani false success. Záloha obnovitelná, opakování použije journal a po dokončení nic znovu nepřenáší. |
-| A07 | T02 + T03 → T07 | Knihovna s lokálními commity, dirty/untracked daty, vlastními seed úpravami a externí cestou zachová obsah/HEAD/UUID/origin. Žádný seed --all; kept zůstane, dirty refresh se bezpečně odloží. Default HAIFA-LIBRARY i obě env URL fungují. |
+| A07 | T02 + T03 → T07 | Knihovna s lokálními commity, dirty/untracked daty, vlastními seed úpravami a externí cestou zachová obsah/HEAD/UUID/origin. Žádný seed --all; kept zůstane, dirty refresh se bezpečně odloží. Default GIRO-LIBRARY i obě env URL fungují. |
 | A08 | T02 + T05 + T06 → T07 | Registrovaná repa, lokální volby, trace/historie, přepisy, PR odkazy a worktrees stejné před/po; home migrace nepřepisuje repo cesty. V izolaci vyzkoušet i výslovný přesun checkoutu/common-dir s remapováním S11 identity, bez duplicit; při neověřeném přesunu zůstane původní cesta. |
 | A09 | T04 + T02 → T07 | Starší podporovaná HAIFA najde H jako haifa ZIP, H výslovně přijme G jako giro ZIP s aifactory wheelem. G > H i při menším CI run number; stejná/nižší verze a nevyhovující min_factory_version neprojdou nechtěným downgradem. |
 | A10 | T04 + T02 → T07 | Fake hosting rozliší HAIFA a GIRO: kliknutí míří jen do nového repo; GIRO další update také, i s převzatým HAIFA_UPDATE_REPO=janbkrejci/HAIFA. Firemní override a GIRO override se chovají dle oddílu 3. |
@@ -363,7 +363,7 @@ front matter a commitnout případná rozšíření; nejde o samostatné nové �
 | T03 | Stávající aifactory, README, AGENTS, CLAUDE, docs a justfile stačí; sledované repo skilly dnes neexistují. Kdyby se před během staly repo-owned, doplnit přesné `.claude/skills/factory/` a `.agents/skills/factory/` před jejich editací. |
 | T04 | Stávající aifactory, workflows, justfile, README a rebranding docs stačí i pro marker guard poslední HAIFA a publikační gate. |
 | T05 | Dokumentační scope stačí; pouze read-only inventura hostingu/knihovny, žádný zápis jiného repa. |
-| T06 | Stávající scope pokrývá cutover. Pokud T05 určí změnu `.gitignore` kvůli checkoutu/artefaktům, doplnit **`.gitignore`** před krokem; jiný repo HAIFA-LIBRARY má vlastní provozní akci, ne zápis z tohoto checkoutu. |
+| T06 | Stávající scope pokrývá cutover. Pokud T05 určí změnu `.gitignore` kvůli checkoutu/artefaktům, doplnit **`.gitignore`** před krokem; repo GIRO-LIBRARY má vlastní provozní akci, ne zápis z tohoto checkoutu. |
 | T07 | Doplnit **`.gitignore`** před během, pokud bude opravovat pravidla zavedená T02; současný scope ji neobsahuje. Ostatní opravy a evidence jsou pokryté. |
 
 Skutečné rozšíření je podmíněné konkrétní změnou, nikoli licence k editaci cizích
@@ -417,7 +417,7 @@ Seed nadále distribuuje jedinou položku `skill/factory` se stejným obsahem ja
 `giro --skill`; běhové kopie skillu nejsou zdrojem změn.
 
 Zbývající HAIFA v instalačních textech označuje poslední přechodovou verzi,
-aktivní staré release URL, legacy aliasy nebo zachované HAIFA-LIBRARY repo.
+aktivní staré release URL, legacy aliasy nebo historii přejmenované knihovny GIRO-LIBRARY.
 Migrační překlady zůstávají součástí společného klienta, ale GIRO backend
 přechodový alert nenabízí. Staré prefixy storage a assistant protokolů výše
 zůstávají beze změny. Interní docstringy a komentáře s HAIFA popisují původ

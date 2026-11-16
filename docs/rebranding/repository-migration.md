@@ -206,27 +206,27 @@ původního runu nebo reprodukovat build stejného SHA a stejného run number v
 izolaci; nedostupný artefakt znamená nejprve obnovit tento build, nevydat jiný H.
 Před odemčením zápisů zkontrolovat, že žádný starý queued run nemůže publikovat.
 
-## 5. Knihovna jako kompatibilní výjimka
+## 5. Knihovna GIRO-LIBRARY
 
-`janbkrejci/HAIFA-LIBRARY` je public, nearchivovaná, default main, auto-merge false.
-Zůstává **https://github.com/janbkrejci/HAIFA-LIBRARY.git**. T01 záměrně zachovává
-UUID knihovny, existující klony/forky/PR a `skill/factory`; změna názvu by přidala
-riziko bez přínosu pro klikací upgrade. `GIRO_LIBRARY_URL` i alias
-`HAIFA_LIBRARY_URL` nadále mohou volit firemní knihovnu. Default v
-`aifactory/src/aifactory/library/share.py`, návodech a instalátorech zůstává.
-Seeds agentů/workflow a generovaný `giro --skill` nadále dodávají položku
-`skill/factory`; `.factory/` overrides mají přednost. Přechod nepoužívá
-`library seed --all`; nedestruktivní plán zachová `kept` a dirty knihovnu.
+Na výslovný pokyn vlastníka z 2026-11-16 se původní repozitář přejmenovává na
+**[janbkrejci/GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY)**.
+Jde o přejmenování téhož GitHub repo, nikoli nový repozitář nebo kopii historie.
+Toto rozhodnutí nahrazuje původní výjimku T01 zachovávající název HAIFA-LIBRARY.
+Default `https://github.com/janbkrejci/GIRO-LIBRARY.git` používají CLI, dashboard
+při klonování i oba instalátory přes `giro library clone --seed-fallback`.
+`GIRO_LIBRARY_URL` a kompatibilní alias `HAIFA_LIBRARY_URL` dál umožňují vlastní URL.
 
-T06 ve vlastním checkoutu knihovny pouze případně upraví aktivní README/popisek
-na „Shared library for GIRO (HAIFA compatibility)“, zachová URL, library.yaml,
-min_factory_version a všechny historické reference. Žádné změny této knihovny
-z checkoutu HAIFA/GIRO. Předem read-only zopakovat inventuru nastavení jako
-v oddílu 1; nic nekopírovat na neexistující GIRO-LIBRARY.
+Zachovat UUID a obsah knihovny, `library.yaml`, `min_factory_version`, položku
+`skill/factory`, větve `haifa-library/` a `.git/haifa-pull-requests.json`.
+Staré odkazy využívají GitHub redirect; existující klony mají aktualizovat pouze
+remote ukazující na přejmenované repo. Vlastní knihovny a lokální knihovny bez
+remote se nepřepojují ani nepřepisují. Nepoužívat `library seed --all`.
+Pro změny obsahu sdílené knihovny nadále použít samostatný checkout a PR.
 
 ## 6. Vývojářské klony a volitelný přesun checkoutu
 
-Nejbezpečnější je ponechat cestu `/Users/jbk/Documents/HAIFA` a měnit jen remote.
+Vlastník 2026-11-16 zvolil přesun místního checkoutu na `/Users/jbk/Documents/GIRO`.
+Na ostatních strojích zůstává přesun volitelný; změna Git remote na něm nezávisí.
 Po dokončení běhů, clean status všech worktrees a odeslání lokální práce, v každém
 samostatném klonu na macOS/Windows/Linux provede jeho vlastník:
 
@@ -305,7 +305,7 @@ Každý zbylý aktivní legacy endpoint musí odpovídat explicitní výjimce n�
    `HAIFA — historical repository; development moved to janbkrejci/GIRO`,
    topics `haifa`, `giro`, `migration`, homepage `https://github.com/janbkrejci/GIRO`. | Starší klient najde H, alert kliknutím najde G. |
 | `.github/workflows/giro-release.yml`, `ci.yml`, host settings | GIRO main gate + proměnná; starý H dispatch jen z uchovaného refu a po něm všechny Actions HAIFA disabled. Žádný release ze starých vývojových větví. | Run SHA, gate, zdrojový tag a asset evidence z oddílu 4. |
-| `library/share.py`, `bundle/install.sh`, `bundle/install.ps1`, guide CS/EN, skill text a seedy | Ponechat `https://github.com/janbkrejci/HAIFA-LIBRARY.git`, `skill/factory`, `haifa-library/` a `.git/haifa-pull-requests.json`; aktivní název produktu GIRO. | Existující i nový library clone, zachování UUID/PR/kept dat. |
+| `library/share.py`, `bundle/install.sh`, `bundle/install.ps1`, guide CS/EN, skill text a seedy | Default změnit na `https://github.com/janbkrejci/GIRO-LIBRARY.git`; zachovat `skill/factory`, `haifa-library/` a `.git/haifa-pull-requests.json`; aktivní název produktu GIRO. | Existující i nový library clone, zachování UUID/PR/kept dat. |
 | `.factory/config.yaml`, AGENTS/CLAUDE, generovaný skill, home env a developer automatizace | Zkontrolovat případné repo URL a aktivní návod podle konkrétních výskytů; registry ID, task prefixy, `.factory/`, `factory/`, aifactory a provozní aliasy neměnit. Regenerovat distribuovaný skill ze stejného GIRO zdroje, ne runtime kopie. | Žádný aktivní publikační endpoint HAIFA mimo H; ostatní stará URL jsou historické nebo knihovní. |
 | Historické docs, backlog, PR/issues, release notes, licence, THIRD_PARTY_NOTICES | Zachovat přesné historické HAIFA URL a původ. Kopie tagu není přesun starého GitHub release objektu. | Staré odkazy zůstávají dostupné v původním public repo. |
 

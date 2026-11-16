@@ -204,7 +204,7 @@ S11 identita podle common Git dir a lokální provozní volby zůstávají zacho
   `janbkrejci/HAIFA` zůstává pro historické odkazy a poslední HAIFA. Ověření
   2026-11-14: autentizovaná identita janbkrejci má admin/push do veřejného HAIFA,
   GET cílového repo vrací 404. To není rezervace ani definitivní důkaz dostupnosti;
-  T06 musí zopakovat kontrolu a potvrdit přesný cíl. Default knihovna zůstává
+  T06 musí zopakovat kontrolu a potvrdit přesný cíl. Původní rozhodnutí ponechávalo default knihovnu
   `https://github.com/janbkrejci/HAIFA-LIBRARY.git`, včetně historie a PR metadat;
   nepřejmenovávat ji kvůli značce. T05 připraví inventuru, T06 případné provozní kroky.
 - **Kolize jména:** [PyPI giro](https://pypi.org/project/giro/) již označuje jiný
@@ -247,3 +247,17 @@ S11 identita podle common Git dir a lokální provozní volby zůstávají zacho
 - Přesun vývojářského checkoutu je volitelná samostatná odstávka. Pouhá změna
   remote nemění registry ID; přesun common Git dir mění klíč lokálních voleb,
   proto vyžaduje opravu worktree vazeb, registry a nastavení ze zálohy.
+
+## 2026-11-16: GIRO-LIBRARY a cesta vývojového checkoutu
+
+Vlastník výslovně požádal o přejmenování `janbkrejci/HAIFA-LIBRARY` na
+[janbkrejci/GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY), změnu
+výchozího napojení i odkazů v dokumentaci a přesun místního checkoutu
+`/Users/jbk/Documents/HAIFA` → `/Users/jbk/Documents/GIRO`.
+Toto nahrazuje původní rozhodnutí T01/T05 ponechat název a cestu.
+Přejmenovává se existující GitHub repo se stejnou historií a PR; nový default je
+`https://github.com/janbkrejci/GIRO-LIBRARY.git`. Oba aliasy proměnné URL dál fungují.
+UUID knihovny, `skill/factory`, metadata návrhů a historické záznamy zůstávají.
+Lokální knihovny bez remote ani vlastní vzdálené knihovny se nepřepojují.
+Při přesunu checkoutu se opraví Git worktrees, cesta a zobrazovaný název v
+registraci dashboardu a klíč lokálních nastavení; ID registrace `haifa` zůstává.

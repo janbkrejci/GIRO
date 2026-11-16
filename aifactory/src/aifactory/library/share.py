@@ -32,7 +32,7 @@ from aifactory.library.store import REMOTE, LibraryStoreError, _git_detail
 from aifactory.providers import git
 from aifactory.providers.base import ProviderError
 
-DEFAULT_LIBRARY_URL = "https://github.com/janbkrejci/HAIFA-LIBRARY.git"
+DEFAULT_LIBRARY_URL = "https://github.com/janbkrejci/GIRO-LIBRARY.git"
 LIBRARY_URL_ENV = "HAIFA_LIBRARY_URL"
 PR_PREFIX = "haifa-library/"
 STATE_FILE = "haifa-pull-requests.json"
@@ -51,7 +51,7 @@ _GITHUB = re.compile(
 
 
 def default_library_url(environ: Mapping[str, str] | None = None) -> str:
-    """``$HAIFA_LIBRARY_URL``, else the HAIFA-LIBRARY repo."""
+    """``$GIRO_LIBRARY_URL`` (legacy ``$HAIFA_LIBRARY_URL``), else GIRO-LIBRARY."""
     env = os.environ if environ is None else environ
     selected = value(LIBRARY_URL_ENV, env)
     if selected is None:
