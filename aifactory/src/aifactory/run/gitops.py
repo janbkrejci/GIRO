@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tarfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -111,30 +110,6 @@ def _commit_dirs(root: Path, sha: str, pattern: str) -> list[str]:
                     nxt.append(f"{prefix}/{name}" if prefix else name)
         found = nxt
     return found
-
-
-def extract_backlog(root: Path, sha: str, backlog_dirs: str | Iterable[str], dest: Path) -> None:
-    """Write the backlog roots as they are in commit `sha` under `dest` (nothing if absent).
-
-    `backlog_dirs` is one root or the configured patterns (``ProjectSettings.backlog_patterns``).
-    """
-    patterns = [backlog_dirs] if isinstance(backlog_dirs, str) else list(backlog_dirs)
-    rels: list[str] = []
-    for pattern in patterns:
-        rel = pattern.strip("/").removeprefix("./") or "."
-        if rel == ".":
-            matches = ["."]
-        else:
-            matches = _commit_dirs(root, sha, rel)
-        rels.extend(m for m in matches if m not in rels)
-    if not rels:
-        return
-    archive = dest / ".base.tar"
-    data = gitrun.run(root, "archive", "--format=tar", sha, "--", *rels, check=True).stdout
-    archive.write_bytes(data)
-    with tarfile.open(archive) as tar:
-        tar.extractall(dest, filter="data")
-    archive.unlink()
 
 
 def head(path: Path) -> str | None:

@@ -574,3 +574,27 @@ def test_approve_refuses_a_blocked_task(repo: Path, script: Script) -> None:
         store.close()
     assert pr is not None and pr.state == "open"
     assert git(repo, "log", "-1", "--format=%s", result.run.branch) != f"{T01}: status done"
+
+
+def test_record_reads_the_backlog_without_archive_and_constant_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from aifactory import gitquery
+    from aifactory.backlog import add_task
+    from gitcount import count_git
+
+    totals = []
+    for n in (0, 8):
+        repo = make_run_repo(tmp_path / f"n{n}")
+        for i in range(n):
+            add_task(repo, "M01-S01", f"Úkol navíc {i}")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "--allow-empty", "-m", "more tasks")
+        gitquery.clear_caches()  # both rounds start cold
+        with count_git(monkeypatch, tmp_path / f"trace{n}") as count:
+            outcome = record(repo, T01, "run-1", workflow_run(follow_ups=[follow_up()]))
+        assert outcome.committed and outcome.warnings == []
+        assert count.commands["archive"] == 0
+        assert len(load_backlog(repo).by_id) > n
+        totals.append(count.commands)
+    assert totals[0] == totals[1], totals

@@ -29,8 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from aifactory import gitrun
-from aifactory.run import gitops
+from aifactory import gitquery, gitrun
 
 INDEX = "(index)"
 """Pseudo-path reported when the git index differs from the capture."""
@@ -83,23 +82,31 @@ class CheckoutBackup:
     index_tree: str | None
     files: dict[str, FileState] = field(default_factory=dict)
     links: dict[str, str] = field(default_factory=dict)
+    # (mode, checkout bytes) of paths in ``head`` (None = absent), read in batches
+    head_entries: dict[str, tuple[str, bytes] | None] = field(
+        default_factory=dict, repr=False, compare=False
+    )
 
 
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _z(root: Path, *args: str) -> list[str]:
-    proc = gitrun.run(root, *args)
-    return proc.z() if proc.ok else []
-
-
 def dirty_paths(root: Path, patterns: tuple[str, ...] = ()) -> set[str]:
-    """Every path that differs from ``HEAD`` in tree or index, plus untracked files."""
-    paths = set(_z(root, "diff", "HEAD", "--name-only", "-z", "--no-renames"))
-    paths |= set(_z(root, "diff", "--cached", "--name-only", "-z", "--no-renames"))
-    paths |= set(_z(root, "ls-files", "--others", "--exclude-standard", "-z"))
+    """Every path that differs from ``HEAD`` in tree or index, plus untracked files.
+
+    One ``git status`` without optional locks: it never rewrites the index.
+    """
+    try:
+        paths = gitquery.dirty_paths(root)
+    except gitrun.GitCommandFailed:
+        return set()
     return {p for p in paths if not ignored(p, patterns)}
+
+
+def head_state(root: Path) -> tuple[str | None, str | None]:
+    """(``HEAD`` commit, branch) of `root` in one git call."""
+    return gitquery.head_state(root)
 
 
 def state_of(root: Path, path: str) -> FileState:
@@ -117,8 +124,12 @@ def state_of(root: Path, path: str) -> FileState:
 
 
 def _index_path(root: Path) -> Path | None:
-    proc = gitrun.run(root, "rev-parse", "--path-format=absolute", "--git-path", "index")
-    return Path(proc.out) if proc.ok and proc.out else None
+    found = gitquery.dirs(root)
+    return None if found is None else found.git_dir / "index"
+
+
+# index file -> (its stamp, its tree): the tree is computed again only when git rewrote it
+_INDEX_TREES: dict[str, tuple[tuple[int, int, int], str]] = {}
 
 
 def _write_tree(root: Path) -> str | None:
@@ -127,9 +138,23 @@ def _write_tree(root: Path) -> str | None:
     ``git write-tree`` locks the index to store its cache tree, so it fails while
     a concurrent git command in the same checkout (another task run's guard)
     holds the lock. It runs on a private copy of the index instead; git replaces
-    the index atomically, so the copy is always a complete index.
+    the index atomically, so the copy is always a complete index. While the index
+    file keeps its mtime, size and inode, the tree found last time is reused.
     """
     index = _index_path(root)
+    before = gitquery.stamp(index) if index is not None else None
+    if index is not None and before is not None:
+        cached = _INDEX_TREES.get(str(index))
+        if cached is not None and cached[0] == before:
+            return cached[1]
+    tree = _copy_and_write_tree(root, index)
+    if tree is not None and index is not None and before is not None:
+        if gitquery.stamp(index) == before:  # not rewritten while it was copied
+            _INDEX_TREES[str(index)] = (before, tree)
+    return tree
+
+
+def _copy_and_write_tree(root: Path, index: Path | None) -> str | None:
     for attempt in range(20):
         with tempfile.TemporaryDirectory(prefix="haifa-index-") as tmp:
             env: dict[str, str] | None = None
@@ -159,13 +184,8 @@ def capture(root: Path, dest: Path, patterns: tuple[str, ...] = ()) -> CheckoutB
     """Copy every dirty path of `root` under `dest`; raise ``OSError`` if any copy fails."""
     files_dir = dest / "files"
     files_dir.mkdir(parents=True, exist_ok=True)
-    backup = CheckoutBackup(
-        root=root,
-        dir=dest,
-        head=gitops.head(root),
-        ref=gitops.symbolic_head(root),
-        index_tree=_write_tree(root),
-    )
+    head, ref = head_state(root)
+    backup = CheckoutBackup(root=root, dir=dest, head=head, ref=ref, index_tree=_write_tree(root))
     for path in sorted(dirty_paths(root, patterns)):
         now = state_of(root, path)
         if now.kind == "file":
@@ -218,30 +238,54 @@ def supersede(backup: CheckoutBackup, path: str, data: bytes, mode: int) -> None
     _write_manifest(backup)
 
 
-def _head_entry(root: Path, head: str | None, path: str) -> tuple[str, bytes] | None:
-    """(mode, checkout bytes) of `path` in `head`, or None when absent."""
-    if not head:
-        return None
-    listing = _z(root, "ls-tree", "-z", head, "--", path)
-    if not listing:
-        return None
-    meta = listing[0].split("\t", 1)[0].split()
-    if len(meta) < 3 or meta[1] != "blob":
-        return None
-    # Journal entries hash bytes on disk, including Git's checkout conversion
-    # (notably CRLF on Windows). Symlink targets are stored verbatim.
-    args = ["blob", meta[2]] if meta[0] == "120000" else ["--filters", f"--path={path}", meta[2]]
-    proc = gitrun.run(root, "cat-file", *args)
-    if proc.returncode != 0:
-        return None
-    return meta[0], proc.stdout
+def head_entries(
+    root: Path, head: str | None, paths: Iterable[str]
+) -> dict[str, tuple[str, bytes] | None]:
+    """(mode, checkout bytes) of each path in `head`, None when it is not a file there.
+
+    A constant number of git processes: one ``ls-tree`` for all paths, one
+    ``cat-file --batch`` for symlink targets (stored verbatim) and one filtered
+    ``cat-file --batch`` for files, so the bytes match a checkout (notably CRLF on
+    Windows), as journal entries hash bytes on disk.
+    """
+    wanted = list(dict.fromkeys(paths))
+    found: dict[str, tuple[str, bytes] | None] = dict.fromkeys(wanted)
+    if not head or not wanted:
+        return found
+    try:
+        entries = gitquery.ls_tree(root, head, wanted)
+        blobs = {p: e for p, e in entries.items() if e.type == "blob"}
+        links = gitquery.read_objects(root, [e.sha for e in blobs.values() if e.mode == "120000"])
+        files = gitquery.read_filtered(
+            root, [(e.sha, p) for p, e in blobs.items() if e.mode != "120000"]
+        )
+    except gitrun.GitCommandFailed:
+        return found
+    for path, entry in blobs.items():
+        data = links.get(entry.sha) if entry.mode == "120000" else files.get((entry.sha, path))
+        if data is not None:
+            found[path] = (entry.mode, data)
+    return found
+
+
+def _head_entry(backup: CheckoutBackup, path: str) -> tuple[str, bytes] | None:
+    if path not in backup.head_entries:
+        backup.head_entries.update(head_entries(backup.root, backup.head, [path]))
+    return backup.head_entries[path]
+
+
+def _prefetch(backup: CheckoutBackup, paths: Iterable[str]) -> None:
+    """Read the ``HEAD`` entries of every path not known yet, in one batch."""
+    missing = [p for p in paths if p not in backup.files and p not in backup.head_entries]
+    if missing:
+        backup.head_entries.update(head_entries(backup.root, backup.head, missing))
 
 
 def expected(backup: CheckoutBackup, path: str) -> FileState:
     """The state `path` must have: its saved state if it was dirty, else ``HEAD``."""
     if path in backup.files:
         return backup.files[path]
-    entry = _head_entry(backup.root, backup.head, path)
+    entry = _head_entry(backup, path)
     if entry is None:
         return ABSENT
     mode, data = entry
@@ -250,9 +294,11 @@ def expected(backup: CheckoutBackup, path: str) -> FileState:
 
 def verify(backup: CheckoutBackup, patterns: tuple[str, ...] = (), index: bool = True) -> list[str]:
     """Every path (and ``INDEX``) whose current state differs from the capture."""
+    paths = sorted(set(backup.files) | dirty_paths(backup.root, patterns))
+    _prefetch(backup, (p for p in paths if not ignored(p, patterns)))
     off = [
         path
-        for path in sorted(set(backup.files) | dirty_paths(backup.root, patterns))
+        for path in paths
         if not ignored(path, patterns)
         and not state_of(backup.root, path).same_content(expected(backup, path))
     ]
@@ -314,7 +360,7 @@ def _restore_one(backup: CheckoutBackup, path: str, head_moved: bool) -> str:
         return "restored from backup"
     if head_moved:
         return "not restored: HEAD moved"
-    entry = _head_entry(backup.root, backup.head, path)
+    entry = _head_entry(backup, path)
     if entry is None:
         _set_aside(backup, path)
         return "deleted"
@@ -337,9 +383,11 @@ def restore(
     their saved bytes) and the index is left alone. Never raises for one path.
     """
     root = backup.root
-    head_moved = gitops.head(root) != backup.head or gitops.symbolic_head(root) != backup.ref
+    head_moved = head_state(root) != (backup.head, backup.ref)
     outcomes: dict[str, str] = {}
     wanted = [p for p in paths if p != INDEX]
+    if not head_moved:
+        _prefetch(backup, wanted)
     for path in wanted:
         try:
             outcomes[path] = _restore_one(backup, path, head_moved)
@@ -347,7 +395,7 @@ def restore(
             outcomes[path] = f"could not restore ({error}; backup kept at {backup.dir})"
     if index and not head_moved and backup.index_tree:
         if _write_tree(root) != backup.index_tree:
-            ok = gitops.git_ok(root, "read-tree", backup.index_tree)
+            ok = gitrun.ok(root, "read-tree", backup.index_tree)
             kept = f"could not restore (backup kept at {backup.dir})"
             outcomes[INDEX] = "restored" if ok else kept
     left = set(verify(backup, patterns, index=index and not head_moved))

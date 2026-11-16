@@ -217,8 +217,8 @@ class TaskWriteGuard:
             "backup_dir": where,
             "worktree": permissions.snapshot(run),
             "worktree_backup": worktree_backup,
-            "worktree_head": gitops.head(self.worktree),
-            "worktree_ref": gitops.symbolic_head(self.worktree),
+            "worktree_head": worktree_backup.head,
+            "worktree_ref": worktree_backup.ref,
             "main_backup": main_backup,
             "base_moves": base_moves,
             "main_writes": main_writes,
@@ -233,8 +233,7 @@ class TaskWriteGuard:
         main_paths: list[str] = []  # main checkout paths the agent changed
 
         head_before = before["worktree_head"]
-        head_now = gitops.head(self.worktree)
-        ref_now = gitops.symbolic_head(self.worktree)
+        head_now, ref_now = backup.head_state(self.worktree)
         if head_now != head_before:
             if ref_now == before["worktree_ref"] and head_before:
                 reset = gitops.git_ok(self.worktree, "reset", "--soft", "-q", head_before)
@@ -269,8 +268,7 @@ class TaskWriteGuard:
         original = dataclasses.replace(
             main_backup, files=dict(main_backup.files), links=dict(main_backup.links)
         )
-        main_head = gitops.head(self.main_root)
-        main_ref = gitops.symbolic_head(self.main_root)
+        main_head, main_ref = backup.head_state(self.main_root)
         factory_move = False
         if (
             main_ref
@@ -289,7 +287,7 @@ class TaskWriteGuard:
             )
             if move is not None:
                 main_backup = dataclasses.replace(
-                    main_backup, head=main_head, index_tree=move.index_tree
+                    main_backup, head=main_head, index_tree=move.index_tree, head_entries={}
                 )
                 factory_move = True
         own_run = getattr(run, "adw_id", None)
