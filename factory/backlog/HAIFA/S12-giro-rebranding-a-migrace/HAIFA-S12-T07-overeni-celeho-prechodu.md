@@ -1,7 +1,7 @@
 ---
 id: HAIFA-S12-T07
 title: GIRO — ověřit celý přechod a uzavřít rebranding
-status: todo
+status: cancelled
 depends_on: [HAIFA-S12-T06]
 writes: [aifactory/, giro/, .github/workflows/, README.md, AGENTS.md, CLAUDE.md, docs/, justfile]
 ---
