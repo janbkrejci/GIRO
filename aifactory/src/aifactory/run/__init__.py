@@ -18,7 +18,7 @@ run (``resolve.py``) rebases a conflicting PR branch onto base. After every
 agent call ``TaskWriteGuard`` (``guard.py``) checks both the worktree and the
 main checkout and rolls back what the task scope (``scope.py``) does not allow.
 
-Auto-continue (``queue.py``, repository-local ``auto_continue`` in HAIFA_HOME):
+Auto-continue (``queue.py``, repository-local ``auto_continue`` in GIRO_HOME):
 after a run opens its PR, ``run_chain`` may start the next
 ready task of the step, then of the project; a task waiting on an unmerged PR
 is skipped. With ``auto_merge`` the finished task"s PR is merged first

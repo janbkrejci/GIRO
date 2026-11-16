@@ -18,7 +18,7 @@ from dotenv import dotenv_values
 
 from aifactory import oscompat
 
-HOME_ENV = "HAIFA_HOME"
+HOME_ENV = "GIRO_HOME"
 XDG_ENV = "XDG_CONFIG_HOME"
 ENV_FILE = "env"
 
@@ -29,7 +29,7 @@ def _env(environ: Mapping[str, str], name: str) -> str | None:
 
 
 def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
-    """Explicit GIRO_HOME/HAIFA_HOME, otherwise the guarded GIRO default."""
+    """Explicit GIRO_HOME (or its legacy alias), otherwise the guarded GIRO default."""
     env = os.environ if environ is None else environ
     from aifactory.environment import value
     from aifactory.versioning import UpgradeError

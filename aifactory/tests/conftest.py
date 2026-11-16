@@ -262,12 +262,12 @@ def _haifa_home(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[Path]:
     home = tmp_path_factory.mktemp("haifa-home")
-    from aifactory.environment import SUFFIXES
+    from aifactory.environment import SUFFIXES, names
 
     # Tests must not inherit the factory runner's run ID, sandbox or machine choices.
     for suffix in SUFFIXES:
-        for prefix in ("GIRO_", "HAIFA_"):
-            monkeypatch.delenv(prefix + suffix, raising=False)
+        for name in names(suffix):
+            monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(haifa_home_module.HOME_ENV, str(home))
     yield home
     after = _protected_home_snapshots(_real_haifa_home)

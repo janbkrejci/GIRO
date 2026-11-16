@@ -32,7 +32,7 @@ kanban's queue and the usual order (``priority_order``). The checks of a candida
 the same. The record goes when the task's run succeeds, when the task is no longer
 ``todo`` (done, cancelled) or when the operator clears it in the kanban.
 
-Repository-local ``auto_continue`` is read fresh from HAIFA_HOME. Its default is off.
+Repository-local ``auto_continue`` is read fresh from GIRO_HOME. Its default is off.
 ``--auto`` / ``auto=True`` is a deprecated compatibility parameter with no policy effect.
 Legacy task, step and project values never filter candidates. Automatic claim/reclaim
 and process spawn share the settings update lock; after off is confirmed no new work

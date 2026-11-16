@@ -13,7 +13,7 @@ import yaml
 
 from aifactory import cli, migration_guard
 from aifactory.engine.utils import agent_environment, operator_env
-from aifactory.environment import SUFFIXES, child_environment, resolve, value
+from aifactory.environment import SUFFIXES, aliased, child_environment, names, resolve, value
 from aifactory.home import haifa_home, load_env_file
 from aifactory.versioning import UpgradeError
 from aifactory.web.server import APP_NAME
@@ -21,7 +21,7 @@ from aifactory.web.server import APP_NAME
 
 @pytest.mark.parametrize("suffix", SUFFIXES)
 def test_alias_precedence_and_child_normalization(suffix: str) -> None:
-    new, old = f"GIRO_{suffix}", f"HAIFA_{suffix}"
+    new, old = names(suffix)
     err = io.StringIO()
     result = resolve({new: "new", old: "legacy"}, stderr=err)
     assert result[new] == result[old] == "new"
@@ -170,3 +170,32 @@ def test_invalid_new_library_url_does_not_fall_back_to_legacy() -> None:
         default_library_url(
             {"GIRO_LIBRARY_URL": " ", "HAIFA_LIBRARY_URL": "https://valid.example/library"}
         )
+
+
+def test_legacy_names_are_spelled_only_in_environment() -> None:
+    src = Path(cli.__file__).parent
+    offenders = [
+        str(path.relative_to(src))
+        for path in src.rglob("*.py")
+        if path != src / "environment.py"
+        and ("HAIFA_" in (text := path.read_text(encoding="utf-8")) or "AIFACTORY_" in text)
+    ]
+    assert offenders == []
+
+
+def test_every_legacy_spelling_still_works() -> None:
+    assert names("HOME") == ("GIRO_HOME", "HAIFA_HOME")
+    assert names("HAIFA_RUN_ID") == ("GIRO_RUN_ID", "HAIFA_RUN_ID")
+    assert names("GH") == ("GIRO_GH", "AIFACTORY_GH")
+    assert names("AIFACTORY_AZ") == ("GIRO_AZ", "AIFACTORY_AZ")
+    assert names("PATH") == ("PATH",)
+    assert value("GIRO_GH", {"AIFACTORY_GH": "/opt/gh"}) == "/opt/gh"
+    assert value("RUN_ID", {"HAIFA_RUN_ID": "r1"}) == "r1"
+    assert aliased({"GIRO_RUN_ID": "r1", "PATH": "/bin"}) == {
+        "GIRO_RUN_ID": "r1",
+        "HAIFA_RUN_ID": "r1",
+        "PATH": "/bin",
+    }
+    child = child_environment({"AIFACTORY_AZ": "/opt/az"}, GIRO_RUN_ID="r2")
+    assert child["GIRO_AZ"] == child["AIFACTORY_AZ"] == "/opt/az"
+    assert child["GIRO_RUN_ID"] == child["HAIFA_RUN_ID"] == "r2"

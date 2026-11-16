@@ -2,7 +2,7 @@
 
 ``git log -- <item path>`` lists the commits that touched the item; the version of the
 item in each of them is its content hash there. A commit's version never changes, so it
-is kept in ``$HAIFA_HOME/cache/library/<type>/<name>.json`` (``{commit: version}``); a
+is kept in ``$GIRO_HOME/cache/library/<type>/<name>.json`` (``{commit: version}``); a
 deleted cache is computed again.
 """
 

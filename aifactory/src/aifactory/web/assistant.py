@@ -1,6 +1,6 @@
 """The dashboard guide: read-only conversations about every registered repository.
 
-A thread lives in ``$HAIFA_HOME/assistant/threads/<id>/``: ``thread.json`` (messages, the
+A thread lives in ``$GIRO_HOME/assistant/threads/<id>/``: ``thread.json`` (messages, the
 harness, model, thinking and session), ``sessions/`` (the harness's own session state),
 ``work/`` (the agent's working directory, outside every repository) and ``turns/NNN/``
 (raw output and the write guard's backups of one answer).
@@ -63,6 +63,7 @@ from typing import Any
 
 from aifactory import gitrun
 from aifactory import guide as guide_chapters
+from aifactory.environment import aliased
 from aifactory.harness import canonical
 from aifactory.harness import load as load_harness
 from aifactory.harness import settings as harness_settings
@@ -189,7 +190,7 @@ def guide_system_template(home: Path) -> str:
     try:
         from aifactory.library.inherit import library_snapshot
 
-        item = library_snapshot({"HAIFA_HOME": str(home)}).agents.get(GUIDE_AGENT)
+        item = library_snapshot({"GIRO_HOME": str(home)}).agents.get(GUIDE_AGENT)
         found = item.file("system.md") if item is not None else None
         if found is not None:
             return found.data.decode("utf-8")
@@ -474,9 +475,13 @@ def prepare_workdir(work: Path, home: Path, repo_id: str | None = None) -> None:
     script = work / "guide"
     content = (
         "#!/bin/sh\n"
-        f"GIRO_HOME={_sh_quote(str(home))} HAIFA_HOME={_sh_quote(str(home))} "
-        f"GIRO_GUIDE_REPO={_sh_quote(repo_id or '')} "
-        f"HAIFA_GUIDE_REPO={_sh_quote(repo_id or '')} exec {_sh_quote(sys.executable)} "
+        + "".join(
+            f"{name}={_sh_quote(item)} "
+            for name, item in aliased(
+                {"GIRO_HOME": str(home), "GIRO_GUIDE_REPO": repo_id or ""}
+            ).items()
+        )
+        + f"exec {_sh_quote(sys.executable)} "
         '-m aifactory.web.assistant_gate "$@"\n'
     )
     if (work / ".git").is_dir() and script.is_file():
@@ -992,10 +997,7 @@ class AssistantManager:
         guard = RepoGuard(repos, work, turn, run_id)
         guard.snapshot()
         environment = {
-            "GIRO_RUN_ID": run_id,
-            "HAIFA_RUN_ID": run_id,
-            "GIRO_HOME": str(self.home),
-            "HAIFA_HOME": str(self.home),
+            **aliased({"GIRO_RUN_ID": run_id, "GIRO_HOME": str(self.home)}),
             "CLAUDE_SAFE_MODE": "1",
             "CODEX_SAFE_MODE": "1",
             "PI_SAFE_MODE": "1",
