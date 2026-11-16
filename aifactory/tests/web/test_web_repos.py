@@ -825,10 +825,8 @@ def test_repo_git_read_rejects_exhausted_budget_before_start(
 
 
 def test_repo_git_read_has_useful_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from aifactory import procrun
+    from aifactory import gitrun, procrun
     from aifactory.web import repos
-
-    from aifactory import gitrun
 
     calls: list[object] = []
 
