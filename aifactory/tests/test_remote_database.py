@@ -421,7 +421,7 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
         threading.Event(),
         threading.Event(),
     )
-    write = edits._write_checked
+    write = edits.common._write_checked
     synchronize = shared._synchronize
 
     def delayed(
@@ -437,7 +437,7 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
             entered_sync.set()
         return synchronize(root, settings)
 
-    monkeypatch.setattr(edits, "_write_checked", delayed)
+    monkeypatch.setattr(edits.task, "_write_checked", delayed)
     monkeypatch.setattr(shared, "_synchronize", observed)
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="edit") as editor:
         with ThreadPoolExecutor(max_workers=1, thread_name_prefix="sync") as syncer:

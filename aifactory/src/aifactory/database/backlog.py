@@ -103,7 +103,7 @@ def _synchronize(root: Path, settings: ProjectSettings) -> None:
     if path is None:
         return
     from aifactory import mainwrites
-    from aifactory.backlog.edit import TaskEditError, _atomic_write, _guard
+    from aifactory.backlog.edit.common import TaskEditError, _atomic_write, _guard
     from aifactory.backlog.model import Backlog
 
     stamps = _stamps(root, settings, path)

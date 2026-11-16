@@ -253,7 +253,7 @@ def test_serialized_edits_preserve_both_changes(
 
     root = sample_repo(tmp_path)
     entered, release, second_write = Event(), Event(), Event()
-    original = module._write_checked
+    original = module.common._write_checked
     calls = 0
 
     def delayed(
@@ -268,7 +268,7 @@ def test_serialized_edits_preserve_both_changes(
             second_write.set()
         return original(backlog, baseline, changes, command)
 
-    monkeypatch.setattr(module, "_write_checked", delayed)
+    monkeypatch.setattr(module.task, "_write_checked", delayed)
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(edit_task, root, "M01-S01-T02", title="Changed title")
         assert entered.wait(5)

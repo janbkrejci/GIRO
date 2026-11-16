@@ -34,7 +34,12 @@ from typing import TYPE_CHECKING, Any
 from aifactory import backlog as core
 from aifactory import failure, gitops
 from aifactory.backlog import Backlog, Container, Task
-from aifactory.backlog.edit import _atomic_write, serialized_write, task_revision, write_lock
+from aifactory.backlog.edit.common import (
+    _atomic_write,
+    serialized_write,
+    task_revision,
+    write_lock,
+)
 from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.backlog.taskfile import has_entry
 from aifactory.config import ConfigError, load_local, load_run_config

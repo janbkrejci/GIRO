@@ -49,7 +49,7 @@ from aifactory.backlog import (
     load_for_edit,
 )
 from aifactory.backlog.derived import descendant_tasks
-from aifactory.backlog.edit import _write_checked, compose_id
+from aifactory.backlog.edit.common import _write_checked, compose_id
 from aifactory.backlog.followup_ids import (
     _norm,
     current_target,
