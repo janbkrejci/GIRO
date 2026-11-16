@@ -18,11 +18,13 @@ from test_parallel_chain import FakeRunner, no_files, setup_tasks, started
 from aifactory.backlog import Task, load_backlog
 from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskRunRow, TaskRunStore, heal, run_chain, run_task
+from aifactory.run import heal, run_chain, run_task
 from aifactory.run import retry as retry_mod
 from aifactory.run import task as task_mod
 from aifactory.run.members import ProcessRunner
 from aifactory.run.policy import DISABLED, acceptance
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web.launcher import RunLauncher
 from aifactory.workflow import preflight
 

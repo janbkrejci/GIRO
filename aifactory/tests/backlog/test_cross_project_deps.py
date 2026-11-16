@@ -10,7 +10,7 @@ from backlog_repo import index_md, rewrite, task_md, write
 from aifactory.backlog import Task, Unmet, check_backlog, link_task, load_backlog, unmet
 from aifactory.providers.git import git
 from aifactory.run.queue import select_ready
-from aifactory.run.store import QueuePrefs
+from aifactory.runstore.rows import QueuePrefs
 from aifactory.web.backlog import container_graph
 
 A_TASK = "A-S01-T01"

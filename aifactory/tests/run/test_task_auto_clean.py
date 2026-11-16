@@ -18,7 +18,8 @@ from aifactory import oscompat
 from aifactory.backlog import Task, load_backlog
 from aifactory.providers import git as pgit
 from aifactory.review import clean_worktrees, flow
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.fixture

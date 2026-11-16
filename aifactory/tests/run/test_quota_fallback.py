@@ -20,10 +20,11 @@ from aifactory.config import load_run_config
 from aifactory.harness.fallback import Fallback
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review.prbody import pr_body
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run.fallback import SWITCH_KEY, configured_fallback, harness_switches
 from aifactory.run.retry import retry_run
-from aifactory.run.store import FAILED, SUCCEEDED
+from aifactory.runstore.rows import FAILED, SUCCEEDED
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json
 
 AGENTS = (

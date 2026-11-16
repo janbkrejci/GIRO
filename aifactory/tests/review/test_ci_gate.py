@@ -33,9 +33,10 @@ from aifactory.providers import git as pgit
 from aifactory.providers.local import LocalProvider
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import ReviewError, approve_task, ci, try_auto_merge
-from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore, run_task
-from aifactory.run.store import MERGED_BY_AUTO, MERGED_BY_OPERATOR
+from aifactory.run import run_task
 from aifactory.run.task import TaskRunResult
+from aifactory.runstore.rows import MERGED_BY_AUTO, MERGED_BY_OPERATOR, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 

@@ -26,8 +26,9 @@ from aifactory.providers.local import LocalProvider
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import ReviewError, approve_task
 from aifactory.review.automerge import _hosting_and_merge
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run.followups import _contents, _record, _snapshot, record
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.fixture

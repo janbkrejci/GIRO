@@ -28,9 +28,10 @@ from aifactory.cli import main
 from aifactory.config import runtime
 from aifactory.errors import TaskRunError
 from aifactory.harness.override import StepOverride, effective_agent
-from aifactory.run import TaskRunRow, TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run import task as task_mod
-from aifactory.run.store import ABORTED, RUNNING
+from aifactory.runstore.rows import ABORTED, RUNNING, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import read_envelope
 
 Capsys = pytest.CaptureFixture[str]

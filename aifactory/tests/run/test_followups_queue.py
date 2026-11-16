@@ -14,11 +14,12 @@ from test_task_resolve import tester as plan_resolve_tests
 
 from aifactory.backlog import commit_backlog, edit_task, link_task, load_backlog
 from aifactory.review import resolve_task
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run.followups import record
 from aifactory.run.queue import select_ready
 from aifactory.run.retry import retry_run
 from aifactory.run.task import _record_follow_ups
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.fixture(autouse=True)

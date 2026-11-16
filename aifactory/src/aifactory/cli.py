@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from aifactory.engine.role_registry import RoleRegistry
     from aifactory.harness.config import SSSFConfig
     from aifactory.run import ChainResult, TaskRunResult
-    from aifactory.run.store import TaskRunRow
+    from aifactory.runstore.rows import TaskRunRow
     from aifactory.workflow import CodeRunner
 
 SUBCOMMANDS: tuple[tuple[str, str], ...] = (
@@ -2644,7 +2644,7 @@ def _emit_runs(
     failed = next((r for r in results if not r.ok), None)
     if failed is None:
         return _emit_ok(data, warnings)
-    from aifactory.run.store import SUCCEEDED
+    from aifactory.runstore.rows import SUCCEEDED
 
     if failed.run.state == SUCCEEDED and failed.pr_error is not None:
         # the run itself succeeded; only the push or the pull request failed

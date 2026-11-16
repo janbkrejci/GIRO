@@ -16,8 +16,10 @@ from test_parallel_chain import CORE, STEP, T01, T02, T03, T04, _db, _pr, no_fil
 from aifactory.engine.utils import now_iso
 from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskRunRow, TaskRunStore, start_factory
+from aifactory.run import start_factory
 from aifactory.run.queue import _start_with_lock_retry
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.fixture(name="repo")

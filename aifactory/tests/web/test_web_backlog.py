@@ -26,7 +26,7 @@ from starlette.testclient import TestClient
 
 import aifactory.backlog
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.store import TaskRunStore
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app
 from aifactory.web.backlog import BOARD_STATES

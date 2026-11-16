@@ -62,7 +62,8 @@ from aifactory.config import ConfigError, ProjectSettings, RunConfig, load_run_c
 from aifactory.engine import permissions
 from aifactory.errors import TaskRunError
 from aifactory.run.retry import _pull_base
-from aifactory.run.store import RETRYABLE, TaskRunRow, TaskRunStore, already_running
+from aifactory.runstore.rows import RETRYABLE, TaskRunRow, already_running
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import effective_task_writes, matches, normalize, output_paths
 from aifactory.workflow.parse import CI_FIX_WORKFLOW, INTERNAL_WORKFLOWS
 

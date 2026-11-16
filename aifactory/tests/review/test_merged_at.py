@@ -11,7 +11,7 @@ from aifactory.providers import MERGED, GitProvider, PrStatus, PullRequest
 from aifactory.review import flow, sync
 from aifactory.review.flow import _Ctx, _record_state
 from aifactory.review.sync import SyncResult, _refresh_sync_prs
-from aifactory.run.store import SyncPrRow, TaskPrRow
+from aifactory.runstore.rows import SyncPrRow, TaskPrRow
 
 MERGED_AT = "2026-09-27T11:00:05.000+00:00"
 NOW = "2026-10-15T08:00:00.000+00:00"

@@ -51,7 +51,7 @@ from aifactory.run import (
 from aifactory.run import task as task_mod
 from aifactory.run.heal import heal
 from aifactory.run.policy import DISABLED
-from aifactory.run.store import ABORTED
+from aifactory.runstore.rows import ABORTED
 
 S02 = "writes: [src/other/]\n"
 TODO_DIR = f"{CORE}/TODO"

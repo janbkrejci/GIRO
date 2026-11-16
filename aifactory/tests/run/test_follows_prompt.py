@@ -9,9 +9,10 @@ import pytest
 from run_repo import DOC, SPEC, T01, Script, commit_all, fake_env, git, make_run_repo, ok, write
 
 from aifactory.library import SEED_DIR
-from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run.follows import TEXT_LIMIT
-from aifactory.run.store import SUCCEEDED
+from aifactory.runstore.rows import SUCCEEDED, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 T03 = "M01-S01-T03"
 T04 = "M01-S01-T04"

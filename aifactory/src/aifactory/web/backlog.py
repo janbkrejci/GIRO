@@ -46,9 +46,11 @@ from aifactory.harness import THINKING_LEVELS, canonical
 from aifactory.run import task_prs_for, task_runs_for
 from aifactory.run.queue import priority_map
 from aifactory.run.stack import stack_point
-from aifactory.run.store import QueuePrefs, TaskRunStore, is_db_busy
 from aifactory.run.task import existing_store
 from aifactory.run.unchanged import COMPLETION_ERROR_PREFIX
+from aifactory.runstore.base import is_db_busy
+from aifactory.runstore.rows import QueuePrefs
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import effective_task_writes, output_paths
 from aifactory.web.launcher import Launcher
 from aifactory.web.settings import config_status

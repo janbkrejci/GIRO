@@ -32,8 +32,8 @@ from aifactory.providers import (
     get_provider,
 )
 from aifactory.review.errors import ReviewError
-from aifactory.run.store import STARTED_AUTO_CI_FIX
 from aifactory.run.task import TaskRunResult, run_task
+from aifactory.runstore.rows import STARTED_AUTO_CI_FIX
 from aifactory.workflow import CodeRunner
 from aifactory.workflow.parse import CI_FIX_WORKFLOW
 

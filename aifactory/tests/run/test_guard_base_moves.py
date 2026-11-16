@@ -18,7 +18,9 @@ from test_auto_continue import T03, build, open_pr, setup_chain
 
 from aifactory.providers import git as pgit
 from aifactory.review import approve_task
-from aifactory.run import TaskRunRow, TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 
 @contextlib.contextmanager

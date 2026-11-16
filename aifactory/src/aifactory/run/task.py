@@ -84,7 +84,10 @@ from aifactory.run.resolve import (
     restore,
 )
 from aifactory.run.stack import stack_point, stacked_on
-from aifactory.run.store import (
+from aifactory.run.unchanged import finish_unchanged, only_spec_changes, unchanged
+from aifactory.run.workdir import agent_workdir, project_workdir, validate_base_dirs
+from aifactory.runstore.base import _now
+from aifactory.runstore.rows import (
     FAILED,
     RUNNING,
     STARTED_AUTO_CONTINUE,
@@ -92,12 +95,9 @@ from aifactory.run.store import (
     SUCCEEDED,
     TaskPrRow,
     TaskRunRow,
-    TaskRunStore,
-    _now,
     already_running,
 )
-from aifactory.run.unchanged import finish_unchanged, only_spec_changes, unchanged
-from aifactory.run.workdir import agent_workdir, project_workdir, validate_base_dirs
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import (
     OutputPaths,
     TaskScope,

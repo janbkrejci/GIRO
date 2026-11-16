@@ -40,7 +40,8 @@ from aifactory.review.flow import (
     _remove,
     _worktrees_dir,
 )
-from aifactory.run.store import SyncPrRow, TaskPrRow, _now
+from aifactory.runstore.base import _now
+from aifactory.runstore.rows import SyncPrRow, TaskPrRow
 
 # NOT "factory/": task_id_from_branch must not read a sync branch as a task branch.
 SYNC_PREFIX = "factory-sync/"

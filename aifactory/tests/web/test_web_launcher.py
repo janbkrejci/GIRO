@@ -26,7 +26,9 @@ from starlette.testclient import TestClient
 from aifactory import home, oscompat
 from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskRunRow, TaskRunStore, members
+from aifactory.run import members
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web import launcher as launcher_module
 from aifactory.web.app import create_app

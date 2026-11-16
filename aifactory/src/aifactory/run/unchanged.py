@@ -25,7 +25,8 @@ from aifactory.backlog import TaskEditError, commit_backlog, complete_task
 from aifactory.backlog.commit import BacklogCommit
 from aifactory.config import ConfigError, load_run_config
 from aifactory.errors import TaskRunError
-from aifactory.run.store import TaskRunRow, TaskRunStore, already_running
+from aifactory.runstore.rows import TaskRunRow, already_running
+from aifactory.runstore.store import TaskRunStore
 
 COMPLETION_ERROR_PREFIX = "task not marked done: "
 

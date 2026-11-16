@@ -20,10 +20,16 @@ from trace_fixture import T1, T2, make_trace_db  # noqa: E402
 
 from aifactory import oscompat  # noqa: E402
 from aifactory.errors import TaskRunError
-from aifactory.run import TaskRunStore, pause_run, resume_run, run_task  # noqa: E402
 from aifactory.run import pause as pause_mod  # noqa: E402
+from aifactory.run import pause_run, resume_run, run_task  # noqa: E402
 from aifactory.run.stop import running_run, stop_run  # noqa: E402
-from aifactory.run.store import PAUSED, PAUSING, RUNNING, STOPPED  # noqa: E402
+from aifactory.runstore.rows import (
+    PAUSED,
+    PAUSING,
+    RUNNING,
+    STOPPED,  # noqa: E402
+)
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow.interpreter import EngineCodeRunner  # noqa: E402
 from cli_json import run_json  # noqa: E402
 

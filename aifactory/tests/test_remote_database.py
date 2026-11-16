@@ -19,7 +19,8 @@ from aifactory.config import ConfigError
 from aifactory.config.settings import LocalSettings, ProjectSettings
 from aifactory.database.server import DatabaseServer
 from aifactory.errors import TaskRunError
-from aifactory.run.store import TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web.live import LiveWatcher
 from aifactory.web.overview import _open_ro
 
@@ -162,7 +163,8 @@ def test_foreign_runs_are_not_reaped_or_signalled(
     try:
         a.claim(row("first"))
         monkeypatch.setattr(database, "MACHINE", "another-machine")
-        monkeypatch.setattr("aifactory.run.store._alive", lambda pid: False)
+        monkeypatch.setattr("aifactory.runstore.runs._alive", lambda pid: False)
+        monkeypatch.setattr("aifactory.runstore.chains._alive", lambda pid: False)
         assert b.live_runs()[0].state == "running"
         with pytest.raises(TaskRunError, match="already running"):
             b.claim(replace(row("second"), pid=1234))

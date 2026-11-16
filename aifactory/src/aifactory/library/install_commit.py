@@ -188,7 +188,7 @@ def _store(root: Path) -> RunStore | None:
         return None
     if not path.exists():
         return None
-    from aifactory.run.store import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
     try:
         return TaskRunStore(path)

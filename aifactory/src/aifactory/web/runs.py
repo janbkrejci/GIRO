@@ -24,8 +24,9 @@ from typing import Any
 from aifactory.engine.quality import TEST_SLOT_EVENT
 from aifactory.errors import TaskRunError
 from aifactory.harness.agent_dirs import remove_agent_dirs
-from aifactory.run.store import TaskRunRow, TaskRunStore
 from aifactory.run.task import existing_store, session_dir_of
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 # ``paused`` filters the running runs that wait at a phase boundary (``pause`` = paused)
 RUN_STATES = ("running", "paused", "succeeded", "failed", "aborted", "stopped")
@@ -475,7 +476,7 @@ def start_retry(
     with every agent on that harness (``--harness`` with its model and thinking); it must
     be one of ``harness_choices`` (``invalid_value`` otherwise).
     """
-    from aifactory.run.store import RETRYABLE
+    from aifactory.runstore.rows import RETRYABLE
 
     for key in body:
         if key not in RETRY_KEYS:

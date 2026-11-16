@@ -24,7 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from aifactory.errors import TaskRunError
-from aifactory.run.store import PAUSED, PAUSING, RUNNING, TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import PAUSED, PAUSING, RUNNING, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 POLL_SECONDS = 1.0
 

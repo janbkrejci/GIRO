@@ -16,7 +16,8 @@ from test_auto_continue import T01, T03, open_pr, runs_of, setup_chain
 
 from aifactory.engine.tracer import Tracer
 from aifactory.errors import TaskRunError
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.fixture(name="script")

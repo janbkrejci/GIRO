@@ -46,14 +46,9 @@ from aifactory import home, oscompat
 from aifactory.config import ConfigError
 from aifactory.errors import TaskRunError
 from aifactory.run.policy import acceptance
-from aifactory.run.store import (
-    FAILED,
-    STARTED_AUTO_CONTINUE,
-    STARTED_MANUAL,
-    TaskRunRow,
-    TaskRunStore,
-)
 from aifactory.run.task import TaskRunResult, existing_store, task_runs_for
+from aifactory.runstore.rows import FAILED, STARTED_AUTO_CONTINUE, STARTED_MANUAL, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 CLAIM_POLL = 0.25
 """Least interval (seconds) between checks whether a started member claimed its run."""

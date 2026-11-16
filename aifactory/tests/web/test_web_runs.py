@@ -16,8 +16,8 @@ from starlette.testclient import TestClient
 from trace_fixture import T1, T2, make_repo, make_trace_db
 
 from aifactory import oscompat
-from aifactory.run import TaskRunStore
 from aifactory.run.stop import StopResult
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app
 
@@ -531,7 +531,7 @@ def test_publish_auto_merge_uses_launcher(
     root = make_run_repo(tmp_path / "publish-repo")
     # A completed run whose branch could not be published. The launcher is the API's
     # boundary: it owns all hosting/CI work and reports immediate CLI errors.
-    from aifactory.run.store import TaskRunRow
+    from aifactory.runstore.rows import TaskRunRow
 
     store = TaskRunStore(root / ".factory" / "trace.db")
     try:

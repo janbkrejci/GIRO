@@ -17,7 +17,7 @@ from trace_fixture import _run
 
 from advice_fixture import make_repo, output
 from aifactory.errors import TaskRunError
-from aifactory.run import TaskRunStore
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web.app import create_app
 from aifactory.web.workflow_advice import AdviceManager
 

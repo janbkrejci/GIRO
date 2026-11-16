@@ -13,7 +13,8 @@ from pathlib import Path
 from web_repo import git_repo
 
 from aifactory.engine.tracer import SCHEMA
-from aifactory.run.store import TaskPrRow, TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 T1 = "M01-S01-T01"
 T2 = "M01-S01-T02"

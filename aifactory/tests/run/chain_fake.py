@@ -24,8 +24,10 @@ from run_repo import commit_all, git, write
 
 from aifactory.backlog import Task, load_backlog
 from aifactory.backlog.followup_ids import follow_up_marker
-from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore, policy
+from aifactory.run import policy
 from aifactory.run import task as task_mod
+from aifactory.runstore.rows import TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 FAILED, SUCCEEDED = "failed", "succeeded"
 

@@ -11,7 +11,7 @@ What is read from where:
   stays in the main checkout, shared by all runs; the agents work only in the
   run"s worktree ``<worktrees_dir>/<run-id>``.
 
-Every run is a row in ``task_runs`` in the trace DB (``store.py``). A run that
+Every run is a row in ``task_runs`` in the trace DB (``aifactory.runstore``). A run that
 meets ``accept`` is pushed and gets a pull request, a row in ``task_prs``
 (``aifactory.review``: publish, approve, return, resolve, clean). A resolve
 run (``resolve.py``) rebases a conflicting PR branch onto base. After every
@@ -76,14 +76,6 @@ if TYPE_CHECKING:
     )
     from aifactory.run.retry import retry_run
     from aifactory.run.stop import StopResult, running_run, stop_run
-    from aifactory.run.store import (
-        STOPPED,
-        SyncPrRow,
-        TaskChainRow,
-        TaskPrRow,
-        TaskRunRow,
-        TaskRunStore,
-    )
     from aifactory.run.task import TaskRunResult, run_task, task_prompt, task_prs_for, task_runs_for
 
 __getattr__, __dir__ = lazy_exports(
@@ -124,14 +116,6 @@ __getattr__, __dir__ = lazy_exports(
             "running_run",
             "stop_run",
         ),
-        "aifactory.run.store": (
-            "STOPPED",
-            "SyncPrRow",
-            "TaskChainRow",
-            "TaskPrRow",
-            "TaskRunRow",
-            "TaskRunStore",
-        ),
         "aifactory.run.task": (
             "TaskRunResult",
             "run_task",
@@ -146,7 +130,6 @@ __all__ = [
     "SKIP_REASONS",
     "STOP_DISABLED",
     "STOP_EXHAUSTED",
-    "STOPPED",
     "STOP_FAILED",
     "STOP_NOT_MERGED",
     "ChainResult",
@@ -158,12 +141,7 @@ __all__ = [
     "Skip",
     "Slots",
     "StopResult",
-    "SyncPrRow",
-    "TaskChainRow",
-    "TaskPrRow",
     "TaskRunResult",
-    "TaskRunRow",
-    "TaskRunStore",
     "auto_continue_enabled",
     "auto_merge_enabled",
     "continue_after_merge",

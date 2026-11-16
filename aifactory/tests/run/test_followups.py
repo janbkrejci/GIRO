@@ -24,8 +24,9 @@ from aifactory.backlog.followup_ids import follow_up_marker
 from aifactory.engine.data_types import FollowUp, PlanOutput
 from aifactory.errors import TaskRunError
 from aifactory.review import ReviewError, approve_task
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run.followups import collect, record
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import StepRecord, WorkflowRun
 
 TODO_STEP = "M01-TODO"

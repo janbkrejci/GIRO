@@ -20,7 +20,8 @@ from aifactory.providers import GitProvider
 from aifactory.review.errors import ReviewError
 from aifactory.run.queue import auto_merge_enabled
 from aifactory.run.stack import open_stack, stacked_on
-from aifactory.run.store import STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow, TaskRunStore
+from aifactory.runstore.rows import STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import CodeRunner
 from aifactory.workflow.parse import RESOLVE_WORKFLOW
 

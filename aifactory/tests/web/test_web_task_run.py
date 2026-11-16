@@ -21,7 +21,8 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from aifactory.run import TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app
 from aifactory.web.launcher import RunLauncher

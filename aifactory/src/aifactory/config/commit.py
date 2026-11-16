@@ -138,7 +138,7 @@ def _context(repo: Path) -> _Context:
 
 
 def _store(main: Path) -> RunStore:
-    from aifactory.run.store import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
     try:
         return TaskRunStore(load_local(main).trace_db_path(main))

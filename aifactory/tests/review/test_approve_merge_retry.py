@@ -20,7 +20,9 @@ from aifactory.providers import git as pgit
 from aifactory.providers.azure import AzCli, AzureProvider
 from aifactory.providers.github import GhCli, GitHubProvider
 from aifactory.review import ReviewError, approve_task
-from aifactory.run import TaskPrRow, TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.rows import TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))

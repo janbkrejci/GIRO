@@ -22,8 +22,9 @@ from aifactory import gitops
 from aifactory.config.settings import CONFIG_FILE, parse_project_settings
 from aifactory.errors import TaskRunError
 from aifactory.run.queue import Slots
-from aifactory.run.store import RUNNING, TaskChainRow, TaskRunRow, TaskRunStore
 from aifactory.run.task import existing_store
+from aifactory.runstore.rows import RUNNING, TaskChainRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 JsonDict = dict[str, Any]
 CHAINS_LIMIT = 10

@@ -25,9 +25,6 @@ from aifactory.run import (
     STOP_EXHAUSTED,
     STOP_FAILED,
     ChainResult,
-    TaskPrRow,
-    TaskRunRow,
-    TaskRunStore,
     run_chain,
 )
 from aifactory.run import task as task_mod
@@ -38,7 +35,8 @@ from aifactory.run.heal import (
     auto_heal_enabled,
     switch_text,
 )
-from aifactory.run.store import ABORTED, FAILED, SUCCEEDED
+from aifactory.runstore.rows import ABORTED, FAILED, SUCCEEDED, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 T01, T02 = "M01-S01-T01", "M01-S01-T02"
 STEP = "backlog/M01-core/S01-model"

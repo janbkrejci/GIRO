@@ -18,7 +18,8 @@ from run_repo import SPEC, T01, Script, commit_all, fake_env, git, make_run_repo
 
 from aifactory.providers import git as pgit
 from aifactory.review import ReviewError, publish_task
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))

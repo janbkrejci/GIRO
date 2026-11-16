@@ -20,8 +20,10 @@ from aifactory.providers.github import GitHubProvider
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import approve_task, clean_worktrees, flow
 from aifactory.review.automerge import _hosting_and_merge
-from aifactory.run import TaskPrRow, TaskRunStore, run_task
-from aifactory.run.store import RUNNING, _now
+from aifactory.run import run_task
+from aifactory.runstore.base import _now
+from aifactory.runstore.rows import RUNNING, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))
@@ -342,7 +344,7 @@ def test_cleanup_queries_remote_once_without_blocking_claims(
             pool.submit(claim).result(timeout=5)
         return original(root, remote, prefix)
 
-    monkeypatch.setattr("aifactory.run.store.SERIAL_TIMEOUT", 0.2)
+    monkeypatch.setattr("aifactory.runstore.base.SERIAL_TIMEOUT", 0.2)
     monkeypatch.setattr(pgit, "remote_branches", query)
     monkeypatch.setattr(
         pgit,

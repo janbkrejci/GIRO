@@ -32,7 +32,9 @@ from workflow_fakes import FakeCodeRunner
 import aifactory.review
 from aifactory.cli import main
 from aifactory.review import ReviewError, approve_task, resolve_task
-from aifactory.run import TaskPrRow, TaskRunResult, TaskRunStore, run_task
+from aifactory.run import TaskRunResult, run_task
+from aifactory.runstore.rows import TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import EngineCodeRunner
 from cli_json import run_json
 

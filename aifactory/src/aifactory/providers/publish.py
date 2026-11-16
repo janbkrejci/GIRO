@@ -46,7 +46,7 @@ _READ_ENV = {"GIT_OPTIONAL_LOCKS": "0"}
 
 
 class LiveRun(Protocol):
-    """A running task run as publishing reports it (``run.store.TaskRunRow``)."""
+    """A running task run as publishing reports it (``runstore.rows.TaskRunRow``)."""
 
     @property
     def run_id(self) -> str: ...
@@ -59,7 +59,7 @@ class LiveRun(Protocol):
 
 
 class RunStore(Protocol):
-    """What publishing needs of the trace store (``run.store.RunStore``)."""
+    """What publishing needs of the trace store (``runstore.store.TaskRunStore``)."""
 
     def serialized(self) -> contextlib.AbstractContextManager[None]: ...
 

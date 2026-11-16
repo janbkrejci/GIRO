@@ -69,14 +69,9 @@ from aifactory.review.errors import ReviewError
 from aifactory.review.flow import ApproveResult, approve_task
 from aifactory.run.queue import WAITS_FOR_STACK, auto_merge_enabled
 from aifactory.run.stack import open_stack
-from aifactory.run.store import (
-    MERGED_BY_AUTO,
-    STARTED_AUTO_RESOLVE,
-    SUCCEEDED,
-    TaskPrRow,
-    TaskRunStore,
-)
 from aifactory.run.task import TaskRunResult
+from aifactory.runstore.rows import MERGED_BY_AUTO, STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import output_paths
 from aifactory.workflow import CodeRunner, RoleStep, Workflow, WorkflowRun, walk
 from aifactory.workflow.parse import RESOLVE_REVIEWED_WORKFLOW, named_workflow

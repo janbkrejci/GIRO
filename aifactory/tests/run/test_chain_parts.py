@@ -18,9 +18,9 @@ from aifactory.engine.utils import now_iso
 from aifactory.errors import TaskRunError
 from aifactory.gitops import pr_changed_files
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore
 from aifactory.run.members import launch_error, member_result, parse_envelope
-from aifactory.run.store import TaskChainRow
+from aifactory.runstore.rows import TaskChainRow, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import read_envelope
 from gitcount import count_git
 

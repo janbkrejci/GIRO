@@ -42,13 +42,12 @@ from aifactory.run import (
     STOP_DISABLED,
     STOP_EXHAUSTED,
     STOP_NOT_MERGED,
-    TaskPrRow,
-    TaskRunStore,
     retry_chain,
     run_chain,
     run_task,
 )
-from aifactory.run.store import MERGED_BY_AUTO, MERGED_BY_OPERATOR
+from aifactory.runstore.rows import MERGED_BY_AUTO, MERGED_BY_OPERATOR, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import output_paths
 from aifactory.workflow import EngineCodeRunner
 from cli_json import read_envelope

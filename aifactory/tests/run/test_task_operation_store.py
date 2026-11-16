@@ -7,9 +7,10 @@ import pytest
 
 from aifactory import oscompat
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import store as store_module
 from aifactory.run.queue import Slots
-from aifactory.run.store import TaskRunRow, TaskRunStore
+from aifactory.runstore import runs as store_module
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.mark.parametrize("finished", [False, True])

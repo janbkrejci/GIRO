@@ -32,7 +32,8 @@ from starlette.testclient import TestClient
 
 from aifactory.registry import Registry, RepoEntry
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.store import SyncPrRow, TaskPrRow, TaskRunStore
+from aifactory.runstore.rows import SyncPrRow, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web import overview
 from aifactory.web.app import create_multi_app
@@ -234,7 +235,7 @@ def test_overview_never_uses_task_run_store(
     def refuse(*args: object, **kwargs: object) -> None:
         raise AssertionError("the overview must not open TaskRunStore")
 
-    monkeypatch.setattr("aifactory.run.store.TaskRunStore.__init__", refuse)
+    monkeypatch.setattr("aifactory.runstore.store.TaskRunStore.__init__", refuse)
     a = _get(_client(home, tmp_path))["repos"][0]
     assert a["state"] == "ok"
     assert {r["task_id"] for r in a["running"]} == {T_RUN, T_DEAD}
@@ -1294,7 +1295,7 @@ def test_new_keys_in_stub_and_totals(repo_a: Path, tmp_path: Path) -> None:
 
 
 def test_overview_lists_the_automatic_actions_of_chains(repo_a: Path, tmp_path: Path) -> None:
-    from aifactory.run.store import TaskChainRow
+    from aifactory.runstore.rows import TaskChainRow
 
     store = TaskRunStore(_db(repo_a))
     try:

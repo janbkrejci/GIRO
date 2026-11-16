@@ -16,7 +16,8 @@ from pathlib import Path
 
 from web_repo import git_repo
 
-from aifactory.run.store import TaskPrRow, TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 M01 = "M01"
 M02 = "M02"

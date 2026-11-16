@@ -26,18 +26,16 @@ from aifactory.run import (
     STOP_FAILED,
     STOP_NOT_MERGED,
     Skip,
-    TaskPrRow,
     TaskRunResult,
-    TaskRunRow,
-    TaskRunStore,
     retry_chain,
     run_chain,
     select_next,
 )
 from aifactory.run.members import member_result
-from aifactory.run.store import FAILED, SUCCEEDED
 from aifactory.run.task import blocked_reason
 from aifactory.run.unchanged import finish_unchanged
+from aifactory.runstore.rows import FAILED, SUCCEEDED, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 CORE = "backlog/M01-core"
 STEP = "S01-model"

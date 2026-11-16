@@ -19,7 +19,9 @@ from aifactory.providers.base import OPEN, GitProvider, ProviderError, PullReque
 from aifactory.review.prbody import pr_body, pr_title
 from aifactory.run.followups import CreatedFollowUp
 from aifactory.run.stack import open_stack
-from aifactory.run.store import SUCCEEDED, TaskPrRow, TaskRunRow, TaskRunStore, _now
+from aifactory.runstore.base import _now
+from aifactory.runstore.rows import SUCCEEDED, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import WorkflowRun
 from aifactory.workflow.parse import INTERNAL_WORKFLOWS
 

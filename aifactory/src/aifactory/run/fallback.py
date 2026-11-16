@@ -38,7 +38,8 @@ from aifactory.config import RunConfig
 from aifactory.errors import TaskRunError
 from aifactory.harness.fallback import Fallback
 from aifactory.providers import GitProvider
-from aifactory.run.store import FAILED, TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import FAILED, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import CodeRunner
 
 if TYPE_CHECKING:

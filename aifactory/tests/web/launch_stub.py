@@ -26,7 +26,8 @@ from pathlib import Path
 from typing import Any
 
 from aifactory.errors import TaskRunError
-from aifactory.run.store import RUNNING, SUCCEEDED, TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import RUNNING, SUCCEEDED, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_fail, envelope_ok
 
 STUB_ENV = "GIRO_LAUNCH_STUB"

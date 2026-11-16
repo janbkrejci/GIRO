@@ -10,8 +10,8 @@ from starlette.testclient import TestClient
 from trace_fixture import T1, make_repo, make_trace_db
 
 from aifactory.engine.utils import now_iso
-from aifactory.run import TaskRunStore
-from aifactory.run.store import TaskChainRow
+from aifactory.runstore.rows import TaskChainRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app
 

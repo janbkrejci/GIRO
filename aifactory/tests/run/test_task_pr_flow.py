@@ -16,7 +16,9 @@ from aifactory.providers import PullRequest
 from aifactory.providers import git as pgit
 from aifactory.providers.local import LocalProvider
 from aifactory.review import ReviewError, approve_task, return_task
-from aifactory.run import TaskPrRow, TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.rows import TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json
 
 Capsys = pytest.CaptureFixture[str]

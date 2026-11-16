@@ -69,8 +69,10 @@ from aifactory.run.resolve import (
     restore,
 )
 from aifactory.run.stack import open_stack, stack_point
-from aifactory.run.store import MERGED_BY_AUTO, RUNNING, TaskRunRow, TaskRunStore, _now
 from aifactory.run.workdir import project_workdir
+from aifactory.runstore.base import _now
+from aifactory.runstore.rows import MERGED_BY_AUTO, RUNNING, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import OutputPaths, output_paths, task_scope
 from aifactory.workflow import (
     JOURNAL_FILE,
@@ -444,7 +446,7 @@ def retry_run(
         row = _pick_run(store, task_id, run_id)
         busy = store.running(task_id)
         if busy is not None:
-            from aifactory.run.store import already_running
+            from aifactory.runstore.rows import already_running
 
             raise already_running(busy)
         if row.state == RUNNING or row.state not in ("failed", "stopped", "aborted"):

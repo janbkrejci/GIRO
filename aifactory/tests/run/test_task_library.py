@@ -10,7 +10,8 @@ import pytest
 from run_repo import SPEC, T01, Script, commit_all, fake_env, git, make_run_repo, ok, write
 
 from aifactory.library import store
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.store import TaskRunStore
 
 LIBRARY_PLANNER = "You are the LIBRARY planner.\n"
 SKILL_MD = "---\nname: lint\ndescription: Lint the code.\n---\nRun the linter.\n"

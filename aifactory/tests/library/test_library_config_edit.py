@@ -175,7 +175,8 @@ def library_file(rel: str) -> str:
 
 def _claim(repo: Path, pid: int) -> None:
     from aifactory.config import load_local
-    from aifactory.run.store import RUNNING, TaskRunRow, TaskRunStore
+    from aifactory.runstore.rows import RUNNING, TaskRunRow
+    from aifactory.runstore.store import TaskRunStore
 
     runs = TaskRunStore(load_local(repo).trace_db_path(repo))
     try:

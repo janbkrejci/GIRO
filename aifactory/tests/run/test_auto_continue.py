@@ -22,9 +22,6 @@ from aifactory.run import (
     STOP_FAILED,
     ChainResult,
     Skip,
-    TaskPrRow,
-    TaskRunRow,
-    TaskRunStore,
     run_chain,
     run_task,
     select_next,
@@ -37,7 +34,8 @@ from aifactory.run.queue import (
     priority_order,
     select_ready,
 )
-from aifactory.run.store import Priority, QueuePrefs
+from aifactory.runstore.rows import Priority, QueuePrefs, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import read_envelope
 
 Capsys = pytest.CaptureFixture[str]
@@ -902,7 +900,7 @@ def test_blocked_task_runs_again_in_its_chain_after_its_blocker(repo: Path, scri
 def test_chain_continuation_columns_migrate_and_preserve_claim(tmp_path: Path) -> None:
     import sqlite3
 
-    from aifactory.run.store import TaskChainRow
+    from aifactory.runstore.rows import TaskChainRow
 
     db = tmp_path / "trace.db"
     conn = sqlite3.connect(db)
@@ -941,7 +939,7 @@ def test_chain_continuation_columns_migrate_and_preserve_claim(tmp_path: Path) -
 
 
 def test_latest_chain_ending_with_task_includes_ineligible_newer_chains(tmp_path: Path) -> None:
-    from aifactory.run.store import TaskChainRow
+    from aifactory.runstore.rows import TaskChainRow
 
     store = TaskRunStore(tmp_path / "trace.db")
     try:

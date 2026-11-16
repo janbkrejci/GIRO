@@ -142,7 +142,7 @@ from aifactory.run import task as task_mod
 from aifactory.run.members import ChainRunner, ProcessRunner
 from aifactory.run.policy import DISABLED, DISABLED_MESSAGE, enabled, require_enabled
 from aifactory.run.stack import stack_tip, stacked_on, unmet_ids
-from aifactory.run.store import (
+from aifactory.runstore.rows import (
     ABORTED,
     CHAIN_FINISHED,
     RUNNING,
@@ -153,8 +153,8 @@ from aifactory.run.store import (
     TaskChainRow,
     TaskPrRow,
     TaskRunRow,
-    TaskRunStore,
 )
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import effective_task_writes, is_wide, overlaps
 from aifactory.workflow import CodeRunner
 

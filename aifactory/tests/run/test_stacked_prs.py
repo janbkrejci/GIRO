@@ -22,7 +22,8 @@ from run_repo import (
 
 from aifactory.errors import TaskRunError
 from aifactory.review import ReviewError, approve_task, resolve_task
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web.backlog import run_check
 from aifactory.web.review import review_detail
 

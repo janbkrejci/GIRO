@@ -4,8 +4,8 @@ Every import counts: module level, inside functions and under ``TYPE_CHECKING``.
 
 - Only ``web/``, the CLI and ``skill/`` (it renders the CLI tree) import ``aifactory.web``
   or ``aifactory.cli``; ``__main__`` runs the CLI.
-- ``providers``, ``config``, ``backlog``, ``library`` and ``workflow`` never import
-  ``aifactory.run``.
+- ``providers``, ``config``, ``backlog``, ``library``, ``workflow`` and the trace store
+  ``runstore`` never import ``aifactory.run``.
 """
 
 from __future__ import annotations
@@ -18,13 +18,7 @@ import aifactory
 
 SRC = Path(aifactory.__file__).parent
 TOP_LAYERS = ("web", "cli", "skill", "__main__")
-BELOW_RUN = ("providers", "config", "backlog", "library", "workflow")
-
-# Opening the trace store still needs run.store; these go when the store moves lower.
-ALLOWED = {
-    ("aifactory.config.commit", "aifactory.run.store"),
-    ("aifactory.library.install_commit", "aifactory.run.store"),
-}
+BELOW_RUN = ("providers", "config", "backlog", "library", "workflow", "runstore")
 
 
 def _module(path: Path, src: Path) -> str:
@@ -81,12 +75,8 @@ def _violations(src: Path = SRC) -> frozenset[tuple[str, str]]:
 
 
 def test_lower_layers_do_not_import_upper_layers() -> None:
-    unexpected = sorted(_violations() - ALLOWED)
+    unexpected = sorted(_violations())
     assert not unexpected, "\n".join(f"{module} imports {target}" for module, target in unexpected)
-
-
-def test_allowed_exceptions_are_still_needed() -> None:
-    assert ALLOWED <= _violations(), sorted(ALLOWED - _violations())
 
 
 def test_the_check_sees_every_import_form(tmp_path: Path) -> None:

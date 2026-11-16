@@ -22,7 +22,8 @@ from starlette.testclient import TestClient
 import aifactory.review
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import approve_task, resolve_task
-from aifactory.run import TaskRunResult, TaskRunStore, run_task
+from aifactory.run import TaskRunResult, run_task
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app
 from aifactory.web.review import _review_verdict

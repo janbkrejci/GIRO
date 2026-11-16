@@ -61,19 +61,19 @@ from aifactory.review.errors import ReviewError
 from aifactory.review.prbody import branch_cost
 from aifactory.review.publish import PublishResult, publish
 from aifactory.run.stack import open_stack, stacked_on
-from aifactory.run.store import (
+from aifactory.run.task import TaskRunResult, run_task, session_dir_of
+from aifactory.run.unchanged import finish_unchanged, unchanged
+from aifactory.runstore.base import _now
+from aifactory.runstore.rows import (
     MERGED_BY_OPERATOR,
     RUNNING,
     STARTED_MANUAL,
     SUCCEEDED,
     TaskPrRow,
     TaskRunRow,
-    TaskRunStore,
-    _now,
     already_running,
 )
-from aifactory.run.task import TaskRunResult, run_task, session_dir_of
-from aifactory.run.unchanged import finish_unchanged, unchanged
+from aifactory.runstore.store import TaskRunStore
 from aifactory.scope import matches
 from aifactory.workflow import CodeRunner, WorkflowRun
 from aifactory.workflow.journal import JOURNAL_FILE, read_journal

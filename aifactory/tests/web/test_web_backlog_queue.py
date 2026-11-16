@@ -11,7 +11,7 @@ from backlog_fixture import A1, A2, A3, A4, B1, B2, B3, make_backlog_repo
 from starlette.testclient import TestClient
 
 from aifactory.backlog import parse_frontmatter
-from aifactory.run.store import TaskRunStore
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app
 

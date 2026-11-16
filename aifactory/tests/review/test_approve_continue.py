@@ -21,7 +21,7 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.review import approve_task
 from aifactory.run import continue_after_merge, run_chain
 from aifactory.run import task as task_mod
-from aifactory.run.store import MERGED_BY_AUTO
+from aifactory.runstore.rows import MERGED_BY_AUTO
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 

@@ -34,7 +34,8 @@ from aifactory.providers.azure import AzureProvider
 from aifactory.providers.github import LIST_LIMIT, GitHubProvider
 from aifactory.review import sync
 from aifactory.review.flow import _Ctx
-from aifactory.run.store import SyncPrRow, TaskPrRow, TaskRunStore
+from aifactory.runstore.rows import SyncPrRow, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 
 HEAD = "a" * 40
 MERGE_SHA = "b" * 40

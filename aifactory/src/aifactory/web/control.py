@@ -40,8 +40,8 @@ from aifactory.errors import TaskRunError
 from aifactory.run import pause as run_pause
 from aifactory.run import stop as run_stop
 from aifactory.run.queue import start_factory
-from aifactory.run.store import PAUSED, PAUSING, TaskRunRow
 from aifactory.run.task import existing_store
+from aifactory.runstore.rows import PAUSED, PAUSING, TaskRunRow
 
 if TYPE_CHECKING:
     from aifactory.web.launcher import Launcher
