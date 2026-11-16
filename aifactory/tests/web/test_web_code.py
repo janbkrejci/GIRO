@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 from web_repo import git_repo
 
 from aifactory.codeprint import CodeWatch
-from aifactory.web.app import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
@@ -18,13 +18,13 @@ def _client(tmp_path: Path, restarts: list[str]) -> tuple[TestClient, Path]:
     package = tmp_path / "package"
     package.mkdir()
     (package / "mod.py").write_text("x = 1\n", encoding="utf-8", newline="\n")
-    app = create_app(
+    app = repo_app(
         root,
         static_dir=tmp_path / "nostatic",
         code_watch=CodeWatch(package, ttl=0.0),
         restart=lambda: restarts.append("restart"),
     )
-    return TestClient(app, base_url=BASE), package
+    return RepoClient(app, base_url=BASE), package
 
 
 def test_fresh_dashboard_is_not_stale(tmp_path: Path) -> None:

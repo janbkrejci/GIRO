@@ -17,13 +17,13 @@ from aifactory.errors import TaskRunError
 from aifactory.run.task import session_dir_of
 from aifactory.skill import envelope_problems
 from aifactory.web import runs
-from aifactory.web.app import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _get(client: TestClient, url: str, status: int = 200) -> Any:

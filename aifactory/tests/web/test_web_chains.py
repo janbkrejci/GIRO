@@ -13,13 +13,13 @@ from aifactory.engine.utils import now_iso
 from aifactory.run import TaskRunStore
 from aifactory.run.store import TaskChainRow
 from aifactory.skill import envelope_problems
-from aifactory.web.app import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
 
 def _get(root: Path, tmp_path: Path) -> Any:
-    client = TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    client = RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
     response = client.get("/api/chains")
     body = response.json()
     assert envelope_problems(body) == []
@@ -64,7 +64,7 @@ def test_chain_with_runs_slots_and_skips(tmp_path: Path) -> None:
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _chain(root: Path, row: TaskChainRow, run_ids: list[str], **fields: Any) -> None:

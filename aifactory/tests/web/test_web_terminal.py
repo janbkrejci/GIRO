@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,6 +24,11 @@ def _client(tmp_path: Path, host: str = "127.0.0.1", peer: str = "127.0.0.1") ->
         code_watch=CodeWatch(tmp_path / "code"),
     )
     return TestClient(app, base_url="http://127.0.0.1:4700", client=(peer, 12345))
+
+
+def _python(code: str) -> str:
+    argv = [sys.executable, "-u", "-c", code]
+    return subprocess.list2cmdline(argv) if sys.platform == "win32" else shlex.join(argv)
 
 
 def test_get(tmp_path: Path) -> None:

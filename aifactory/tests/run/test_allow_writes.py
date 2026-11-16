@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 from run_repo import T01, Script, fake_env, git, make_run_repo, ok, write
-from starlette.testclient import TestClient
 
 from aifactory import failure
 from aifactory.backlog import find_task, load_for_edit
@@ -20,8 +19,8 @@ from aifactory.run import TaskRunStore, run_task
 from aifactory.run.allow_writes import allow_writes, plan_allow_writes, violation_paths
 from aifactory.run.store import FAILED, SUCCEEDED
 from aifactory.scope import effective_task_writes
-from aifactory.web.app import create_app
 from cli_json import run_json
+from single_repo import RepoClient, repo_app
 
 Capsys = pytest.CaptureFixture[str]
 TASK_FILE = "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
@@ -167,8 +166,8 @@ class _Launcher:
 def test_dashboard_plan_and_action(repo: Path, script: Script, tmp_path: Path) -> None:
     run_id = _failed_run(repo, script, "README.md", ".factory/x.md")
     launcher = _Launcher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
 
     response = client.get(f"/api/runs/{run_id}/allow-writes")
     assert response.status_code == 200, response.json()
