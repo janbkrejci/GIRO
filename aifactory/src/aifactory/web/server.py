@@ -1,6 +1,6 @@
 """Run the dashboard with uvicorn: on 127.0.0.1 unless the operator picks another address.
 
-``factory obs --host`` or ``HAIFA_DASH_HOST`` (e.g. in ``<HAIFA home>/env``) picks the
+``factory obs --host`` or ``GIRO_DASH_HOST`` (e.g. in ``<HAIFA home>/env``) picks the
 address; 0.0.0.0 serves the whole network, with no login.
 """
 
@@ -21,12 +21,12 @@ from typing import Final
 import uvicorn
 from starlette.types import ASGIApp
 
-from aifactory.environment import value
+from aifactory.environment import aliased, value
 
 HOST: Final = "127.0.0.1"
 """The default address of the dashboard."""
 
-HOST_ENV: Final = "HAIFA_DASH_HOST"
+HOST_ENV: Final = "GIRO_DASH_HOST"
 """Another address for this machine (``--host`` still wins)."""
 
 LOOPBACK: Final = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -37,7 +37,7 @@ _BROWSER_WAIT_S = 10.0
 APP_NAME: Final = "giro-dashboard"
 """``app`` of ``GET /api/health`` that marks a running HAIFA dashboard."""
 
-RESTART_ENV = "HAIFA_OBS_RESTART"
+RESTART_ENV = "GIRO_OBS_RESTART"
 """Set for the process that replaces a restarted dashboard: no new browser tab, port waited for."""
 
 
@@ -50,7 +50,7 @@ class PortInUseError(Exception):
 
 
 def resolve_host(host: str | None) -> str:
-    """``host`` if given, else ``$HAIFA_DASH_HOST``, else 127.0.0.1."""
+    """``host`` if given, else ``$GIRO_DASH_HOST``, else 127.0.0.1."""
     return host or value(HOST_ENV) or HOST
 
 
@@ -122,7 +122,7 @@ def restart_process() -> None:
     Windows has no exec: ``os.execv`` starts a second process and leaves the console to both,
     so the new dashboard gets its own console window and this process exits.
     """
-    os.environ["GIRO_OBS_RESTART"] = os.environ[RESTART_ENV] = "1"
+    os.environ.update(aliased({RESTART_ENV: "1"}))
     sys.stdout.flush()
     sys.stderr.flush()
     if sys.platform == "win32":

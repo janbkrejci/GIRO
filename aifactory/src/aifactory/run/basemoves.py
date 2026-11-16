@@ -9,8 +9,8 @@ blame its agent for the moved ``HEAD``.
 Every factory command that moves a base appends one JSON line to
 ``<git common dir>/haifa/base-moves.jsonl`` *after* the ref moved: the ref, the
 old and new commit, the index tree of the checkout that has the base checked
-out, and ``run`` — the value of ``HAIFA_RUN_ID`` in the process that moved it.
-A task run sets ``HAIFA_RUN_ID`` to its run id while its workflow runs; agents
+out, and ``run`` — the value of ``GIRO_RUN_ID`` in the process that moved it.
+A task run sets ``GIRO_RUN_ID`` to its run id while its workflow runs; agents
 inherit it, and so does every ``factory`` command an agent starts. The guard
 accepts a moved ``HEAD`` only when the journal entries written during the phase
 chain from the ``HEAD`` before the phase to the ``HEAD`` now and none of them
@@ -31,7 +31,7 @@ from pathlib import Path
 from aifactory.environment import value
 from aifactory.run import backup, gitops
 
-RUN_ENV = "HAIFA_RUN_ID"
+RUN_ENV = "GIRO_RUN_ID"
 """Environment variable holding the id of the task run a process belongs to."""
 
 

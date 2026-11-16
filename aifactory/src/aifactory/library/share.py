@@ -1,7 +1,7 @@
 """Library changes reach the remote only as pull requests (HAIFA-S05-T17).
 
-The default team library is ``DEFAULT_LIBRARY_URL``; ``$HAIFA_LIBRARY_URL`` overrides it
-(a company install, like ``HAIFA_UPDATE_REPO``). A change that would go to the remote
+The default team library is ``DEFAULT_LIBRARY_URL``; ``$GIRO_LIBRARY_URL`` overrides it
+(a company install, like ``GIRO_UPDATE_REPO``). A change that would go to the remote
 (``library push``, ``library seed``, import, the move into the library) is committed to
 the local library at once and proposed on a new branch ``haifa-library/...``, never pushed
 to the library branch itself. On GitHub the branch goes to the library repo when the user
@@ -34,7 +34,7 @@ from aifactory.providers import git
 from aifactory.providers.base import ProviderError
 
 DEFAULT_LIBRARY_URL = "https://github.com/janbkrejci/GIRO-LIBRARY.git"
-LIBRARY_URL_ENV = "HAIFA_LIBRARY_URL"
+LIBRARY_URL_ENV = "GIRO_LIBRARY_URL"
 PR_PREFIX = "haifa-library/"
 STATE_FILE = "haifa-pull-requests.json"
 WRITE_PERMISSIONS = ("ADMIN", "MAINTAIN", "WRITE")
@@ -52,7 +52,7 @@ _GITHUB = re.compile(
 
 
 def default_library_url(environ: Mapping[str, str] | None = None) -> str:
-    """``$GIRO_LIBRARY_URL`` (legacy ``$HAIFA_LIBRARY_URL``), else GIRO-LIBRARY."""
+    """``$GIRO_LIBRARY_URL`` (or its legacy alias), else GIRO-LIBRARY."""
     env = os.environ if environ is None else environ
     selected = value(LIBRARY_URL_ENV, env)
     if selected is None:

@@ -27,7 +27,7 @@ def choices() -> dict[str, Any]:
 def test_defaults_project_task_and_explicit_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     monkeypatch.setattr(thinking, "codex_models", lambda: [])
     assert settings.effective_override({}, None) == {}
     settings.write(choices(), tmp_path)
@@ -96,7 +96,7 @@ def test_computer_thinking_inherits_and_respects_model_capabilities(
 ) -> None:
     from aifactory.harness import thinking
 
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     monkeypatch.setattr(thinking, "codex_models", lambda: [])
     value = choices()
     value["harnesses"]["codex"]["thinking"] = "high"
@@ -138,7 +138,7 @@ def test_settings_remain_readable_when_saved_model_disappears(
 def test_legacy_null_uses_computer_model_default_without_writing_on_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     monkeypatch.setattr(thinking, "codex_models", lambda: [])
     monkeypatch.setattr(shutil, "which", lambda _: None)
     original = json.dumps(choices())
@@ -155,7 +155,7 @@ def test_legacy_null_uses_computer_model_default_without_writing_on_read(
 def test_context_binding_uses_computer_and_object_values(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     assert settings.context_binding({}) == {}
     assert settings.context_binding({"model": "orphan", "thinking": "high"}) == {}
     value = choices()
@@ -189,7 +189,7 @@ def test_context_binding_uses_computer_and_object_values(
 def test_explicit_harness_switch_drops_legacy_thinking(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     monkeypatch.setattr(thinking, "codex_models", lambda: [])
     settings.write(choices(), tmp_path)
     assert settings.effective_override(

@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
 
 from aifactory import __version__, oscompat
+from aifactory.environment import names as env_names
 from aifactory.home import load_env_file
 from aifactory.skill.envelope import envelope_fail, envelope_ok, strip_payload
 
@@ -3328,10 +3329,7 @@ def _obs(args: argparse.Namespace) -> int:
 
     host = web_server.resolve_host(args.host)
     url = web_server.dashboard_url(port, host)
-    restarted = bool(
-        os.environ.pop("GIRO_OBS_RESTART", None) or os.environ.pop(web_server.RESTART_ENV, None)
-    )
-    os.environ.pop(web_server.RESTART_ENV, None)
+    restarted = any([os.environ.pop(name, None) for name in env_names(web_server.RESTART_ENV)])
     data: dict[str, Any] = {
         "url": url,
         "host": host,

@@ -46,7 +46,7 @@ class Homes:
     def use(self, name: str) -> Path:
         """Switch both compatible home names to home `name`; its library path."""
         home = self.user / name
-        self.mp.setenv("HAIFA_HOME", str(home))
+        self.mp.setenv("GIRO_HOME", str(home))
         self.mp.setenv("GIRO_HOME", str(home))
         return home / "library"
 

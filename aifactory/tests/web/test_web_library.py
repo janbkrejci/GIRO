@@ -26,7 +26,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     user = tmp_path / "user"
     user.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: user))
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "process-home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "process-home"))
     monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
     monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
     for role in ("AUTHOR", "COMMITTER"):

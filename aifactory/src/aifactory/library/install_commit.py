@@ -3,7 +3,7 @@
 ``plan_init`` renders the same files as the working-tree ``init`` (``config.yaml``; the
 backlog ``.gitkeep`` only when the backlog directory does not exist; the ``.gitignore``
 lines) and turns them into a ``PublishPlan`` against base. Nothing is written anywhere:
-not to the repo, not to the library, not to ``$HAIFA_HOME``. The plan carries what was
+not to the repo, not to the library, not to ``$GIRO_HOME``. The plan carries what was
 detected (remote, base, provider, harness CLIs; ``library.detect``), blockers, warnings
 and a ``digest``. Agents and workflows come from the library at run time
 (``aifactory.library.inherit``).

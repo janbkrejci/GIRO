@@ -322,7 +322,7 @@ def test_init_library_writes_the_factory_skill(
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.setenv("HAIFA_HOME", str(home / ".config" / "haifa"))
+    monkeypatch.setenv("GIRO_HOME", str(home / ".config" / "haifa"))
     monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
@@ -359,7 +359,7 @@ def test_triager_seed_is_read_only() -> None:
 def test_seed_offers_missing_triager(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from aifactory.library.reseed import seed_library
 
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "haifa"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "haifa"))
     monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")

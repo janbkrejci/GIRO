@@ -17,6 +17,8 @@ from typing import Any
 
 from aifactory.engine.data_types import AgentRequest, AgentResult
 from aifactory.engine.utils import operator_env
+from aifactory.environment import aliased
+from aifactory.environment import value as env_value
 from aifactory.harness import codex
 
 SUPPORTED_VERSION = "codex-cli 0.167.2"
@@ -161,14 +163,13 @@ def launch_args(request: AgentRequest, home: Path, repo_id: str | None) -> list[
                 "args": server_args,
                 "required": True,
                 "enabled_tools": ["guide"],
-                "env": {
-                    "GIRO_HOME": str(home),
-                    "HAIFA_HOME": str(home),
-                    "GIRO_GUIDE_REPO": repo_id or "",
-                    "HAIFA_GUIDE_REPO": repo_id or "",
-                    "GIRO_RUN_ID": operator_env().get("HAIFA_RUN_ID", "guide"),
-                    "HAIFA_RUN_ID": operator_env().get("HAIFA_RUN_ID", "guide"),
-                },
+                "env": aliased(
+                    {
+                        "GIRO_HOME": str(home),
+                        "GIRO_GUIDE_REPO": repo_id or "",
+                        "GIRO_RUN_ID": env_value("RUN_ID", operator_env()) or "guide",
+                    }
+                ),
             }
         },
         **{f"features.{name}": False for name in DISABLED_FEATURES},

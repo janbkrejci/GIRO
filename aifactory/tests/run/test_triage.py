@@ -574,7 +574,7 @@ def test_triager_context_binding(
 ) -> None:
     from aifactory.harness import settings, thinking
 
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     monkeypatch.setattr(thinking, "codex_models", lambda: [])
     settings.write(
         {

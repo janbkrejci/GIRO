@@ -1,8 +1,8 @@
 """The HAIFA library in the home directory (AR13, AR14, AR17).
 
-The library is a git repository at ``$HAIFA_HOME/library`` (``$HAIFA_LIBRARY`` overrides
+The library is a git repository at ``$GIRO_HOME/library`` (``$GIRO_LIBRARY`` overrides
 it). Reads use the tree of HEAD, never the working tree. Every write is a plan (files
-with diffs and a digest) applied under the flock ``$HAIFA_HOME/library.lock``: a library
+with diffs and a digest) applied under the flock ``$GIRO_HOME/library.lock``: a library
 with uncommitted changes is refused (``library_dirty``), the commit is built on HEAD
 without a checkout (``providers.git.commit_tree_with``) and the branch and working tree
 are moved by a fast-forward merge. Nothing is forced and no history is rewritten.
@@ -57,7 +57,7 @@ from aifactory.library.tree import (
 from aifactory.providers import git
 from aifactory.providers.publish import PlannedFile, plan_digest
 
-LIBRARY_ENV = "HAIFA_LIBRARY"
+LIBRARY_ENV = "GIRO_LIBRARY"
 LIBRARY_FILE = "library.yaml"
 LOCK_FILE = "library.lock"
 FORMAT = 1
@@ -88,7 +88,7 @@ class LibraryStoreError(Exception):
 
 
 def library_root(environ: Mapping[str, str] | None = None) -> Path:
-    """``$HAIFA_LIBRARY``, else ``$HAIFA_HOME/library``."""
+    """``$GIRO_LIBRARY``, else ``$GIRO_HOME/library``."""
     env = os.environ if environ is None else environ
     explicit = value(LIBRARY_ENV, env)
     if explicit:
@@ -106,7 +106,7 @@ def _home_dir(environ: Mapping[str, str] | None) -> Path:
 
 @contextlib.contextmanager
 def write_lock(environ: Mapping[str, str] | None = None) -> Iterator[None]:
-    """Hold the flock ``$HAIFA_HOME/library.lock`` (blocks until it is free)."""
+    """Hold the flock ``$GIRO_HOME/library.lock`` (blocks until it is free)."""
     path = _home_dir(environ) / LOCK_FILE
     fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
     try:

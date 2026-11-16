@@ -307,7 +307,7 @@ elif name == "uv" and args[:2] == ["tool", "list"]:
 elif name == "uv" and args[:3] == ["tool", "dir", "--bin"]:
     print(os.environ["FAKE_BIN"])
 elif name == "giro" and args == ["--data-home"]:
-    print(os.environ.get("GIRO_HOME") or os.environ["HAIFA_HOME"])
+    print(os.environ["GIRO_HOME"])
 elif name == "giro" and args[:2] == ["library", "status"]:
     if os.environ["FAKE_LIBRARY"] == "missing":
         print(json.dumps({{"ok": False, "error": {{"code": "library_missing", "message": "no"}}}}))
@@ -491,7 +491,7 @@ def test_uninstall_sh_removes_factory_and_data_on_request(
         **os.environ,
         "PATH": f"{_fake_uv_bin(tmp_path)}{os.pathsep}{_system_path()}",
         "UV_LOG": str(log),
-        "HAIFA_HOME": str(home),
+        "GIRO_HOME": str(home),
     }
     proc = subprocess.run(
         [*_install_sh(str(unpacked / "uninstall.sh")), *args],
@@ -534,7 +534,7 @@ def test_uninstall_ps1_removes_factory_and_data_on_request(
     unpacked: Path, tmp_path: Path, args: list[str], kept: bool
 ) -> None:
     home = _haifa_home(tmp_path)
-    env = {**_windows_env(tmp_path), "HAIFA_HOME": str(home)}
+    env = {**_windows_env(tmp_path), "GIRO_HOME": str(home)}
     proc = _uninstall_ps1(unpacked, env, *args)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert _log(env) == [
@@ -549,7 +549,7 @@ def test_uninstall_ps1_removes_factory_and_data_on_request(
 @windows_only
 def test_uninstall_bat_without_an_answer_keeps_the_data(unpacked: Path, tmp_path: Path) -> None:
     home = _haifa_home(tmp_path)
-    env = {**_windows_env(tmp_path), "HAIFA_HOME": str(home)}
+    env = {**_windows_env(tmp_path), "GIRO_HOME": str(home)}
     cmd = shutil.which("cmd", path=env["PATH"])
     assert cmd is not None
     proc = subprocess.run(
@@ -590,7 +590,7 @@ def test_uninstall_sh_protects_a_migration_before_removing_software(
     log = tmp_path / "uv.log"
     env = {
         **os.environ,
-        "HAIFA_HOME": str(home),
+        "GIRO_HOME": str(home),
         "PATH": f"{_fake_uv_bin(tmp_path)}{os.pathsep}{_system_path()}",
         "UV_LOG": str(log),
     }

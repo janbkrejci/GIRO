@@ -37,7 +37,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     user_home.mkdir()
     monkeypatch.setenv("HOME", str(user_home))
     monkeypatch.setenv("USERPROFILE", str(user_home))  # Path.home() on Windows
-    monkeypatch.setenv("HAIFA_HOME", str(user_home / ".config" / "haifa"))
+    monkeypatch.setenv("GIRO_HOME", str(user_home / ".config" / "haifa"))
     monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")

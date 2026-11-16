@@ -1,4 +1,4 @@
-"""Repository-local operating choices in HAIFA_HOME, independent of the dashboard.
+"""Repository-local operating choices in GIRO_HOME, independent of the dashboard.
 
 Consumers must propagate SettingsError and must never reuse an earlier enabled value.
 Automatic starts must be accepted inside automatic_start(), under the update lock.
@@ -235,7 +235,7 @@ class RepositorySettings:
             self._write(settings)
 
     def show(self, settings: RepoSettings | None = None) -> dict[str, Any]:
-        """Common CLI/dashboard payload; resolution uses this instance's HAIFA_HOME."""
+        """Common CLI/dashboard payload; resolution uses this instance's GIRO_HOME."""
         value = self.read() if settings is None else settings
         effective_harness: str | None = value.harness
         if effective_harness is None:

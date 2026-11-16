@@ -9,7 +9,7 @@ Configuration lives in ``.factory/config.yaml``::
       repository: fabrikam-app
 
 Every ``az`` call goes through ``AzCli.run``. The executable is ``az`` found on
-``PATH`` (or ``$AIFACTORY_AZ``); tests put a fake one first on ``PATH``. Every call
+``PATH`` (or ``$GIRO_AZ``); tests put a fake one first on ``PATH``. Every call
 passes ``--output json --only-show-errors``; ``az repos`` calls also pass
 ``--detect false`` and an explicit ``--org`` so nothing is guessed from git remotes.
 
@@ -71,6 +71,7 @@ from typing import Any
 from urllib.parse import quote
 
 from aifactory.config.settings import AzureSettings, ProjectSettings
+from aifactory.environment import names, value
 from aifactory.providers.base import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -144,7 +145,7 @@ class AzCli:
 
     def __init__(self, cwd: Path, executable: str | None = None) -> None:
         self.cwd = cwd
-        self.executable = executable or os.environ.get("AIFACTORY_AZ") or "az"
+        self.executable = executable or value("AZ") or "az"
 
     def _argv(self, args: tuple[str, ...]) -> list[str]:
         if not WINDOWS:
@@ -170,7 +171,7 @@ class AzCli:
         raise ProviderError(
             "az_missing",
             "Unsupported Azure CLI Windows shim; install the Azure CLI MSI or set "
-            "AIFACTORY_AZ to a native executable (not a .cmd/.bat wrapper).",
+            f"{' or '.join(names('AZ'))} to a native executable (not a .cmd/.bat wrapper).",
         )
 
     def run(self, *args: str) -> str:

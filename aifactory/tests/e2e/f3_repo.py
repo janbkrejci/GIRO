@@ -174,7 +174,7 @@ def _server_env(script: Path, wire: Path, home: Path) -> dict[str, str]:
     env = dict(os.environ)
     for key in REMOVED_ENV:
         env.pop(key, None)
-    env["HAIFA_HOME"] = str(home)
+    env["GIRO_HOME"] = str(home)
     env["HAIFA_UPDATE_REPO"] = ""  # Tests never query the real GitHub release API.
     env["HAIFA_VALIDATE_FAKE"] = str(script)
     old = env.get("PYTHONPATH")

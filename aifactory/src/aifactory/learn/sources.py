@@ -9,7 +9,7 @@ prefixed with it (``<repo_id>:<envelope_id>#<n>``), unique across all repos. Key
 the prefix (stored by lessons made from one repo) belong to the repo the lesson came from.
 
 The factory repo is the registered repo holding the HAIFA source: the one named by
-``HAIFA_FACTORY_REPO`` (a registry id), else the one whose ``aifactory/pyproject.toml``
+``GIRO_FACTORY_REPO`` (a registry id), else the one whose ``aifactory/pyproject.toml``
 names the project ``aifactory``.
 """
 
@@ -28,7 +28,7 @@ from aifactory.home import haifa_home
 from aifactory.learn.collect import Objection, collect
 from aifactory.web.registry import ID_RE, Registry, RepoEntry, same_repo
 
-FACTORY_REPO_ENV = "HAIFA_FACTORY_REPO"
+FACTORY_REPO_ENV = "GIRO_FACTORY_REPO"
 FACTORY_PROJECT = "aifactory"
 
 
@@ -87,7 +87,7 @@ def _is_factory(root: Path) -> bool:
 def factory_repo(home: Path | None = None) -> RepoEntry | None:
     """The registered repo holding the HAIFA source, None when there is none.
 
-    ``HAIFA_FACTORY_REPO`` (a registry id) decides when set; an id that is not registered
+    ``GIRO_FACTORY_REPO`` (a registry id) decides when set; an id that is not registered
     gives None.
     """
     entries, _warnings = _entries(home)

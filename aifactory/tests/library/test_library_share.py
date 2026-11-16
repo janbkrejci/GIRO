@@ -74,7 +74,7 @@ class Env:
     def use(self, name: str) -> Path:
         home = self.user / name
         self.mp.setenv("GIRO_HOME", str(home))
-        self.mp.setenv("HAIFA_HOME", str(home))
+        self.mp.setenv("GIRO_HOME", str(home))
         return home / "library"
 
     def guard_main(self) -> None:

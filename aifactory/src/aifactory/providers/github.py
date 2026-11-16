@@ -1,7 +1,7 @@
 """Provider ``github``: pull requests through the ``gh`` CLI.
 
 Every ``gh`` call goes through ``GhCli.run``. The executable is ``gh`` found on
-``PATH`` (or ``$AIFACTORY_GH``); tests put a fake one first on ``PATH``. Bodies go
+``PATH`` (or ``$GIRO_GH``); tests put a fake one first on ``PATH``. Bodies go
 in on stdin (``--body-file -``). Pushing is plain git, not ``gh``.
 
 GitHub computes mergeability lazily and answers ``UNKNOWN`` until it is done, so
@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import Any
 
 from aifactory.config.settings import ProjectSettings
+from aifactory.environment import value
 from aifactory.providers.base import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -128,7 +129,7 @@ class GhCli:
 
     def __init__(self, cwd: Path, executable: str | None = None) -> None:
         self.cwd = cwd
-        self.executable = executable or os.environ.get("AIFACTORY_GH") or "gh"
+        self.executable = executable or value("GH") or "gh"
 
     def run(self, *args: str, stdin: str | None = None, env: dict[str, str] | None = None) -> str:
         try:

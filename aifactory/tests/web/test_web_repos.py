@@ -531,7 +531,7 @@ def test_delete_keeps_factory_in_the_repo(client: TestClient, tmp_path: Path, ho
 
 
 def test_delete_uninstalls(tmp_path: Path) -> None:
-    home = Path(os.environ["HAIFA_HOME"])
+    home = Path(os.environ["GIRO_HOME"])
     client = multi_client(home, tmp_path)
     root = init_repo(tmp_path / "proj")
     _add(client, root)

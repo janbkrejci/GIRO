@@ -28,7 +28,7 @@ invalid JSON, a gate that stays red). ``TaskWriteGuard`` looks at two trees:
   Another factory command may fast-forward the base checked out there during
   the phase (``task approve`` of a concurrent run, ``backlog commit``,
   ``config commit``, ``config pull``). Such commands write the base-move
-  journal (``basemoves.py``) with the ``HAIFA_RUN_ID`` of their process. When
+  journal (``basemoves.py``) with the ``GIRO_RUN_ID`` of their process. When
   the branch is the same and the journal chains the ``HEAD`` before the phase to
   the ``HEAD`` now through moves of other processes only, the move is not a
   breach: the backup is switched to the new ``HEAD`` (and the index recorded
