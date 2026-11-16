@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
 from backlog_repo import T02, index_md, sample_repo, task_md, write
@@ -120,14 +119,15 @@ def test_git_failure_does_not_become_an_empty_backlog(
     settings = load_settings(root)
     with pytest.raises(RuntimeError, match="cannot read committed backlog"):
         load_backlog_at(root, "missing-commit", settings)
-    run = subprocess.run
+    from aifactory import gitrun
+    from gitspy import GitCall, spy_git
 
-    def fail_batch(argv: list[str], **kwargs: Any) -> Any:
-        if argv == ["git", "cat-file", "--batch"]:
-            return subprocess.CompletedProcess(argv, 1, b"", b"cannot read objects")
-        return run(argv, **kwargs)
+    def fail_batch(call: GitCall) -> gitrun.Result | None:
+        if call.argv == ["git", "cat-file", "--batch"]:
+            return gitrun.Result(tuple(call.argv), 1, b"", b"cannot read objects")
+        return None
 
-    monkeypatch.setattr(subprocess, "run", fail_batch)
+    spy_git(monkeypatch, fail_batch)
     with pytest.raises(RuntimeError, match="cannot read objects"):
         load_backlog_at(root, sha, settings)
 
