@@ -66,6 +66,7 @@ from aifactory import guide as guide_chapters
 from aifactory.harness import canonical
 from aifactory.harness import load as load_harness
 from aifactory.harness import settings as harness_settings
+from aifactory.oscompat import atomic_write
 from aifactory.web import assistant_codex
 from aifactory.web import assistant_gate as gate
 from aifactory.web.workflow_advice import Cancellation
@@ -613,13 +614,10 @@ class AssistantManager:
                 self.threads[thread.id] = thread
 
     def _save(self, thread: Thread) -> None:
-        folder = self.root / thread.id
-        folder.mkdir(parents=True, exist_ok=True)
-        temporary = folder / "thread.json.tmp"
-        temporary.write_text(
-            json.dumps(thread.stored(), ensure_ascii=False, indent=2), encoding="utf-8"
+        atomic_write(
+            self.root / thread.id / "thread.json",
+            json.dumps(thread.stored(), ensure_ascii=False, indent=2),
         )
-        temporary.replace(folder / "thread.json")
 
     def _thread(self, thread_id: str) -> Thread:
         self._load()

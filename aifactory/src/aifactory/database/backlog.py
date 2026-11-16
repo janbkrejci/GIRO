@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 from pathlib import Path
 
 from aifactory.backlog.roots import backlog_roots, owning_root
 from aifactory.config.settings import ProjectSettings, load_local
 from aifactory.database import connect, is_remote
+from aifactory.oscompat import atomic_write
 
 
 def _path(root: Path) -> Path | None:
@@ -77,10 +77,7 @@ def _baseline(path: Path) -> Path:
 
 def _save(path: Path, files: dict[str, str]) -> None:
     target = _baseline(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(f".{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(files, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(target)
+    atomic_write(target, json.dumps(files, ensure_ascii=False))
 
 
 def _synchronize(root: Path, settings: ProjectSettings) -> None:

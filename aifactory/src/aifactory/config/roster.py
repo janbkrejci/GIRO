@@ -10,8 +10,6 @@ from __future__ import annotations
 import copy
 import difflib
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +21,7 @@ from aifactory.config.errors import ConfigError, ConfigIssue
 from aifactory.config.loader import AGENTS_FILE, load_config
 from aifactory.config.source import OverlaySource, WorktreeSource, repo_root
 from aifactory.harness import THINKING_LEVELS, canonical, load
+from aifactory.oscompat import atomic_write
 
 PRESETS = {
     "codex": {"harness": "codex", "model": "gpt-6.1-sol", "thinking": "medium"},
@@ -191,17 +190,7 @@ def _finish(
         comments_preserved=preserved,
     )
     if diff and not dry_run:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(prefix=".agents-", suffix=".yaml", dir=path.parent)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-                stream.write(rendered)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, path)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+        atomic_write(path, rendered, fsync=True)
     return result
 
 

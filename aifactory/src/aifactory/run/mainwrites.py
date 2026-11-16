@@ -27,13 +27,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from aifactory.environment import value
+from aifactory.oscompat import atomic_write
 from aifactory.run import backup, gitops
 from aifactory.run.basemoves import RUN_ENV
 
@@ -94,18 +94,7 @@ def _store(blobs: Path, digest: str, data: bytes) -> None:
     target = blobs / digest
     if target.is_file():
         return
-    blobs.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=blobs, prefix=".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-        os.replace(tmp, target)
-    except OSError:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    atomic_write(target, data)
 
 
 def record(
