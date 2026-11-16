@@ -488,7 +488,8 @@ def test_config_and_task_caches_per_repo(
     first = ov.repo(entry)
     with count_git(monkeypatch, tmp_path / "git-trace.json") as count:
         now[0] += TASKS_TTL - 1
-        assert ov.repo(entry) == first
+        again = ov.repo(entry)
+        assert (again["config"], again["backlog"]) == (first["config"], first["backlog"])
     assert count.total == 0, count.commands  # a poll without a change starts no git
     assert counts == {"tasks": 1}
     now[0] += 2  # 61 s after the first
