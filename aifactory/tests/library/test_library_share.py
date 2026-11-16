@@ -238,6 +238,11 @@ def test_reader_sends_a_pull_request_from_a_fork(
 ) -> None:
     _published(env, capsys)
     monkeypatch.setenv("GIT_CONFIG_VALUE_1", f"https://github.com/ada/{fork_name}.git")
+    if fork_name != "GIRO-LIBRARY":
+        # A regression guessing the new name must fail locally, never contact GitHub.
+        monkeypatch.setenv("GIT_CONFIG_COUNT", "3")
+        monkeypatch.setenv("GIT_CONFIG_KEY_2", f"url.{tmp_path / 'missing-fork.git'}.insteadOf")
+        monkeypatch.setenv("GIT_CONFIG_VALUE_2", FORK)
     main = _git(env.bare, "rev-parse", "main")
     log = install_fake_gh(
         tmp_path,
