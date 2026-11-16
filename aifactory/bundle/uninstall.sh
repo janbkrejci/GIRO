@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uninstalls HAIFA (the `factory` tool). --purge also deletes the GIRO home (library, logs,
+# Uninstalls GIRO (the `factory` tool). --purge also deletes the GIRO home (library, logs,
 # env), --keep-data keeps it; without either the script asks on a terminal and keeps the data
 # otherwise. Dependencies and the repositories' .factory/ stay. Bash on macOS and Linux.
 set -euo pipefail
@@ -26,10 +26,6 @@ if [ -x "$launcher" ]; then
     home_dir="$("$launcher" --data-home)"
 else
     home_dir="${GIRO_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/giro}"
-    if [ -z "${GIRO_HOME:-}" ] && [ -e "${XDG_CONFIG_HOME:-$HOME/.config}/haifa" ]; then
-        echo "error: legacy home exists; inspect and set GIRO_HOME explicitly before uninstalling." >&2
-        exit 1
-    fi
 fi
 case "$home_dir" in
     "~") home_dir="$HOME" ;;
@@ -47,11 +43,6 @@ if [ -z "$purge" ] && [ -d "$home_dir" ]; then
         read -r answer
         case "$answer" in y|Y|yes|a|ano) purge="yes" ;; esac
     fi
-fi
-
-if [ "$purge" = "yes" ] && [ -e "$home_dir/giro-migration.json" ]; then
-    echo "error: migration data are protected; use --keep-data and follow the rollback instructions." >&2
-    exit 1
 fi
 
 if uv tool list | grep -q '^aifactory '; then

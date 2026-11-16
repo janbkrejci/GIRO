@@ -38,7 +38,7 @@ Kód návratu:
 - přihlášené `gh` (jinou binárku lze nastavit přes `GIRO_GH`);
 - harnessy rosteru na PATH (šablona: `claude`, `codex` a `pi`).
 
-Skript naklonuje sandbox a z jeho výchozí větve založí novou base větev `haifa-validate/<YYYYMMDD-HHMMSS>`, do které commitne šablonu. `main` sandboxu se nemění. S `--force-with-lease` pushuje jen `task resolve`, a to větev `factory/*`. B1 běží i na githubu s falešným harnessem: hlídač zápisů je kód a model k ověření nepotřebuje.
+Skript naklonuje sandbox a z jeho výchozí větve založí novou base větev `giro-validate/<YYYYMMDD-HHMMSS>`, do které commitne šablonu. `main` sandboxu se nemění. S `--force-with-lease` pushuje jen `task resolve`, a to větev `factory/*`. B1 běží i na githubu s falešným harnessem: hlídač zápisů je kód a model k ověření nepotřebuje.
 
 **azure**: spouští ho engineer ručně, nikdy test. Potřebuje:
 - `GIRO_AZURE_SANDBOX_REPO` v `.env` nebo v prostředí ve tvaru `https://<org>.visualstudio.com/<projekt>/_git/<repo>`, `https://dev.azure.com/<org>/<projekt>/_git/<repo>` (klonovací URL i s `org@`) nebo `<org>/<projekt>/<repo>`;
@@ -49,7 +49,7 @@ Preflight ověří `az --version`, rozšíření, přihlášení (`az account sh
 
 Git se k Azure DevOps přihlašuje přes HTTPS credential helper, který při každém volání gitu vypíše čerstvý token z `az account get-access-token` (resource Azure DevOps), nebo `AZURE_DEVOPS_EXT_PAT`. Helper je v repo-lokální konfiguraci klonu, takže ho sdílejí i worktree, které vytváří GIRO. Globální helpery (třeba keychain) se pro sandbox vypnou, token se nikam neukládá.
 
-Skript naklonuje sandbox a z jeho výchozí větve založí base větev `haifa-validate/<YYYYMMDD-HHMMSS>`. Výchozí větev sandboxu se nemění. Do `.factory/config.yaml` sandboxu přidá sekci `azure` (organizace, projekt, repo). Merge PR mimo giro (R3) jde přes `az repos pr update --status completed --squash true` a validace čeká, až Azure PR dokončí. Zavření PR mimo giro jde přes `az repos pr update --status abandoned`.
+Skript naklonuje sandbox a z jeho výchozí větve založí base větev `giro-validate/<YYYYMMDD-HHMMSS>`. Výchozí větev sandboxu se nemění. Do `.factory/config.yaml` sandboxu přidá sekci `azure` (organizace, projekt, repo). Merge PR mimo giro (R3) jde přes `az repos pr update --status completed --squash true` a validace čeká, až Azure PR dokončí. Zavření PR mimo giro jde přes `az repos pr update --status abandoned`.
 
 ## Azure E2E s povinným schválením (`just validate-azure-e2e`)
 
@@ -80,7 +80,7 @@ Výsledek je `results/<datum>/azure-e2e-<čas>/azure-e2e.json`: `outcome` (`pass
 
 **test → fix (R10)**: `hidden.py` zapíše skrytý test do `<workdir>/hidden/test_text_hidden_slugify.py`, tedy mimo repo i worktree. Požadavek ze zadání nejde odvodit: prázdný slug je `x-empty`, tedy `slugify("!!!") == "x-empty"`. Každý příkaz `giro` dostane proměnnou `GIRO_VALIDATE_HIDDEN=<workdir>/hidden`, ale ta slouží jen jako kanál do `validation.worker`. Worker ji hned odstraní z `os.environ`, takže ji agenti nezdědí, a obalí kódový krok `test` enginu (`aifactory.testing.executor.execute`, spouští kontroly z plánu testera). Jen na dobu tohoto kroku vloží skrytý test do `tests/test_text_hidden_slugify.py` worktree běhu, kde ho najde cílený výběr `test_text*.py` i závěrečný `just test`, a potom ho smaže. Agent ho tak na disku nikdy nevidí a nemůže ho ani odstranit. Cesta je v `info/exclude` sandboxu (ne v `.gitignore`, který agent čte), takže se případný zbytek nikdy necommitne. Proto `test_1` vždy selže. Selhání jde přímo builderovi, proběhne `fix` a po něm nový plán kontrol (`test_plan_1`). Běhy, ve kterých ještě `slugify` neexistuje, skrytý test přeskočí. Hlavní checkout spouští jen viditelné testy. Kontrola `hidden_unseen_by_agents` ověří, že skrytý test žádný agent neviděl.
 
-**review → revise (všechny běhy)**: reviewer v šabloně (`template/.factory/prompts/reviewer/{system,user}.md`) má pravidlo „Validation rule (haifa-validate)“. V prvním kole vždy zamítne a požaduje přidat řádek `# haifa-validate: revised` na konec prvního změněného souboru. Proběhne tedy `revise_1`, `replan_1` (tester podle review znovu zvolí kontroly), `retest_1` a `review_2`, které už schválí. Pravidlo je jen ve validační šabloně, ve výchozí konfiguraci produktu (`aifactory/src/`) není. Hlídá to test. Na githubu rozhoduje skutečný model: když pravidlo nedodrží a schválí hned napoprvé, scénář vyjde `inconclusive`, ne `failed`.
+**review → revise (všechny běhy)**: reviewer v šabloně (`template/.factory/prompts/reviewer/{system,user}.md`) má pravidlo „Validation rule (giro-validate)“. V prvním kole vždy zamítne a požaduje přidat řádek `# giro-validate: revised` na konec prvního změněného souboru. Proběhne tedy `revise_1`, `replan_1` (tester podle review znovu zvolí kontroly), `retest_1` a `review_2`, které už schválí. Pravidlo je jen ve validační šabloně, ve výchozí konfiguraci produktu (`aifactory/src/`) není. Hlídá to test. Na githubu rozhoduje skutečný model: když pravidlo nedodrží a schválí hned napoprvé, scénář vyjde `inconclusive`, ne `failed`.
 
 ## Kolik to stojí na hostingu (github, azure)
 
@@ -90,12 +90,12 @@ Celá sada spustí 13 běhů `simple-sdlc`: R1, R10, 2× R2, R4, v R3 běh `trun
 
 Úklid po běhu na GitHubu dělá engineer ručně:
 - zavři zbylé otevřené PR (`M02-S01-T01` z R4 a případné sync PR `factory-sync/*` z R3) přes `gh pr close <n>`;
-- smaž větve `factory/*` (včetně `factory/M03-*` a `factory/M04-*` z F2), `factory-sync/*` a `haifa-validate/*` vytvořené během, třeba `git push origin --delete haifa-validate/<stamp>`.
+- smaž větve `factory/*` (včetně `factory/M03-*` a `factory/M04-*` z F2), `factory-sync/*` a `giro-validate/*` vytvořené během, třeba `git push origin --delete giro-validate/<stamp>`.
 
 Úklid po běhu na Azure DevOps (s `--keep-workdir`, klon `<workdir>/repo` má credential helper):
 - vypiš aktivní PR: `az repos pr list --org <org-url> --project <projekt> --repository <repo> --status active --detect false -o table`;
-- PR z běhu (cíl `haifa-validate/<stamp>`, třeba sync PR `factory-sync/*` nebo `M02-S01-T01` z R4) opusť přes `az repos pr update --id <n> --org <org-url> --status abandoned`. PR do výchozí větve a PR, které nevytvořil tento běh, nech být;
-- najdi větve běhu: `git -C <workdir>/repo ls-remote --heads origin 'factory/*' 'factory-sync/*' 'haifa-validate/*'` a smaž je: `git -C <workdir>/repo push origin --delete haifa-validate/<stamp> factory/<…> factory-sync/<…>`. Bez klonu jde i `az repos ref delete --name heads/<větev> --object-id <sha> --org <org-url> --project <projekt> --repository <repo>`;
+- PR z běhu (cíl `giro-validate/<stamp>`, třeba sync PR `factory-sync/*` nebo `M02-S01-T01` z R4) opusť přes `az repos pr update --id <n> --org <org-url> --status abandoned`. PR do výchozí větve a PR, které nevytvořil tento běh, nech být;
+- najdi větve běhu: `git -C <workdir>/repo ls-remote --heads origin 'factory/*' 'factory-sync/*' 'giro-validate/*'` a smaž je: `git -C <workdir>/repo push origin --delete giro-validate/<stamp> factory/<…> factory-sync/<…>`. Bez klonu jde i `az repos ref delete --name heads/<větev> --object-id <sha> --org <org-url> --project <projekt> --repository <repo>`;
 - nakonec smaž pracovní adresář. Výchozí větev sandboxu má mít stejný commit jako před během.
 
 ## Výsledky
@@ -130,4 +130,4 @@ JSON scénáře obsahuje tato pole:
 | B1 | Falešný builder zapíše do hlavního checkoutu: nový soubor `B1-breach.md` a řádek do sledovaného `README.md`. Hlídač uchová konfliktní zápisy i zálohu pro porovnání a fáze `build` selže (event `permission_breach`). Běh skončí `run_failed` (exit 1) a neotevře PR. Validátor ověří zachovaný obsah a důkazy; teprve pak uklidí přesné změny vlastní fixture pro další scénáře. Gitignorované soubory hlídač nevidí, proto B1 zapisuje jen do negitignorovaných. |
 | F2 | Akceptace fáze F2 jen přes CLI. Scénář zapíše `index.md` modulů M03 (Unit conversions) a M04 (Statistics) a přes `giro task add` založí 5 tasků s vazbami: `M03-S01-T02` → `M03-S01-T01`, `M04-S01-T02` → `M04-S01-T01` a `M04-S01-T03` → `M03-S01-T01` + `M04-S01-T01` (vazba přes modul). `M03-S01-T01` a `M04-S01-T01` běží současně (`runs_overlapped`) a schválí se. Lokální `auto_continue` se zapne pro `task run M04-S01-T02`, který spustí i `M04-S01-T03` a řetěz skončí `exhausted`; lokální pokračování se vypne. Pak běží `M03-S01-T02` a zbylé tři tasky se schválí přes `task approve`. Kontroly: 5 mergnutých PR, `status: done` a odkaz na PR pod `## Běhy` u všech 5 tasků v base, žádný zápis mimo worktree (stav hlavního checkoutu, event `permission_breach`, do base jen povolené cesty), žádný zbylý worktree, `backlog check` projde a v local režimu i `just test` v čistém checkoutu base. Na ostatních scénářích nezávisí. |
 
-Názvy sandboxů `HAIFA-E2E-*`, `HAIFA-Azure-Sandbox`, interní konstanty `HAIFA_ROOT`/`HAIFA_AGENTS` jsou kompatibilita validačního protokolu. Primární produktové proměnné používají prefix `GIRO_*`.
+Názvy sandboxů `HAIFA-E2E-*`, `HAIFA-Azure-Sandbox`, interní konstanty `GIRO_ROOT`/`GIRO_AGENTS` jsou kompatibilita validačního protokolu. Primární produktové proměnné používají prefix `GIRO_*`.

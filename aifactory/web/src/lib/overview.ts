@@ -181,7 +181,7 @@ export function taskSummary(repo: Pick<OverviewRepo, 'tasks'>): TaskSummaryItem[
   }))
 }
 
-export const SHOW_FINISHED_KEY = 'haifa.overview.showFinished'
+export const SHOW_FINISHED_KEY = 'giro.overview.showFinished'
 
 export function readShowFinished(): boolean {
   try {
@@ -215,7 +215,7 @@ export function isFinishedProject(section: { id: string | null; repo: OverviewRe
   return true
 }
 
-export const BY_PROJECT_KEY = 'haifa.overview.byProject'
+export const BY_PROJECT_KEY = 'giro.overview.byProject'
 
 export function readByProject(): boolean {
   try {

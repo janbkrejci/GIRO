@@ -472,8 +472,8 @@ def test_install_bat_runs_install_ps1_and_passes_its_exit_code(
 # -- uninstall --
 
 
-def _haifa_home(tmp_path: Path) -> Path:
-    home = tmp_path / "haifa-home"
+def _giro_home(tmp_path: Path) -> Path:
+    home = tmp_path / "giro-home"
     (home / "library").mkdir(parents=True)
     (home / "env").write_text("X=1\n", encoding="utf-8")
     return home
@@ -485,7 +485,7 @@ def _haifa_home(tmp_path: Path) -> Path:
 def test_uninstall_sh_removes_factory_and_data_on_request(
     unpacked: Path, tmp_path: Path, args: list[str], kept: bool
 ) -> None:
-    home = _haifa_home(tmp_path)
+    home = _giro_home(tmp_path)
     log = tmp_path / "uv.log"
     env = {
         **os.environ,
@@ -533,7 +533,7 @@ def _uninstall_ps1(
 def test_uninstall_ps1_removes_factory_and_data_on_request(
     unpacked: Path, tmp_path: Path, args: list[str], kept: bool
 ) -> None:
-    home = _haifa_home(tmp_path)
+    home = _giro_home(tmp_path)
     env = {**_windows_env(tmp_path), "GIRO_HOME": str(home)}
     proc = _uninstall_ps1(unpacked, env, *args)
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -548,7 +548,7 @@ def test_uninstall_ps1_removes_factory_and_data_on_request(
 
 @windows_only
 def test_uninstall_bat_without_an_answer_keeps_the_data(unpacked: Path, tmp_path: Path) -> None:
-    home = _haifa_home(tmp_path)
+    home = _giro_home(tmp_path)
     env = {**_windows_env(tmp_path), "GIRO_HOME": str(home)}
     cmd = shutil.which("cmd", path=env["PATH"])
     assert cmd is not None
@@ -580,26 +580,3 @@ def test_install_sh_refuses_an_unrelated_giro_before_installing(
     assert proc.returncode != 0
     assert "giro already exists" in proc.stderr
     assert "tool install" not in log.read_text()
-
-
-def test_uninstall_sh_protects_a_migration_before_removing_software(
-    unpacked: Path, tmp_path: Path
-) -> None:
-    home = _haifa_home(tmp_path)
-    (home / "giro-migration.json").write_text('{"state":"prepared"}')
-    log = tmp_path / "uv.log"
-    env = {
-        **os.environ,
-        "GIRO_HOME": str(home),
-        "PATH": f"{_fake_uv_bin(tmp_path)}{os.pathsep}{_system_path()}",
-        "UV_LOG": str(log),
-    }
-    proc = subprocess.run(
-        [*_install_sh(str(unpacked / "uninstall.sh")), "--purge"],
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode != 0
-    assert (home / "env").exists()
-    assert "tool uninstall" not in log.read_text()

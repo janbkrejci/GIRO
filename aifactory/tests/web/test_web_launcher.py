@@ -187,7 +187,7 @@ def test_run_is_a_separate_process(
         assert record["sid"] == live.pid  # its own session
     assert Path(record["cwd"]).resolve() == repo
     assert record["stdin"] == ""
-    assert record["haifa_home"] == os.environ["GIRO_HOME"]
+    assert record["giro_home"] == os.environ["GIRO_HOME"]
     argv = record["argv"]
     assert argv[:3] == ["task", "run", T01]
     assert argv[3:6] == ["--repo", str(repo), "--json"]
@@ -550,12 +550,12 @@ def test_command_prefix_is_configurable(repo: Path, stub: Stub) -> None:
     assert launcher_module.command_prefix() == DEFAULT_COMMAND
 
 
-def test_haifa_home_resolution(tmp_path: Path) -> None:
-    assert home.haifa_home({"GIRO_HOME": "/x/h", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/h")
-    assert home.haifa_home({"GIRO_HOME": "", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/c/giro")
-    assert home.haifa_home({"XDG_CONFIG_HOME": "", "HOME": "/u"}) == Path("/u/.config/giro")
-    assert home.haifa_home({"HOME": "/u"}) == Path("/u/.config/giro")
-    assert home.haifa_home() == Path(os.environ["GIRO_HOME"])
+def test_giro_home_resolution(tmp_path: Path) -> None:
+    assert home.giro_home({"GIRO_HOME": "/x/h", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/h")
+    assert home.giro_home({"GIRO_HOME": "", "XDG_CONFIG_HOME": "/x/c"}) == Path("/x/c/giro")
+    assert home.giro_home({"XDG_CONFIG_HOME": "", "HOME": "/u"}) == Path("/u/.config/giro")
+    assert home.giro_home({"HOME": "/u"}) == Path("/u/.config/giro")
+    assert home.giro_home() == Path(os.environ["GIRO_HOME"])
     logs = home.logs_dir({"GIRO_HOME": str(tmp_path / "h")})
     assert logs == tmp_path / "h" / "logs"
     if sys.platform != "win32":  # Windows has no POSIX modes

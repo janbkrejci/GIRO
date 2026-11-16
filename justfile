@@ -25,7 +25,7 @@ e2e-install:
 
 # mypy; one cache shared by every worktree of the repo (a fresh worktree would take 60 s instead of 1 s)
 typecheck:
-    cd aifactory && MYPY_CACHE_DIR="$(git rev-parse --path-format=absolute --git-common-dir)/haifa/mypy-cache" uv run mypy
+    cd aifactory && MYPY_CACHE_DIR="$(git rev-parse --path-format=absolute --git-common-dir)/giro/mypy-cache" uv run mypy
 
 # ruff lint and format check
 lint:

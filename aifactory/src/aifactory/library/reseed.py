@@ -1,4 +1,4 @@
-"""Take new seed versions into the library after a HAIFA upgrade (AR16).
+"""Take new seed versions into the library after a GIRO upgrade (AR16).
 
 ``seed`` in ``library.yaml`` records the seed version of every seed item. For each item of
 the installed seed with version S, library head L and recorded version R:

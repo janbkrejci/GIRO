@@ -326,7 +326,7 @@ class _RosterFile:
 
 
 def load_roster_file(path: str | Path) -> SSSFConfig:
-    """Load a HAIFA roster (``.factory/agents.yaml`` format) from ``path``.
+    """Load a GIRO roster (``.factory/agents.yaml`` format) from ``path``.
 
     Raises ``ConfigError`` when the file is missing, unreadable or invalid.
     """

@@ -2,7 +2,7 @@ import { ref } from 'vue'
 
 export type Theme = 'light' | 'dark'
 
-const STORAGE_KEY = 'haifa-theme'
+const STORAGE_KEY = 'giro-theme'
 
 function systemPrefersDark(): boolean {
   return (

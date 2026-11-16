@@ -290,7 +290,7 @@ ADVICE_PREFIX = "factory-advice-"
 # The save step uses its own short-lived "factory-advice-save-" directories.
 _SAVE_PREFIX = "factory-advice-save-"
 _OWNER = "owner.pid"
-# A directory without an owner file (written right after creation, or by an older HAIFA)
+# A directory without an owner file (written right after creation, or by an older GIRO)
 # is an orphan only once it is clearly not being set up at this moment.
 _UNOWNED_GRACE = 3600.0
 _active_lock = threading.Lock()

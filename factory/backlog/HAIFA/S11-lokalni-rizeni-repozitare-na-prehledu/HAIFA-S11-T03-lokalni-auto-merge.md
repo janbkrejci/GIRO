@@ -26,6 +26,6 @@ Hotovo: CLI, worker i Přehled uvádějí stejnou účinnou hodnotu a zdroj; zm�
 
 ## Běhy
 
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-09 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/207 · náklady $0.00
 

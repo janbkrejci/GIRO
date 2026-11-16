@@ -19,9 +19,7 @@ with `giro --skill` and replace the saved copy.
 
 Goal in. Release out.
 
-Startup with legacy HAIFA data in the default `haifa` folder returns `migration_required` and writes nothing; stop HAIFA, then move the folder to the GIRO home or select `GIRO_HOME` explicitly. Two distinct unmarked homes block startup. A home marked by an earlier migration is checked on every start; do not remove the marker to bypass recovery.
-
-`factory` remains a compatibility alias of `giro`. Settings are read only from `GIRO_*` variables; a legacy `HAIFA_*` (or `AIFACTORY_GH`/`AIFACTORY_AZ`) variable is ignored with a warning naming its `GIRO_*` replacement. Process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Browser preferences keep their storage keys at the same origin. Purging a marked migration home is refused; use `--keep-data` / `-KeepData` to preserve data.
+`factory` remains a compatibility alias of `giro`. Settings are read only from `GIRO_*` variables; a legacy `HAIFA_*` (or `AIFACTORY_GH`/`AIFACTORY_AZ`) variable is ignored with a warning naming its `GIRO_*` replacement. Process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY).
 
 ## Prerequisites
 
@@ -1116,7 +1114,7 @@ credential helper).
    unsent local commits as one pull request (`data.pull_request`: `branch`, `url`,
    `number`, `fork`; `pushed: 0` and `pull_request: null` when nothing is unsent;
    `library_behind`, `library_diverged`, `push_failed`, `pr_failed`); `no_remote` without
-   a remote. On GitHub the branch `haifa-library/...` goes to the library repo when the
+   a remote. On GitHub the branch `giro-library/...` goes to the library repo when the
    user may write to it, else to the user's fork (`gh repo fork`); `gh pr create` opens the
    pull request. Other remotes get only the branch. Never merge, approve or force it.
 4. `giro library pull --json` fast-forwards; local commits the remote lacks are rebased

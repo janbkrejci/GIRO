@@ -7,7 +7,7 @@ out in the main checkout. Without more information the guard of run A would
 blame its agent for the moved ``HEAD``.
 
 Every factory command that moves a base appends one JSON line to
-``<git common dir>/haifa/base-moves.jsonl`` *after* the ref moved: the ref, the
+``<git common dir>/giro/base-moves.jsonl`` *after* the ref moved: the ref, the
 old and new commit, the index tree of the checkout that has the base checked
 out, and ``run`` — the value of ``GIRO_RUN_ID`` in the process that moved it.
 A task run sets ``GIRO_RUN_ID`` to its run id while its workflow runs; agents
@@ -48,7 +48,7 @@ class BaseMove:
 def journal(root: Path) -> Path | None:
     """Path of the journal in the git common dir of `root` (None outside a repo)."""
     common = gitops.common_dir(root)
-    return None if common is None else common / "haifa" / "base-moves.jsonl"
+    return None if common is None else common / "giro" / "base-moves.jsonl"
 
 
 def offset(root: Path) -> int:

@@ -17,4 +17,4 @@ Hotovo znamená:
 - Testy `tests/run/` a přímých volajících projdou beze změny chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

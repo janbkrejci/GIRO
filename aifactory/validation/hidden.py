@@ -85,7 +85,7 @@ def wrap_test(original: Callable[[Any, Any], Any], source: Path) -> Callable[[An
         with placed(Path(run.repo_root), source):
             return original(run, plan)
 
-    execute._haifa_hidden = True  # type: ignore[attr-defined]
+    execute._giro_hidden = True  # type: ignore[attr-defined]
     return execute
 
 
@@ -94,7 +94,7 @@ def install(source: Path) -> None:
     hidden test."""
     from aifactory.testing import executor
 
-    if getattr(executor.execute, "_haifa_hidden", False):
+    if getattr(executor.execute, "_giro_hidden", False):
         return
     executor.execute = wrap_test(executor.execute, source)  # type: ignore[assignment]
 

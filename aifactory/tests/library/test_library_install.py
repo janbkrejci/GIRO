@@ -33,7 +33,7 @@ def _git(cwd: Path, *args: str) -> str:
 @pytest.fixture
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """``$GIRO_HOME`` with the library at its default place and a git identity."""
-    path = tmp_path / "haifa-home"
+    path = tmp_path / "giro-home"
     monkeypatch.setenv("GIRO_HOME", str(path))
     monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):

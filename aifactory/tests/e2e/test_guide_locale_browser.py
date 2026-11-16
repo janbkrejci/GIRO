@@ -42,7 +42,7 @@ def test_guide_default_english_saved_czech_and_return_to_english() -> None:
         try:
             page = context.new_page()
             page.route("**/*", _guide_serve)
-            page.goto("http://haifa.test/#/guide/prvni-beh/harnessy-tohoto-pocitace")
+            page.goto("http://giro.test/#/guide/prvni-beh/harnessy-tohoto-pocitace")
             article = page.locator('[data-test="guide-article"]')
             search = page.locator('[data-test="guide-search"]')
             section = article.locator("#harnessy-tohoto-pocitace")
@@ -59,7 +59,7 @@ def test_guide_default_english_saved_czech_and_return_to_english() -> None:
             assert page.locator(".guide").evaluate("el => el.scrollWidth <= el.clientWidth")
 
             # Exercise the saved preference directly; GuideView.test.ts covers live switching.
-            page.evaluate("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.evaluate("localStorage.setItem('giro.dashboard.locale', 'cs')")
             page.reload()
             expect(article.locator("h1")).to_have_text("První běh")
             expect(section).to_have_text("Harnessy tohoto počítače")
@@ -70,11 +70,11 @@ def test_guide_default_english_saved_czech_and_return_to_english() -> None:
             expect(page.locator('[data-test="guide-hit"]').first).to_have_attribute(
                 "href", "#/guide/prvni-beh/harnessy-tohoto-pocitace"
             )
-            page.evaluate("localStorage.setItem('haifa.dashboard.locale', 'en')")
+            page.evaluate("localStorage.setItem('giro.dashboard.locale', 'en')")
             page.reload()
             expect(article.locator("h1")).to_have_text("First run")
             expect(section).to_have_text("Harnesses on this machine")
-            expect(page).to_have_url("http://haifa.test/#/guide/prvni-beh/harnessy-tohoto-pocitace")
+            expect(page).to_have_url("http://giro.test/#/guide/prvni-beh/harnessy-tohoto-pocitace")
         finally:
             context.close()
             browser.close()

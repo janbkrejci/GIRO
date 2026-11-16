@@ -23,5 +23,5 @@ Acceptance:
 Primární reference: https://learn.microsoft.com/en-us/cli/azure/repos/pr?view=azure-cli-latest#az-repos-pr-set-vote ; https://learn.microsoft.com/en-us/azure/devops/repos/git/branch-policies?view=azure-devops . Přečti aktuální help/schema lokální CLI, pokud potřeba.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-06 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/64 · náklady $0.00

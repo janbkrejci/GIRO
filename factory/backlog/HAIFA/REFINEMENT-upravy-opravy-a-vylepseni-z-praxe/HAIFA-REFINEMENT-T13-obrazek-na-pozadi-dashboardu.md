@@ -28,4 +28,4 @@ Kde: `aifactory/web/src/style.css` a `aifactory/web/src/App.vue`. Nový obrázek
 - Neměnit backend API ani Python. Výjimkou je jen vygenerovaný `web/static`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

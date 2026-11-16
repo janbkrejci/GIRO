@@ -18,4 +18,4 @@ Hotovo znamená:
 - Upravené testy a browser test přehledu projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

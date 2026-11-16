@@ -16,5 +16,5 @@ Done means:
 - Roster je v `aifactory/validation/rosters/`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-08 · ručně · `just validate --remote github --roster aifactory/validation/rosters/pi-longcat`: R2, RESOLVE, R3, R4, R5, B1 a F2 passed, R1 a R10 inconclusive (roster bez codexu) · F2 napoprvé failed (model nenalezen v `pi --list-models`), samostatně passed

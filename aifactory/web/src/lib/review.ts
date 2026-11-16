@@ -217,7 +217,7 @@ export function fetchReviews(opts: { done?: boolean } = {}): Promise<ReviewList>
 }
 
 /** localStorage key of the "Zobrazit hotové" choice ('1' or '0'). */
-export const SHOW_DONE_KEY = 'haifa.review.showDone'
+export const SHOW_DONE_KEY = 'giro.review.showDone'
 
 export function loadShowDone(): boolean {
   try {

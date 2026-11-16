@@ -192,7 +192,7 @@ def giro_release(version: str = "1.0.1") -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
-    "failure", ["network", "missing", "draft", "legacy_zip", "foreign_url", "duplicate_asset"]
+    "failure", ["network", "missing", "draft", "foreign_zip", "foreign_url", "duplicate_asset"]
 )
 def test_wrong_or_unavailable_release_is_rejected_and_can_retry(
     failure: str,
@@ -203,11 +203,11 @@ def test_wrong_or_unavailable_release_is_rejected_and_can_retry(
         data["assets"] = []
     elif failure == "draft":
         data["draft"] = True
-    elif failure == "legacy_zip":
-        data["assets"][0]["name"] = "haifa-1.0.1.zip"
+    elif failure == "foreign_zip":
+        data["assets"][0]["name"] = "other-1.0.1.zip"
     elif failure == "foreign_url":
         data["assets"][0]["browser_download_url"] = (
-            "https://github.com/janbkrejci/HAIFA/releases/download/v1.0.1/giro-1.0.1.zip"
+            "https://github.com/janbkrejci/OTHER/releases/download/v1.0.1/giro-1.0.1.zip"
         )
     elif failure == "duplicate_asset":
         data["assets"] *= 2

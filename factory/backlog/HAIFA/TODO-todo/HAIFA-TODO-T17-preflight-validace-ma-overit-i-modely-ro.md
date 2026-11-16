@@ -19,5 +19,5 @@ Důvod: Na macOS prošel preflight `just validate --remote azure` s výchozím r
 <!-- factory: follow-up-of=HAIFA-S90-T04 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-18 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/112 · náklady $1.72

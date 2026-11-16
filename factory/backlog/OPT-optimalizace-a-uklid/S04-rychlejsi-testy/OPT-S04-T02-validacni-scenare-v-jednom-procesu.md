@@ -17,4 +17,4 @@ Hotovo znamená:
 - Testy validace projdou a PR uvádí čas `tests/validation` před a po.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

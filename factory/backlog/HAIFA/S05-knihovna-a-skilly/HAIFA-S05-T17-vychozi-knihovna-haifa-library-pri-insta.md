@@ -27,5 +27,5 @@ Hotovo, když:
 - testy (bez sítě, s falešným `gh` a lokálním remote) pokryjí klon s výchozí URL, fallback bez sítě, PR z větve i z forku a to, že přímý push do `main` knihovny nikdy neproběhne.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-13 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/29 · náklady $6.80

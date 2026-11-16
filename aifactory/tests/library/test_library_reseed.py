@@ -35,12 +35,12 @@ class Env:
         home = tmp / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("GIRO_HOME", str(home / ".config" / "haifa"))
+        monkeypatch.setenv("GIRO_HOME", str(home / ".config" / "giro"))
         monkeypatch.delenv("GIRO_LIBRARY", raising=False)
         for kind in ("AUTHOR", "COMMITTER"):
             monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
             monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")
-        self.lib = home / ".config" / "haifa" / "library"
+        self.lib = home / ".config" / "giro" / "library"
         self.n = 0
 
     def seed(self, agents: dict[str, bytes], workflows: dict[str, bytes]) -> None:

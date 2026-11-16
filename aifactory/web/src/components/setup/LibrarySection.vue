@@ -310,7 +310,7 @@ onBeforeUnmount(() => { generation++ })
         <button :disabled="busy || !!library.dirty || !library.unsent" data-test="library-push" @click="syncWith('push')">{{ t('setup.push') }}</button>
       </div>
       <form v-else class="actions" @submit.prevent="connect">
-        <label>{{ t('setup.emptyRepo') }} <input v-model="remoteUrl" data-test="library-remote-url" :disabled="busy" placeholder="git@github.com:tym/haifa-knihovna.git" /></label>
+        <label>{{ t('setup.emptyRepo') }} <input v-model="remoteUrl" data-test="library-remote-url" :disabled="busy" placeholder="git@github.com:tym/giro-knihovna.git" /></label>
         <button type="submit" :disabled="busy || !remoteUrl.trim()" data-test="library-connect">{{ t('setup.connect') }}</button>
       </form>
     </section>

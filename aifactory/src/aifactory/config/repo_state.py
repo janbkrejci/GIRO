@@ -1,4 +1,4 @@
-"""The state of a repo for HAIFA, read from its base commit.
+"""The state of a repo for GIRO, read from its base commit.
 
 The state is decided by the first matching row, read from the tree of ``base``:
 
@@ -9,7 +9,7 @@ The state is decided by the first matching row, read from the tree of ``base``:
 ``none``         none of these
 ===============  =====================================================================
 
-HAIFA does not convert or run sssf. Agents and workflows the repo lacks are inherited
+GIRO does not convert or run sssf. Agents and workflows the repo lacks are inherited
 from the library (``aifactory.library.inherit``), so ``config.yaml`` is all a repo needs.
 
 Reading only: ``git rev-parse`` (``gitquery.resolve``, cached while the ref files are

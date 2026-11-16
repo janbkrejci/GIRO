@@ -19,5 +19,5 @@ Task `HAIFA-REFINEMENT-T36` na tomto tasku závisí a do jeho dokončení zůst�
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T36 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/57 · náklady $0.88

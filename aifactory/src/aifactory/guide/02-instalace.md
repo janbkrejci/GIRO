@@ -120,9 +120,7 @@ Ve složce rozbaleného balíčku spusť `uninstall.bat` (Windows) nebo `./unins
 
 Bez balíčku stačí `uv tool uninstall aifactory`. Závislosti (git, uv, gh, Node.js, harnessy), konfigurace repozitářů (`.factory/`) a backlog zůstávají.
 
-Pokud start najde jen starý domovský adresář HAIFA (`~/.config/haifa`), skončí chybou `migration_required` a nic nezapíše. Zastav HAIFA a přesuň složku do `~/.config/giro`, nebo nastav `GIRO_HOME`. Marker dřívější migrace neobcházej.
-
-`factory` je kompatibilní alias `giro`. Nastavení se čtou jen z proměnných `GIRO_*`; legacy proměnnou `HAIFA_*` (nebo `AIFACTORY_GH`/`AIFACTORY_AZ`) GIRO ignoruje a varuje s názvem náhrady `GIRO_*`. Zachované technické názvy: `.factory/`, `factory/backlog/`, distribuce `aifactory`, `skill/factory`. Výchozí týmová knihovna je [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Storage klíče zůstávají při stejném originu. Migrační zálohy se nemažou; purge označeného home je zakázán, použij `--keep-data` / `-KeepData`.
+`factory` je kompatibilní alias `giro`. Nastavení se čtou jen z proměnných `GIRO_*`; legacy proměnnou `HAIFA_*` (nebo `AIFACTORY_GH`/`AIFACTORY_AZ`) GIRO ignoruje a varuje s názvem náhrady `GIRO_*`. Zachované technické názvy: `.factory/`, `factory/backlog/`, distribuce `aifactory`, `skill/factory`. Výchozí týmová knihovna je [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY).
 
 ## Licence
 

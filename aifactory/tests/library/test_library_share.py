@@ -224,7 +224,7 @@ def test_writer_sends_a_pull_request_from_a_branch(
 
 
 @pytest.mark.usefixtures("_shared_gh")
-@pytest.mark.parametrize("fork_name", ["GIRO-LIBRARY", "HAIFA-LIBRARY"])
+@pytest.mark.parametrize("fork_name", ["GIRO-LIBRARY", "OTHER-LIBRARY"])
 def test_reader_sends_a_pull_request_from_a_fork(
     env: Env, capsys: Capsys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fork_name: str
 ) -> None:
@@ -253,7 +253,7 @@ def test_reader_sends_a_pull_request_from_a_fork(
     pr = data["pull_request"]
     assert pr["fork"] is True and pr["head_repo"] == f"ada/{fork_name}"
     assert _git(env.fork, "rev-parse", pr["branch"]) == data["commit"]
-    assert _git(env.bare, "for-each-ref", "refs/heads/haifa-library/") == ""
+    assert _git(env.bare, "for-each-ref", "refs/heads/giro-library/") == ""
     assert _git(env.bare, "rev-parse", "main") == main
     fork = next(a for a in log.argvs() if a[:2] == ["repo", "fork"])
     assert fork[2] == "janbkrejci/GIRO-LIBRARY" and "--clone=false" in fork
@@ -288,7 +288,7 @@ def test_main_of_the_library_is_never_pushed(
     assert "notes.md" in files and "skills/lint/SKILL.md" not in files
     assert _ok(capsys, ["library", "push", "--json"])["pull_request"] is None
     refs = env.pushed_refs()
-    assert refs and all(r.startswith("refs/heads/haifa-library/") for r in refs)
+    assert refs and all(r.startswith("refs/heads/giro-library/") for r in refs)
     assert _git(env.bare, "rev-parse", "main") == main
     _no_merge(log)
     # the guard itself: a direct push to main is refused and logged
@@ -348,6 +348,6 @@ def test_missing_fork_does_not_push_to_a_guessed_repository(
         },
     )
     assert _fail(capsys, env.skill("lint"))["code"] == "pr_failed"
-    assert not _git(env.fork, "for-each-ref", "refs/heads/haifa-library/")
+    assert not _git(env.fork, "for-each-ref", "refs/heads/giro-library/")
     assert not any(a[:2] == ["pr", "create"] for a in log.argvs())
     assert env.pushed_refs() == []

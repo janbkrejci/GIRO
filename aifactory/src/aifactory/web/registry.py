@@ -1,11 +1,11 @@
-"""The dashboard's repository registry: ``dashboard.yaml`` in the HAIFA home (D22).
+"""The dashboard's repository registry: ``dashboard.yaml`` in the GIRO home (D22).
 
 The file holds the dashboard port and the repositories it serves, nothing else::
 
     version: 1
     port: 4700
     repos:
-      - {id: haifa, name: HAIFA, path: /abs/path/HAIFA, added_at: "2026-10-04T10:00:00+00:00"}
+      - {id: giro, name: GIRO, path: /abs/path/GIRO, added_at: "2026-10-04T10:00:00+00:00"}
 
 ``.factory/``, the backlog and the trace DB stay in each repository; adding or removing a
 repository writes nothing into it. The home directory is created with mode 0700 and the

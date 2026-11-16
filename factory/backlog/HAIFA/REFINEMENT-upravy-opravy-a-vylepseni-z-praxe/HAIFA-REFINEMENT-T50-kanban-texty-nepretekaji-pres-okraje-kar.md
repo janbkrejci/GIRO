@@ -36,5 +36,5 @@ Na kanbanu stránky Backlog (`aifactory/web/src/components/backlog/KanbanBoard.v
 - Statický build v `aifactory/src/aifactory/web/static/` odpovídá zdrojům.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-19 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/117 · náklady $0.00

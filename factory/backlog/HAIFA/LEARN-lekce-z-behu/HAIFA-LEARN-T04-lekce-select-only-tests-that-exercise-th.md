@@ -49,5 +49,5 @@ Výtky z 8 běhů, ze kterých lekce vznikla:
 <!-- factory: lesson=L0981b3f2 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-25 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/160 · náklady $0.00

@@ -340,7 +340,7 @@ def plan(home: Path, user_home: Path, req: Request) -> tuple[dict[str, Any], lis
                     )
         # Raw URL participates in identity, but only its redacted form is returned.
         stable = {
-            "domain": "haifa-library-api-plan-v1",
+            "domain": "giro-library-api-plan-v1",
             "action": req.action,
             "options": opts,
             "library": str(root),

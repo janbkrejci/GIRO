@@ -97,7 +97,7 @@ def main(argv: list[str]) -> int:
         "pid": os.getpid(),
         "ppid": os.getppid(),
         "stdin": sys.stdin.read(),
-        "haifa_home": os.environ.get("GIRO_HOME"),
+        "giro_home": os.environ.get("GIRO_HOME"),
     }
     out = control.with_name(f"{control.name}.{task_id}.{os.getpid()}.json")
     out.write_text(json.dumps(record), encoding="utf-8", newline="\n")

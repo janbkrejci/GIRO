@@ -19,7 +19,7 @@ from starlette.testclient import TestClient
 
 from aifactory.engine import agent_cc
 from aifactory.engine.data_types import AgentResult
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.web import assistant_gate as gate
 
 SECRET = "s3cr3t-value-0042"
@@ -41,7 +41,7 @@ def machine_settings(monkeypatch: pytest.MonkeyPatch) -> None:
             "pi": settings.HarnessChoice(enabled=False),
         },
     )
-    home = haifa_home()
+    home = giro_home()
     home.mkdir(parents=True, exist_ok=True)
     (home / settings.FILE).write_text(value.model_dump_json())
 
@@ -50,7 +50,7 @@ def machine_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 def setup(tmp_path: Path) -> tuple[TestClient, Path, str]:
     repo = init_repo(tmp_path / "alpha")
     install(repo)
-    client = multi_client(haifa_home(), tmp_path)
+    client = multi_client(giro_home(), tmp_path)
     repo_id = register(client, repo)["id"]
     return client, repo, repo_id
 
@@ -267,7 +267,7 @@ def test_repo_thread_limits_context_commands_and_observation_to_its_repo(
     assert data["messages"][-1]["text"] == "hotovo", data["messages"][-1]
     assert "error" not in data["messages"][-1]
     assert (other / "README.md").read_text(encoding="utf-8") == "another editor\n"
-    restarted = AssistantManager(haifa_home(), lambda: [(repo_id, repo), (other_id, other)])
+    restarted = AssistantManager(giro_home(), lambda: [(repo_id, repo), (other_id, other)])
     assert restarted.get(thread_id)["repo_id"] == repo_id
     restarted.close()
     rejected = client.post(
@@ -307,11 +307,11 @@ def test_legacy_repo_thread_drops_its_global_session(
     fake_harness(monkeypatch)
     thread_id = new_thread(client)
     ask(client, thread_id, "Co běží?", screen={"repo": repo_id})
-    path = haifa_home() / "assistant" / "threads" / thread_id / "thread.json"
+    path = giro_home() / "assistant" / "threads" / thread_id / "thread.json"
     stored = json.loads(path.read_text(encoding="utf-8"))
     stored.pop("repo_id")
     path.write_text(json.dumps(stored), encoding="utf-8")
-    restarted = AssistantManager(haifa_home(), lambda: [(repo_id, repo)])
+    restarted = AssistantManager(giro_home(), lambda: [(repo_id, repo)])
     assert restarted.get(thread_id)["repo_id"] == repo_id
     migrated = json.loads(path.read_text(encoding="utf-8"))
     assert migrated["session_id"] != stored["session_id"]
@@ -324,7 +324,7 @@ def test_secrets_never_reach_the_agent(
 ) -> None:
     client, repo, repo_id = setup
     write(repo, ".env", f"API_TOKEN={SECRET}\n")
-    (haifa_home() / ".env").write_text(f"OTHER={HOME_SECRET}\n", encoding="utf-8")
+    (giro_home() / ".env").write_text(f"OTHER={HOME_SECRET}\n", encoding="utf-8")
     monkeypatch.setenv("GITHUB_TOKEN", ENV_SECRET)
     # A workflow that happens to contain the secret: the gate's output is redacted.
     write(repo, ".factory/workflows/leaky.yaml", f"# {SECRET} {ENV_SECRET}\nsteps: []\n")
@@ -431,7 +431,7 @@ def default_harness_settings(
             "pi": settings.HarnessChoice(model="pi-model"),
         },
     )
-    home = haifa_home()
+    home = giro_home()
     home.mkdir(parents=True, exist_ok=True)
     (home / settings.FILE).write_text(value.model_dump_json())
 
@@ -502,7 +502,7 @@ def fake_codex_guide(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     seen: list[Any] = []
 
     def run(request: Any, **kwargs: Any) -> AgentResult:
-        assert kwargs["home"] == haifa_home()
+        assert kwargs["home"] == giro_home()
         seen.append(request)
         return AgentResult(text="Codex guide", returncode=0, tokens=10, cost=0.0)
 
@@ -556,7 +556,7 @@ def with_task(repo: Path) -> None:
 
 
 def proposal(**fields: Any) -> str:
-    return "```haifa-action\n" + json.dumps(fields) + "\n```"
+    return "```giro-action\n" + json.dumps(fields) + "\n```"
 
 
 def test_proposed_actions_write_nothing_until_confirmed(
@@ -594,7 +594,7 @@ def test_proposed_actions_write_nothing_until_confirmed(
     assert edit["kind"] == "edit_task" and edit["writes"] == ["src/"]
     assert edit["reason"] == "Task píše do src."
     assert {edit["status"], cancel["status"]} == {"proposed"}
-    assert "haifa-action" not in answer["text"]
+    assert "giro-action" not in answer["text"]
     assert "Navrhuji:" in answer["text"] and "Potvrď kartu." in answer["text"]
     assert "unknown kind 'delete_repo'" in answer["text"]
     assert "'nope' is not a registered repository" in answer["text"]
@@ -693,7 +693,7 @@ def test_parse_actions_validates_fields() -> None:
         proposal(kind="follow_up", repo="r", task="T1"),
         proposal(kind="follow_up", repo="r", task="T1", body="x", run="yes"),
         proposal(kind="follow_up", repo="r", task="T1", body="x", writes=["src/"]),
-        "```haifa-action\nnot json\n```",
+        "```giro-action\nnot json\n```",
     ):
         text, actions = parse_actions(bad, {"r"})
         assert actions == [] and text.startswith("> Návrh akce nejde nabídnout")
@@ -707,7 +707,7 @@ def test_delete_removes_the_thread_for_good(
     kept = new_thread(client)
     gone = new_thread(client)
     ask(client, gone, "Ahoj")
-    folder = haifa_home() / "assistant" / "threads" / gone
+    folder = giro_home() / "assistant" / "threads" / gone
     assert (folder / "thread.json").is_file()
     from aifactory.harness.agent_dirs import claude_project_dirs
 
@@ -742,7 +742,7 @@ def test_delete_removes_the_thread_for_good(
     assert missing.status_code == 404
     assert missing.json()["error"]["code"] == "unknown_thread"
     # A restarted dashboard reads the threads from disk: the deleted one stays gone.
-    restarted = multi_client(haifa_home(), tmp_path)
+    restarted = multi_client(giro_home(), tmp_path)
     listed = restarted.get("/api/assistant/threads").json()["data"]["threads"]
     assert [t["id"] for t in listed] == [kept]
     assert restarted.get(f"/api/assistant/threads/{gone}").status_code == 404
@@ -778,7 +778,7 @@ def test_delete_refuses_a_thread_that_answers(
         assert response.json()["error"]["code"] == "busy"
     finally:
         release.set()
-    folder = haifa_home() / "assistant" / "threads" / thread_id
+    folder = giro_home() / "assistant" / "threads" / thread_id
     assert (folder / "thread.json").is_file()
     deadline = time.monotonic() + 60
     while client.get(f"/api/assistant/threads/{thread_id}").json()["data"]["busy"]:
@@ -799,7 +799,7 @@ def project_binding(repo: Path, harness: str = "claude") -> None:
 
 
 def stored_thread(thread_id: str) -> dict[str, Any]:
-    path = haifa_home() / "assistant" / "threads" / thread_id / "thread.json"
+    path = giro_home() / "assistant" / "threads" / thread_id / "thread.json"
     data: dict[str, Any] = json.loads(path.read_text())
     return data
 
@@ -872,7 +872,7 @@ def test_context_binding_survives_messages_and_restart(
     assert seen[0].session_id == seen[1].session_id
     stored = stored_thread(thread_id)
     assert (stored["model"], stored["thinking"]) == expected
-    restarted = AssistantManager(haifa_home(), lambda: [(repo_id, repo)])
+    restarted = AssistantManager(giro_home(), lambda: [(repo_id, repo)])
     try:
         assert restarted.get(thread_id)["model"] == expected[0]
         assert restarted.get(thread_id)["thinking"] == stored["thinking"]
@@ -971,7 +971,7 @@ def test_create_rejects_invalid_context_without_creating_thread(
     assert response.status_code == 400, response.text
     assert response.json()["error"]["code"] == "usage_error"
     assert client.get("/api/assistant/threads").json()["data"]["threads"] == []
-    root = haifa_home() / "assistant/threads"
+    root = giro_home() / "assistant/threads"
     assert not root.exists() or not list(root.iterdir())
 
 
@@ -1041,7 +1041,7 @@ def test_explicit_harness_bypasses_repo_pi_and_persists(
 
     client, repo, repo_id = setup
     default_harness_settings(monkeypatch, "pi")
-    path = haifa_home() / settings.FILE
+    path = giro_home() / settings.FILE
     config = json.loads(path.read_text())
     if pi_state != "enabled":
         config["default_harness"] = "claude"
@@ -1075,7 +1075,7 @@ def test_explicit_harness_bypasses_repo_pi_and_persists(
     ask(client, thread_id, "Druhá")
     stored = stored_thread(thread_id)
     assert tuple(stored[k] for k in ("harness", "model", "thinking")) == expected
-    restarted = AssistantManager(haifa_home(), lambda: [(repo_id, repo)])
+    restarted = AssistantManager(giro_home(), lambda: [(repo_id, repo)])
     try:
         detail = restarted.get(thread_id)
         assert tuple(detail[k] for k in ("harness", "model", "thinking")) == expected
@@ -1114,7 +1114,7 @@ def test_explicit_harness_is_refused_without_thread_or_adapter(
 
     client, _repo, _repo_id = setup
     default_harness_settings(monkeypatch, "pi")
-    path = haifa_home() / settings.FILE
+    path = giro_home() / settings.FILE
     config = json.loads(path.read_text())
     choice = config["harnesses"]["codex"]
     if invalid == "disabled":
@@ -1122,7 +1122,7 @@ def test_explicit_harness_is_refused_without_thread_or_adapter(
     elif invalid == "no_model":
         choice["model"] = ""
     elif invalid == "failed":
-        (haifa_home() / settings.TEST_FILE).write_text(
+        (giro_home() / settings.TEST_FILE).write_text(
             json.dumps({"codex": {"gpt-5.5": {"ok": False}}})
         )
     path.write_text(json.dumps(config))
@@ -1134,7 +1134,7 @@ def test_explicit_harness_is_refused_without_thread_or_adapter(
     assert response.json()["error"]["code"] == "harness_unavailable"
     assert response.json()["error"]["message"]
     assert client.get("/api/assistant/threads").json()["data"]["threads"] == []
-    root = haifa_home() / "assistant/threads"
+    root = giro_home() / "assistant/threads"
     assert not root.exists() or not list(root.iterdir())
     assert not any(seen)
 
@@ -1161,7 +1161,7 @@ def test_harness_list_uses_local_rules_without_running_models(
 
     client, _repo, _repo_id = setup
     default_harness_settings(monkeypatch, "pi")
-    path = haifa_home() / settings.FILE
+    path = giro_home() / settings.FILE
     config = json.loads(path.read_text())
     choice = config["harnesses"]["codex"]
     choice["thinking"] = "high"
@@ -1172,7 +1172,7 @@ def test_harness_list_uses_local_rules_without_running_models(
     elif state == "thinking":
         choice["thinking"] = "invalid"
     elif state == "failed":
-        (haifa_home() / settings.TEST_FILE).write_text(
+        (giro_home() / settings.TEST_FILE).write_text(
             json.dumps({"codex": {"gpt-5.5": {"ok": False}}})
         )
     path.write_text(json.dumps(config))
@@ -1200,7 +1200,7 @@ def test_harness_list_uses_local_rules_without_running_models(
             reason = "local model" if state == "no_model" else "failed its test"
             assert reason in codex["reason"]
     assert not any(seen)
-    assert not (haifa_home() / "assistant/threads").exists()
+    assert not (giro_home() / "assistant/threads").exists()
 
 
 def test_reloaded_pi_thread_cannot_run(
@@ -1212,12 +1212,12 @@ def test_reloaded_pi_thread_cannot_run(
     client, repo, repo_id = setup
     default_harness_settings(monkeypatch, "pi")
     thread_id = new_thread(client)
-    path = haifa_home() / "assistant/threads" / thread_id / "thread.json"
+    path = giro_home() / "assistant/threads" / thread_id / "thread.json"
     stored = stored_thread(thread_id)
     stored["harness"] = "pi"
     path.write_text(json.dumps(stored))
     pi = fake_unlimited(monkeypatch, "pi")
-    restarted = AssistantManager(haifa_home(), lambda: [(repo_id, repo)])
+    restarted = AssistantManager(giro_home(), lambda: [(repo_id, repo)])
     try:
         assert restarted.get(thread_id)["harness"] == "pi"
         with pytest.raises(AssistantError, match="cannot run on pi"):
@@ -1233,7 +1233,7 @@ def test_harness_list_reports_malformed_computer_settings(
     from aifactory.harness import settings
 
     client, _repo, _repo_id = setup
-    path = haifa_home() / settings.FILE
+    path = giro_home() / settings.FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("invalid json")
     response = client.get("/api/assistant/harnesses")

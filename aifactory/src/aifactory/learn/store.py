@@ -73,7 +73,7 @@ class LessonStore:
         self.conn.execute(f"PRAGMA busy_timeout={int(BUSY_TIMEOUT * 1000)};")
         self.conn.executescript(_SCHEMA)
         columns = {str(r[1]) for r in self.conn.execute("PRAGMA table_info(learn_lessons)")}
-        if "task_id" not in columns:  # a table of an older HAIFA
+        if "task_id" not in columns:  # a table of an older GIRO
             self.conn.execute("ALTER TABLE learn_lessons ADD COLUMN task_id TEXT")
         if "origin" not in columns:  # a table from before ``factory learn scan --all``
             self.conn.execute(

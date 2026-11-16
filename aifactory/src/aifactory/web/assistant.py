@@ -33,7 +33,7 @@ and the registered repositories. Every message may carry the screen the user is 
 (``screen: {repo, task, run}``). Values of ``.env`` files and secret-looking environment
 variables are redacted from everything sent to the agent (``assistant_gate.redact``).
 
-Instead of a change the guide may propose one: a fenced ``haifa-action`` block with a JSON
+Instead of a change the guide may propose one: a fenced ``giro-action`` block with a JSON
 object of one of ``ACTION_FIELDS`` (create or edit a task, run a task, retry a run, approve a
 PR, cancel a task, follow up a done task). The answer keeps the validated proposals in
 ``actions`` (``status: proposed``) and drops the blocks from its text. The guide never
@@ -80,7 +80,7 @@ MAX_TEXT = 20_000
 MAX_SCREEN = 200
 MAX_TURNS = 2
 MAX_ACTIONS = 5
-ACTION_FENCE = re.compile(r"^```haifa-action[ \t]*\r?\n(.*?)^```[ \t]*$", re.S | re.M)
+ACTION_FENCE = re.compile(r"^```giro-action[ \t]*\r?\n(.*?)^```[ \t]*$", re.S | re.M)
 ACTION_STATES = ("done", "failed", "dismissed")
 # The fields of each proposal kind: name -> (type, required). ``repo`` is always required.
 ACTION_FIELDS: dict[str, dict[str, tuple[type, bool]]] = {
@@ -407,7 +407,7 @@ def _action(raw: Any, repo_ids: set[str]) -> dict[str, Any]:
 
 
 def parse_actions(text: str, repo_ids: set[str]) -> tuple[str, list[dict[str, Any]]]:
-    """The answer without its ``haifa-action`` blocks and the valid proposals in them.
+    """The answer without its ``giro-action`` blocks and the valid proposals in them.
 
     A block that is not a valid proposal is replaced by a note with the reason, so the user
     sees that the guide proposed something the dashboard cannot offer.
@@ -456,7 +456,7 @@ def _git(cwd: Path, *args: str) -> None:
         "-c",
         "user.name=GIRO guide",
         "-c",
-        "user.email=guide@haifa.invalid",
+        "user.email=guide@giro.invalid",
         "-c",
         "commit.gpgsign=false",
         *args,

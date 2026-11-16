@@ -554,17 +554,17 @@ export function linkify(markdown: string, repo: string | null): string {
     .join('\n')
 }
 
-const ACTION_OPEN = '```haifa-action'
+const ACTION_OPEN = '```giro-action'
 
 export interface StreamedAnswer {
-  /** The streamed text without its `haifa-action` blocks. */
+  /** The streamed text without its `giro-action` blocks. */
   text: string
   /** How many proposals the text holds so far; each shows as a placeholder card. */
   pending: number
 }
 
 /**
- * A streamed answer split for rendering: the `haifa-action` blocks, closed or still being
+ * A streamed answer split for rendering: the `giro-action` blocks, closed or still being
  * written, leave the text and count as pending proposals. Their cards come with the finished
  * message. A last line that may still grow into the block's opening fence is held back too.
  */
@@ -578,7 +578,7 @@ export function streamedAnswer(text: string): StreamedAnswer {
       if (/^```[ \t]*\r?$/.test(row)) inAction = false
       return
     }
-    if (/^```haifa-action[ \t]*\r?$/.test(row)) {
+    if (/^```giro-action[ \t]*\r?$/.test(row)) {
       inAction = true
       pending += 1
       return
@@ -592,8 +592,8 @@ export function streamedAnswer(text: string): StreamedAnswer {
 
 // ── the conversation state ───────────────────────────────────────────────────────────────
 
-const STORE_THREAD = 'haifa.assistant.thread'
-const STORE_OPEN = 'haifa.assistant.open'
+const STORE_THREAD = 'giro.assistant.thread'
+const STORE_OPEN = 'giro.assistant.open'
 const RECONNECT_MS = 1500
 
 export interface Streaming {

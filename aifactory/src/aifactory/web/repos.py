@@ -3,7 +3,7 @@
 ``inspect_repo`` and ``vet_path`` look at a folder the dashboard may not know yet. They
 only read: ``~`` is expanded, the folder must exist, the repository's top level is taken
 and the only git commands are ``rev-parse``, ``cat-file``, ``ls-tree``, ``for-each-ref``
-and ``remote get-url`` (with ``GIT_OPTIONAL_LOCKS=0``). HAIFA never runs ``git init``.
+and ``remote get-url`` (with ``GIT_OPTIONAL_LOCKS=0``). GIRO never runs ``git init``.
 A folder without git, a bare repository, a linked worktree (the main checkout is offered),
 a path under ``.factory/worktrees/``, a repository without a commit and a repository whose
 trace DB another registered repository already uses are refused.

@@ -35,5 +35,5 @@ Ověřte, že řetěz auto-continue nikdy nespustí task z jiného projektu (ko�
 - Aktualizovaný docstring `run/queue.py` a návod `guide/06-behy.md`, pokud popisují zastavení po selhání.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/48 · náklady $2.11

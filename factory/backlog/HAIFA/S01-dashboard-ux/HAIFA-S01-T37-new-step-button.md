@@ -11,5 +11,5 @@ depends_on: []
 Na dashboardu umíme new project a new task, ale ne new step, dodělat
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-07 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/85 · náklady $0.00

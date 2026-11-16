@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.learn.collect import collect
 from aifactory.learn.sources import (
     FACTORY_REPO_ENV,
@@ -49,7 +49,7 @@ def test_registered_repos_skips_a_missing_repo_and_one_without_trace_db(
     shutil.rmtree(repos["alpha"])
     (repos["beta"] / ".factory/trace.db").unlink()
 
-    found, warnings = registered_repos(home=haifa_home())
+    found, warnings = registered_repos(home=giro_home())
 
     assert found == []
     assert len(warnings) == 2

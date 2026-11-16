@@ -1,4 +1,4 @@
-"""The ``library`` rule group: the library in ``$GIRO_HOME`` and the installed HAIFA.
+"""The ``library`` rule group: the library in ``$GIRO_HOME`` and the installed GIRO.
 
 Everything comes from one ``library_status(fetch=False)``: ahead/behind compare the
 library with its local remote-tracking ref, so they are as of the last fetch. Nothing

@@ -20,5 +20,5 @@ Důvod: HAIFA-S08-T04 replaces the decision 'Záložní harness při vyčerpané
 <!-- factory: follow-up-of=HAIFA-S08-T04 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/98 · náklady $0.44

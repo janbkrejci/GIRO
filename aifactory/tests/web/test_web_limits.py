@@ -46,7 +46,7 @@ def test_used_harnesses_without_config(tmp_path: Path) -> None:
     assert used_harnesses(tmp_path) == []
 
 
-# -- Claude: rate_limit_event in the agent outputs of HAIFA runs ---------------------------
+# -- Claude: rate_limit_event in the agent outputs of GIRO runs ---------------------------
 
 
 def _rate_event(five: float, week: float, five_resets: float, week_resets: float) -> str:

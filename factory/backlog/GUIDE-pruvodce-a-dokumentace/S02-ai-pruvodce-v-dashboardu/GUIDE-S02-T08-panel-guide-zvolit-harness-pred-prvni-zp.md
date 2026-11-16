@@ -29,5 +29,5 @@ Hotovo znamená:
 - Projdou just lint, just typecheck, just web-test, just web-build, just pytest tests/e2e/test_assistant_browser.py -n0 a relevantní kontroly příručky v tests/test_guide.py a tests/test_guide_consistency.py; všechny editované testovací soubory jsou spuštěny.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-14 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/226 · náklady $0.00

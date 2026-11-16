@@ -31,5 +31,5 @@ Pevná omezení:
 - Testy nevolají model.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-04 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/55 · náklady $4.58

@@ -38,7 +38,7 @@ How the Codex CLI (checked against codex-cli 0.160.0) is driven:
   ``extra_args`` and ``env_overrides`` (``web/assistant_codex.py``); ordinary
   factory calls leave these empty and keep native repo tools and skills.
   ``request.disallowed_commands`` is ignored too: ``codex exec`` has no flag to
-  forbid a shell command (``SUPPORTS_DISALLOWED_COMMANDS``), which HAIFA reports
+  forbid a shell command (``SUPPORTS_DISALLOWED_COMMANDS``), which GIRO reports
   at ``factory check`` and when a run starts.
   ``request.extensions`` is ignored: ``agents.validate`` refuses
   ``harness_engineering`` for every harness except pi.

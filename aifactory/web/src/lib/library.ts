@@ -86,10 +86,10 @@ export function findingGroup(f: CheckFinding): string {
   if (/harness|^pi_model_|^node_/.test(f.code)) return 'harnesses'
   if (/^gh_|^az_|^azure_|^hosting_|^github_/.test(f.code)) return 'hosting'
   if (/^git_|^uv_|^just_/.test(f.code)) return 'tools'
-  if (/factory|haifa|version/.test(f.code)) return 'haifa'
+  if (/factory|version/.test(f.code)) return 'giro'
   return 'environment'
 }
-export const FINDING_GROUPS = ['haifa', 'tools', 'harnesses', 'hosting', 'library', 'environment'] as const
+export const FINDING_GROUPS = ['giro', 'tools', 'harnesses', 'hosting', 'library', 'environment'] as const
 /** The groups of the machine findings on #/setup; library findings are in the library section. */
 export const MACHINE_GROUPS = FINDING_GROUPS.filter(name => name !== 'library')
 export function versionLabel(item: { n?: number; short_version?: string | null; version?: string | null }): string {
@@ -106,7 +106,7 @@ export function saveIgnore(repo: string, rules: IgnoreRule[]): Promise<RepoInven
 export function fetchRepoItem(item: RepoLibraryItem): Promise<RepoItemDetail> { return postGlobal('/library/repo-item', { repo: item.repo, type: item.type, path: item.path }) }
 
 export function groupLabel(group: typeof FINDING_GROUPS[number]): string {
-  if (group === 'haifa') return 'GIRO'
+  if (group === 'giro') return 'GIRO'
   if (group === 'hosting') return 'Hosting'
   return t(`setup.${group}`)
 }

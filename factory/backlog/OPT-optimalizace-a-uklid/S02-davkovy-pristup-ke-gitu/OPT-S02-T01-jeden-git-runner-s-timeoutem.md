@@ -23,4 +23,4 @@ Hotovo znamená:
 - Mimo `engine/` a runner žádný kód nevolá `subprocess` s `git`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

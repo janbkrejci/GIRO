@@ -21,4 +21,4 @@ Hotovo znamená:
 - PR uvádí počet modulů načtených pro `giro --help` před a po.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

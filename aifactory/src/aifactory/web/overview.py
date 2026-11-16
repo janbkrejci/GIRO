@@ -188,11 +188,11 @@ def _row_process(row: sqlite3.Row) -> str:
 
 
 def _ownership(conn: sqlite3.Connection, id_column: str) -> str:
-    if not _has_table(conn, "haifa_owners"):
+    if not _has_table(conn, "giro_owners"):
         return "1 AS owned_here"
     # MACHINE is a generated hexadecimal identity, never supplied by a request.
     return (
-        f"COALESCE((SELECT machine = '{database.MACHINE}' FROM haifa_owners "
+        f"COALESCE((SELECT machine = '{database.MACHINE}' FROM giro_owners "
         f"WHERE id = {id_column}), 0) AS owned_here"
     )
 

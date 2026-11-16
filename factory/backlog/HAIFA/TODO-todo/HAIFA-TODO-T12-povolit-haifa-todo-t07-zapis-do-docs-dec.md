@@ -22,5 +22,5 @@ Task `HAIFA-TODO-T07` na tomto tasku závisí a do jeho dokončení zůstává b
 <!-- factory: follow-up-of=HAIFA-TODO-T07 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · hotovo ručně

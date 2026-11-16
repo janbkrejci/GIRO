@@ -33,5 +33,5 @@ Hotovo znamená:
 - Task s auto-merge dál ukazuje `awaiting merge`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/133 · náklady $0.00

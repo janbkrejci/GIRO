@@ -22,4 +22,4 @@ Hotovo znamená:
 Pevná omezení: `vendor/` a `prototype/` se nemění.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

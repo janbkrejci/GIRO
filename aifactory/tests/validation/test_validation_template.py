@@ -27,7 +27,7 @@ from cli_json import run_json
 from validation import fake_scripts, hidden, sandbox
 
 Capsys = pytest.CaptureFixture[str]
-RULE_TAG = "haifa-validate"
+RULE_TAG = "giro-validate"
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -101,7 +101,7 @@ def test_workflow_names_three_harnesses(
     repo: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # `workflow check` reads the roster of the working tree: the sandbox's, not the one of
-    # the repository running the tests (HAIFA's own .factory/ has other models).
+    # the repository running the tests (this repo's own .factory/ has other models).
     monkeypatch.chdir(repo)
     # pi's catalog comes from `pi --list-models` of this machine; fake it with the models the
     # sandbox names, so the check does not depend on what the operator's pi lists today.

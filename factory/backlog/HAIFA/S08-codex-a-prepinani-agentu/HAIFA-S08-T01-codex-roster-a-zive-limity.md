@@ -23,5 +23,5 @@ Done means:
 Official references: https://developers.openai.com/api/docs/models/gpt-6.1-sol and https://learn.chatgpt.com/docs/app-server (account/rateLimits/read schema). Use local Codex help/schema if needed.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-06 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/63 · náklady $0.00

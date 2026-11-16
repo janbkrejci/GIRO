@@ -18,4 +18,4 @@ Hotovo znamená:
 - Test ověří, že záznam follow-upů nevytvoří rozbalený backlog na disku a počet procesů gitu nezávisí na počtu souborů.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

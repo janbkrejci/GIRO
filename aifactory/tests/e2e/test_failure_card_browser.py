@@ -67,7 +67,7 @@ def test_failure_card_of_a_failed_run(tmp_path: Path) -> None:
     ]
     script.write_text(json.dumps(data), encoding="utf-8")
     wire, marker = tripwire(tmp_path / "wire")
-    log, home = tmp_path / "obs.log", tmp_path / "haifa-home"
+    log, home = tmp_path / "obs.log", tmp_path / "giro-home"
     with obs_server(repo, script, wire, log, home) as obs, sync_playwright() as p:
         server = Server(
             repo, obs.url, log, script, marker, git(repo, "rev-parse", "HEAD"), home, obs.repo_id
@@ -86,7 +86,7 @@ def test_failure_card_of_a_failed_run(tmp_path: Path) -> None:
 
         context.route("**/*", only_local)
         page = context.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         try:
             page.goto(f"/#/r/{obs.repo_id}/backlog")
             task_id = _create_task(page, "Failing task", "Keep the existing implementation.")

@@ -17,4 +17,4 @@ Hotovo znamená:
 - Test ověří nastavení chybějící hodnoty a zachování existující.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

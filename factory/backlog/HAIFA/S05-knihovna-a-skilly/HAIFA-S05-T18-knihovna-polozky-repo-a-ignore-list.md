@@ -24,5 +24,5 @@ Požadované chování a akceptace:
 Výchozí místa: aifactory/web/src/components/setup/LibrarySection.vue, components/factory/RepoItems.vue, lib/library.ts, aifactory/src/aifactory/web/library.py a existující inventář položek repa. Implementovat jako jeden souvislý task s odpovídajícími API, persistencí, UI a testy.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-21 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/145 · náklady $0.00

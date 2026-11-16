@@ -20,5 +20,5 @@ Hotovo, když:
 - běhy tasků i návrh workflow fungují dál na Linuxu, macOS i Windows.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-12 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/22 · náklady $3.68

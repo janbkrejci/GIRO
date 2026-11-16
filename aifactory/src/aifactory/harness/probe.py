@@ -33,7 +33,7 @@ def run_probe(name: str, model: str, thinking: str | None = None) -> dict[str, A
     binary = installed_path(name)
     if binary is None:
         return {"ok": False, "error": "Harness není nainstalovaný."}
-    with tempfile.TemporaryDirectory(prefix="haifa-harness-test-") as folder:
+    with tempfile.TemporaryDirectory(prefix="giro-harness-test-") as folder:
         output = Path(folder) / "answer.txt"
         if name == "claude":
             command = [

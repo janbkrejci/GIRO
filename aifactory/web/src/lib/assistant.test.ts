@@ -246,19 +246,19 @@ describe('deleteThread', () => {
 })
 
 describe('streamedAnswer', () => {
-  it('hides an unclosed haifa-action block and counts it as pending', () => {
-    const text = 'Navrhuji změnu.\n\n```haifa-action\n{"kind": "edit_task", "wri'
+  it('hides an unclosed giro-action block and counts it as pending', () => {
+    const text = 'Navrhuji změnu.\n\n```giro-action\n{"kind": "edit_task", "wri'
     expect(streamedAnswer(text)).toEqual({ text: 'Navrhuji změnu.\n', pending: 1 })
   })
 
   it('hides a closed block and keeps the text after it', () => {
-    const text = 'A\n```haifa-action\n{"kind": "run_task"}\n```\nB'
+    const text = 'A\n```giro-action\n{"kind": "run_task"}\n```\nB'
     expect(streamedAnswer(text)).toEqual({ text: 'A\nB', pending: 1 })
   })
 
   it('holds back a last line that may become the opening fence', () => {
-    expect(streamedAnswer('A\n```haifa-ac')).toEqual({ text: 'A', pending: 0 })
-    expect(streamedAnswer('A\n```haifa-action')).toEqual({ text: 'A', pending: 1 })
+    expect(streamedAnswer('A\n```giro-ac')).toEqual({ text: 'A', pending: 0 })
+    expect(streamedAnswer('A\n```giro-action')).toEqual({ text: 'A', pending: 1 })
   })
 
   it('leaves other code blocks as they are', () => {
@@ -284,7 +284,7 @@ describe('opening the guide', () => {
   it('opens empty every time, without fetching the stored thread or creating one', async () => {
     const fetchMock = vi.fn(async () => respond(detail))
     vi.stubGlobal('fetch', fetchMock)
-    sessionStorage.setItem('haifa.assistant.thread', detail.id)
+    sessionStorage.setItem('giro.assistant.thread', detail.id)
     setOpen(true)
     expect(assistant.thread).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
@@ -298,7 +298,7 @@ describe('opening the guide', () => {
     expect(assistant.thread).toBeNull()
     expect(assistant.listing).toBe(false)
     expect(assistant.streaming).toBeNull()
-    expect(sessionStorage.getItem('haifa.assistant.thread')).toBeNull()
+    expect(sessionStorage.getItem('giro.assistant.thread')).toBeNull()
     restoreOpen()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
@@ -306,8 +306,8 @@ describe('opening the guide', () => {
   it.each(['0', '1'])('restores a saved thread only when the panel was open (%s)', async (open) => {
     const fetchMock = vi.fn(async () => respond(detail))
     vi.stubGlobal('fetch', fetchMock)
-    sessionStorage.setItem('haifa.assistant.thread', detail.id)
-    sessionStorage.setItem('haifa.assistant.open', open)
+    sessionStorage.setItem('giro.assistant.thread', detail.id)
+    sessionStorage.setItem('giro.assistant.open', open)
     restoreOpen()
     await vi.waitFor(() => expect(assistant.loading).toBe(false))
     expect(assistant.open).toBe(open === '1')
@@ -319,7 +319,7 @@ describe('opening the guide', () => {
   it('restores an open empty panel without a request', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    sessionStorage.setItem('haifa.assistant.open', '1')
+    sessionStorage.setItem('giro.assistant.open', '1')
     restoreOpen()
     expect(assistant.open).toBe(true)
     expect(assistant.thread).toBeNull()

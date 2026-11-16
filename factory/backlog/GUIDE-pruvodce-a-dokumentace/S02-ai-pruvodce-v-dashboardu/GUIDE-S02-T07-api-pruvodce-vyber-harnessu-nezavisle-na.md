@@ -28,5 +28,5 @@ Hotovo znamená:
 - Projdou just lint, just typecheck, just pytest tests/web/test_web_assistant.py a relevantní regrese z tests/web/test_web_assistant_codex.py.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-14 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/225 · náklady $0.00

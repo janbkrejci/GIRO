@@ -77,7 +77,7 @@ def test_install_wraps_the_executor_once(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(executor, "execute", lambda run, plan: calls.append(run))
     hidden.install(_source(tmp_path))
     first = executor.execute
-    assert getattr(first, "_haifa_hidden", False)
+    assert getattr(first, "_giro_hidden", False)
     hidden.install(_source(tmp_path))
     assert executor.execute is first
 

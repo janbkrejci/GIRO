@@ -20,5 +20,5 @@ Důvod: CLAUDE.md žádá aktualizovat docs/decisions.md, když změna mění pl
 <!-- factory: follow-up-of=HEAL-S02-T04 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/81 · náklady $0.31

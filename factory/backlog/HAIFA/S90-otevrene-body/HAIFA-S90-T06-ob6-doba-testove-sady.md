@@ -17,4 +17,4 @@ Done means:
 - Pokud sada běží déle než 3 minuty, vznikne task na zrychlení.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

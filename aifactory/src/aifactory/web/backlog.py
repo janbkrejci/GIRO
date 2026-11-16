@@ -843,11 +843,11 @@ def _follow_up(
     data["run"] = None
     data["pending"] = False
     if run:
-        from aifactory.home import haifa_home
+        from aifactory.home import giro_home
 
         new_id = result.task.id
         key = hashlib.sha256(f"{repo.resolve()}:{new_id}".encode()).hexdigest()
-        journal = haifa_home() / "follow-ups" / f"{key}.json"
+        journal = giro_home() / "follow-ups" / f"{key}.json"
         if request_id and journal.is_file():
             saved = json.loads(journal.read_text(encoding="utf-8"))
             if saved.get("stage") != "commit":

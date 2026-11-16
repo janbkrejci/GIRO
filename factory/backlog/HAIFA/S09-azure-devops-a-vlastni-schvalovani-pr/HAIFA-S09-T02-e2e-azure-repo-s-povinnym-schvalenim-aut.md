@@ -27,5 +27,5 @@ Hotovo, když:
 - nalezené chyby HAIFA jsou opravené nebo zapsané jako další tasky.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-18 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/113 · náklady $5.75

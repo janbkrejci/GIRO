@@ -13,5 +13,5 @@ rozmyslet a vyrobit mechanismus, který umožní mít ve workflow agenta, který
 taky chci zvážit možnost, když se vyvíjí větší projekt, třeba modul, zařadit velké testování jen čas od času, takže vývojové běhy mohou proběhnout s minimálním nebo žádným testováním, pokud bude existovat velký task, který toho otestuje hodně najednou a spraví hodně najednou
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-07 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/83 · náklady $0.00

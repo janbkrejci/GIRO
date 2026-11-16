@@ -20,4 +20,4 @@ Hotovo znamená:
 - `just lint`, `just typecheck` a dotčené testy projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

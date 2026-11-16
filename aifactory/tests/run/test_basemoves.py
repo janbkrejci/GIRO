@@ -26,7 +26,7 @@ def _move(old: str, new: str, run: str | None = None, ref: str = REF) -> BaseMov
 
 def test_journal_lives_in_the_common_git_dir(repo: Path) -> None:
     path = basemoves.journal(repo)
-    assert path == (repo / ".git" / "haifa" / "base-moves.jsonl").resolve()
+    assert path == (repo / ".git" / "giro" / "base-moves.jsonl").resolve()
     assert basemoves.offset(repo) == 0
     assert basemoves.moves_since(repo, 0) == []
 

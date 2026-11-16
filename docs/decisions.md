@@ -275,3 +275,19 @@ nepředávají; je-li některá nastavená v prostředí nebo v `<home>/env`, pr
 vypíše varování s názvem náhrady `GIRO_*` a bez hodnoty, aby uživatel s
 `HAIFA_HOME` nedostal potichu jiný home. Legacy názvy píše jen `environment.py`,
 hlídá to test. Alias CLI `factory` zůstává.
+
+## 2026-11-16: Konec názvu HAIFA v kódu a odstranění migrační ochrany (rozšíření OPT-S05-T01)
+
+Produkt je GIRO, název HAIFA zůstává jen v historii (`docs/decisions.md`, `factory/`,
+`validation/results/`), v historických ID tasků, ve jménech existujících vzdálených
+sandboxů (`HAIFA-E2E-*`, `HAIFA-Azure-Sandbox`), v registry id `haifa` tohoto repa a ve
+varování o zrušených proměnných `HAIFA_*` (`environment.py`, uninstall skripty).
+Odstraněno: hledání legacy home `~/.config/haifa` (`migration_required`,
+`migration_collision`), `migration_guard` s markerem `giro-migration.json`, process
+lease a jeho kódy chyb. Lease chránil jen přípravu migrace, běžný upgrade ho
+nepotřebuje, proto nezůstal ani v neutrální podobě. Přejmenováno bez převodu starých
+hodnot: klíče prohlížeče `giro.*` a `giro-theme`, stav v `<git common dir>/giro/`,
+větve návrhů knihovny `giro-library/…` a jejich záznam `giro-pull-requests.json`, blok
+návrhu asistenta ` ```giro-action `, placeholder `<!-- doplňuje GIRO při schválení PR -->`
+(backlog přepsán v témže commitu). Sdílené tabulky `haifa_backlog*` a `haifa_owners` se
+při prvním otevření přejmenují na `giro_*` i s řádky.

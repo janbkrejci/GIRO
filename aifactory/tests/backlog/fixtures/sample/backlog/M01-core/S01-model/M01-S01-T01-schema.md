@@ -9,4 +9,4 @@ depends_on: []
 Navrhnout schéma dat.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

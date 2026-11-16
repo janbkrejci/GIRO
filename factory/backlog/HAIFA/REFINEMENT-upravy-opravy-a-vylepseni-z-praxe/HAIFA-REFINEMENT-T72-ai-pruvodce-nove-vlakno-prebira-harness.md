@@ -25,5 +25,5 @@ Hotovo znamená:
 - `aifactory/tests/web/test_web_assistant.py` ověřuje: vlákno s `screen.task` tasku v projektu s `harness: codex` (model, thinking) má tento harness, model a thinking. Bez `screen` má výchozí harness počítače. Harness, který průvodce nesmí, přejde na claude jako dnes. Neplatný `screen` vrátí `usage_error`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-24 · workflow plan-build-test · PR https://github.com/janbkrejci/HAIFA/pull/151 · náklady $0.00

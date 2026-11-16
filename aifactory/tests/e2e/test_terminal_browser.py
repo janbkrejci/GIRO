@@ -56,20 +56,20 @@ def test_terminal_commands_browser(terminal_page: Page, tmp_path: Path) -> None:
 
     # The marker is absent from the command's echo, so only shell output satisfies this.
     page.keyboard.insert_text(
-        "echo haifa-^terminal" if sys.platform == "win32" else 'echo haifa-"terminal"'
+        "echo giro-^terminal" if sys.platform == "win32" else 'echo giro-"terminal"'
     )
     page.keyboard.press("Enter")
-    expect(screen).to_contain_text("haifa-terminal")
+    expect(screen).to_contain_text("giro-terminal")
 
     target = (tmp_path / "terminal cwd").resolve()
     target.mkdir()
     page.keyboard.insert_text(f'cd "{target}"')
     page.keyboard.press("Enter")
     page.keyboard.insert_text(
-        "echo haifa-cwd-%CD%" if sys.platform == "win32" else 'echo haifa-cwd-"$PWD"'
+        "echo giro-cwd-%CD%" if sys.platform == "win32" else 'echo giro-cwd-"$PWD"'
     )
     page.keyboard.press("Enter")
-    expect(screen).to_contain_text(f"haifa-cwd-{target}")
+    expect(screen).to_contain_text(f"giro-cwd-{target}")
 
     python = f'"{sys.executable}"' if sys.platform == "win32" else shlex.quote(sys.executable)
     page.keyboard.insert_text(f"{python} -c \"import sys;print('tty', sys.stdin.isatty())\"")
@@ -79,39 +79,39 @@ def test_terminal_commands_browser(terminal_page: Page, tmp_path: Path) -> None:
     # Keep output markers out of command echo, and wait until each input() is ready.
     script = target / "interactive.py"
     script.write_text(
-        'value = input("haifa-" + "input-ready:")\n'
-        'print("haifa-" + "input-result", value, flush=True)\n'
-        'value = input("haifa-" + "escape-ready:")\n'
-        'print("haifa-" + "escape-result", ord(value), flush=True)\n',
+        'value = input("giro-" + "input-ready:")\n'
+        'print("giro-" + "input-result", value, flush=True)\n'
+        'value = input("giro-" + "escape-ready:")\n'
+        'print("giro-" + "escape-result", ord(value), flush=True)\n',
         encoding="utf-8",
     )
     page.keyboard.insert_text(f'{python} "{script}"')
     page.keyboard.press("Enter")
-    expect(screen).to_contain_text("haifa-input-ready:")
+    expect(screen).to_contain_text("giro-input-ready:")
     page.keyboard.press("q")
     page.keyboard.press("Enter")
-    expect(screen).to_contain_text("haifa-input-result q")
-    expect(screen).to_contain_text("haifa-escape-ready:")
+    expect(screen).to_contain_text("giro-input-result q")
+    expect(screen).to_contain_text("giro-escape-ready:")
     page.keyboard.press("Escape")
     expect(overlay).to_be_visible()
     page.keyboard.press("Enter")
-    expect(screen).to_contain_text("haifa-escape-result 27")
+    expect(screen).to_contain_text("giro-escape-result 27")
 
     # Windows has no standard sleep command; use the same interpreter there.
     sleep = (
-        f"{python} -c \"import time;print('haifa-' + 'sleep-ready', flush=True);time.sleep(100)\""
+        f"{python} -c \"import time;print('giro-' + 'sleep-ready', flush=True);time.sleep(100)\""
         if sys.platform == "win32"
-        else 'echo haifa-"sleep-ready"; sleep 100'
+        else 'echo giro-"sleep-ready"; sleep 100'
     )
     page.keyboard.insert_text(sleep)
     page.keyboard.press("Enter")
-    expect(screen).to_contain_text("haifa-sleep-ready")
+    expect(screen).to_contain_text("giro-sleep-ready")
     page.keyboard.press("Control+c")
     page.keyboard.insert_text(
-        "echo haifa-^after-interrupt" if sys.platform == "win32" else 'echo haifa-"after-interrupt"'
+        "echo giro-^after-interrupt" if sys.platform == "win32" else 'echo giro-"after-interrupt"'
     )
     page.keyboard.press("Enter")
-    expect(screen).to_contain_text("haifa-after-interrupt")
+    expect(screen).to_contain_text("giro-after-interrupt")
 
     for key in ("Control", "Shift", "Control", "Shift"):
         page.keyboard.press(key)
@@ -127,15 +127,15 @@ def test_terminal_vim_browser(terminal_page: Page, tmp_path: Path) -> None:
     overlay = page.get_by_role("dialog", name="Terminal", exact=True)
     expect(overlay.locator(".xterm-helper-textarea")).to_be_focused()
     target = tmp_path / "vim-screen.txt"
-    target.write_text("haifa-vim-screen\n", encoding="utf-8")
+    target.write_text("giro-vim-screen\n", encoding="utf-8")
     separator = "&" if sys.platform == "win32" else ";"
-    after_vim = "echo haifa-^after-vim" if sys.platform == "win32" else 'echo haifa-"after-vim"'
+    after_vim = "echo giro-^after-vim" if sys.platform == "win32" else 'echo giro-"after-vim"'
     # Let the shell emit the marker after vim exits. Typing a new command immediately
     # after :q can race with vim restoring terminal modes and flushing pending input.
     page.keyboard.insert_text(f'vim -Nu NONE -n "{target}" {separator} {after_vim}')
     page.keyboard.press("Enter")
     screen = overlay.locator(".xterm-rows")
-    expect(screen).to_contain_text("haifa-vim-screen")
+    expect(screen).to_contain_text("giro-vim-screen")
     viewport = overlay.locator(".terminal-viewport").bounding_box()
     assert viewport is not None
     page_size = page.viewport_size
@@ -148,7 +148,7 @@ def test_terminal_vim_browser(terminal_page: Page, tmp_path: Path) -> None:
     page.keyboard.insert_text(":q")
     page.keyboard.press("Enter")
     # The marker is not present literally in the command echo; the shell must run it.
-    expect(screen).to_contain_text("haifa-after-vim")
+    expect(screen).to_contain_text("giro-after-vim")
     for key in ("Control", "Shift", "Control", "Shift"):
         page.keyboard.press(key)
     expect(overlay).to_have_count(0)

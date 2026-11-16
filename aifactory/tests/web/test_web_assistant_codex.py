@@ -16,7 +16,7 @@ from multi_repo import init_repo, install, multi_client, register
 
 from aifactory.engine.data_types import AgentRequest, AgentResult
 from aifactory.harness import codex
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.web import assistant_codex as guide
 from aifactory.web import assistant_gate as gate
 from aifactory.web import assistant_mcp as mcp
@@ -64,11 +64,11 @@ def test_guide_launch_removes_model_tools_and_fixes_mcp_scope(
 ) -> None:
     fake_inspect(monkeypatch)
     request = request_at(tmp_path)
-    args = guide.launch_args(request, tmp_path / "HAIFA home", "alpha")
+    args = guide.launch_args(request, tmp_path / "GIRO home", "alpha")
     configs = [args[i + 1] for i, value in enumerate(args) if value == "-c"]
     config = tomllib.loads("\n".join(configs))
-    server = config["mcp_servers"]["haifa_guide"]
-    assert set(config["mcp_servers"]) == {"haifa_guide"}
+    server = config["mcp_servers"]["giro_guide"]
+    assert set(config["mcp_servers"]) == {"giro_guide"}
     assert server["required"] is True
     assert server["enabled_tools"] == ["guide"]
     assert server["args"][-2:] == ["--repo", "alpha"]
@@ -128,7 +128,7 @@ def test_run_keeps_request_and_callbacks_and_does_not_modify_task_defaults(
     monkeypatch.setattr(codex, "run", run)
     assert guide.run(original, home=tmp_path, repo_id=None, on_event=callback).text == "answer"
     assert "Transport:" not in original.system_prompt
-    assert "haifa_guide MCP" in seen[0].system_prompt
+    assert "giro_guide MCP" in seen[0].system_prompt
     assert seen[0].session_id == original.session_id
 
 
@@ -252,7 +252,7 @@ def call(argv: list[str]) -> dict[str, Any]:
 
 
 def test_mcp_reads_redacted_scoped_data_and_refuses_writes(tmp_path: Path) -> None:
-    home = haifa_home()
+    home = giro_home()
     repos = [init_repo(tmp_path / name) for name in ("alpha", "beta")]
     client = multi_client(home, tmp_path)
     for repo in repos:

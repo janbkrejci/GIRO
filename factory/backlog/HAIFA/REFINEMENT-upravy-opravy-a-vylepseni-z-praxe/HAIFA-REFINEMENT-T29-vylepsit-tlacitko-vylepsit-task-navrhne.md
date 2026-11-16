@@ -30,5 +30,5 @@ Tlačítko „Vylepšit agentem“ na detailu tasku (a ve formuláři tasku) má
 - Testy frontendu (ImproveButton, TaskForm, TaskDetail, WorkflowAdvice) a dotčené backendové testy pokrývají nové chování. Statický bundle dashboardu je přegenerovaný.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/41 · náklady $1.49

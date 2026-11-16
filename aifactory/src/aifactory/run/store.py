@@ -732,21 +732,22 @@ class TaskRunStore:
         )
         install_changes(self.conn)
         if database.is_remote(db_path):
+            database.adopt_legacy_table(self.conn, "giro_owners")
             self.conn.execute(
-                "CREATE TABLE IF NOT EXISTS haifa_owners "
+                "CREATE TABLE IF NOT EXISTS giro_owners "
                 "(id TEXT PRIMARY KEY, machine TEXT NOT NULL)"
             )
 
     def owned_here(self, id: str) -> bool:
         if not database.is_remote(self.db_path):
             return True
-        owner = self.conn.execute("SELECT machine FROM haifa_owners WHERE id = ?", (id,)).fetchone()
+        owner = self.conn.execute("SELECT machine FROM giro_owners WHERE id = ?", (id,)).fetchone()
         return owner is not None and owner[0] == database.MACHINE
 
     def _own(self, id: str) -> None:
         if database.is_remote(self.db_path):
             self.conn.execute(
-                "INSERT OR REPLACE INTO haifa_owners VALUES (?, ?)", (id, database.MACHINE)
+                "INSERT OR REPLACE INTO giro_owners VALUES (?, ?)", (id, database.MACHINE)
             )
 
     def _row(self, values: tuple[Any, ...]) -> TaskRunRow:

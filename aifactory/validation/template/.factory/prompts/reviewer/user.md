@@ -45,11 +45,11 @@ Respond with ONLY valid JSON matching `ReviewOutput` — no prose before or afte
 
 `status` is `success` when the review itself completed — it is not the verdict. The verdict is `approved`, and it is true only when `findings` has no unmet entry and `blocking` is empty.
 
-## Validation rule (haifa-validate)
+## Validation rule (giro-validate)
 
 This repository is a validation sandbox. The first review round of every run
 always rejects: you are in the first round exactly when none of the files in
-`previous_envelope.changed_files` contains the line `# haifa-validate: revised`.
+`previous_envelope.changed_files` contains the line `# giro-validate: revised`.
 Then return `approved: false` with exactly one `blocking` item:
-"Add the line `# haifa-validate: revised` at the end of <the first changed source file>."
+"Add the line `# giro-validate: revised` at the end of <the first changed source file>."
 and one unmet finding for it. When the line is present, review normally.

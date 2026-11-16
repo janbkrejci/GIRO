@@ -270,10 +270,10 @@ def test_saving_docs_root_drops_old_folder_keys(client: TestClient, root: Path) 
 
 
 def test_legacy_local_preview_import_and_preservation(client: TestClient, root: Path) -> None:
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
 
-    service = RepositorySettings(root, haifa_home())
+    service = RepositorySettings(root, giro_home())
     before = {p: p.read_bytes() for p in (root / "backlog").rglob("*.md")}
     url = "/api/settings/local/legacy"
     preview = _get(client, url)["data"]

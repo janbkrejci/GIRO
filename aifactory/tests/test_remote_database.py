@@ -405,7 +405,7 @@ def test_idle_backlog_sync_reads_only_revision(
         shared, "connect", lambda *args, **kwargs: ReadOnlyProbe(connect(*args, **kwargs))
     )
     shared.synchronize(a, loaded.settings)
-    assert queries == ["SELECT revision FROM haifa_backlog_revision WHERE id = 1"]
+    assert queries == ["SELECT revision FROM giro_backlog_revision WHERE id = 1"]
     assert baseline.stat().st_mtime_ns == stamp
 
 
@@ -459,3 +459,31 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
             pending_sync.result(timeout=10)
     assert load_backlog(a).by_id["P-S-T"].title == "New remote title"
     assert "Local draft" not in (a / TASK).read_text()
+
+
+def test_pre_giro_shared_tables_are_adopted_with_their_rows(tmp_path: Path) -> None:
+    import sqlite3
+
+    from aifactory.database import adopt_legacy_table
+    from aifactory.database import backlog as shared
+
+    conn = sqlite3.connect(tmp_path / "shared.db")
+    conn.execute("CREATE TABLE haifa_backlog (path TEXT PRIMARY KEY, text TEXT)")
+    conn.execute("CREATE TABLE haifa_backlog_revision (id INTEGER PRIMARY KEY, revision INTEGER)")
+    conn.execute("INSERT INTO haifa_backlog_revision VALUES (1, 0)")
+    conn.execute(
+        "CREATE TRIGGER haifa_backlog_insert AFTER INSERT ON haifa_backlog "
+        "BEGIN UPDATE haifa_backlog_revision SET revision = revision + 1 WHERE id = 1; END"
+    )
+    conn.execute("INSERT INTO haifa_backlog VALUES ('a.md', 'A')")
+    conn.execute("CREATE TABLE haifa_owners (id TEXT PRIMARY KEY, machine TEXT NOT NULL)")
+    conn.execute("INSERT INTO haifa_owners VALUES ('r1', 'm1')")
+
+    assert shared._snapshot(conn) == {"a.md": "A"}
+    adopt_legacy_table(conn, "giro_owners")
+    conn.execute("INSERT INTO giro_backlog VALUES ('b.md', 'B')")
+
+    names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+    assert not {n for n in names if n.startswith("haifa")}
+    assert shared._revision(conn) == 2
+    assert conn.execute("SELECT machine FROM giro_owners").fetchall() == [("m1",)]

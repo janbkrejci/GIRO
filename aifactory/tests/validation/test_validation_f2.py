@@ -33,7 +33,7 @@ def test_auto_chain_sets_local_policy_and_cleans_up_on_failure(enable_ok: bool) 
 
     calls: list[tuple[str, ...]] = []
 
-    def haifa(*argv: str) -> Any:
+    def giro(*argv: str) -> Any:
         calls.append(argv)
         return SimpleNamespace(ok=enable_ok or argv[-1] == "off", brief=lambda: "setting")
 
@@ -41,7 +41,7 @@ def test_auto_chain_sets_local_policy_and_cleans_up_on_failure(enable_ok: bool) 
         calls.append(argv)
         raise RuntimeError("run failed")
 
-    ctx = SimpleNamespace(haifa=haifa, run_task=run_task)
+    ctx = SimpleNamespace(giro=giro, run_task=run_task)
     result = ScenarioResult("F2", "local")
     if enable_ok:
         with pytest.raises(RuntimeError, match="run failed"):

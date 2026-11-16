@@ -20,4 +20,4 @@ Hotovo znamená:
 Mimo rozsah: dědičnost z knihovny (HAIFA-S10-T04).
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

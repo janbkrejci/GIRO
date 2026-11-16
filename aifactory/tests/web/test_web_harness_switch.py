@@ -11,7 +11,7 @@ import pytest
 from starlette.testclient import TestClient
 from trace_fixture import T1, make_trace_db
 
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.skill import envelope_problems
 from aifactory.web.app import create_app
 
@@ -50,7 +50,7 @@ def repo_fixture(tmp_path: Path) -> Path:
             ),
         )
     conn.close()
-    home = haifa_home()
+    home = giro_home()
     home.mkdir(parents=True, exist_ok=True)
     choices = {
         "claude": {"enabled": True, "model": "claude-opus-5-5", "thinking": "high"},

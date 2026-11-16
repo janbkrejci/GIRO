@@ -133,8 +133,8 @@ def test_env_file_wrong_mode_warns_and_loads(tmp_path: Path) -> None:
 
 def test_factory_loads_env_file(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    _write_env(home, "HAIFA_TEST_FROM_FILE=yes\nHAIFA_TEST_KEPT=file\n", mode=0o640)
-    env = {**os.environ, "GIRO_HOME": str(home), "HAIFA_TEST_KEPT": "env"}
+    _write_env(home, "OPEN_TEST_FROM_FILE=yes\nOPEN_TEST_KEPT=file\n", mode=0o640)
+    env = {**os.environ, "GIRO_HOME": str(home), "OPEN_TEST_KEPT": "env"}
     code = (
         "import os, sys\n"
         "from aifactory.cli import main\n"
@@ -142,7 +142,7 @@ def test_factory_loads_env_file(tmp_path: Path) -> None:
         "    main(['--skill'])\n"
         "except SystemExit:\n"
         "    pass\n"
-        "print(os.environ['HAIFA_TEST_FROM_FILE'], os.environ['HAIFA_TEST_KEPT'])\n"
+        "print(os.environ['OPEN_TEST_FROM_FILE'], os.environ['OPEN_TEST_KEPT'])\n"
     )
     proc = subprocess.run(
         [sys.executable, "-c", code],

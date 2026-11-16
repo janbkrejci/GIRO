@@ -1,7 +1,7 @@
 """The harness is written on the agent, never inferred from the model (D13).
 
 The engine's config types (``aifactory.engine.data_types``) type ``coding_agent``
-as ``Literal["pi", "claude_code"]`` with a default of ``"pi"``. HAIFA needs
+as ``Literal["pi", "claude_code"]`` with a default of ``"pi"``. GIRO needs
 ``claude | codex | pi`` and no default at all, so this module subclasses them
 (``isinstance`` with the engine's classes still holds) and loads configs
 through its own ``load_config``. The engine's module globals are left alone.

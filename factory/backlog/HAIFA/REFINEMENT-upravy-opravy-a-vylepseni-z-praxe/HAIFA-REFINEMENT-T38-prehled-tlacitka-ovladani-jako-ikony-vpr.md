@@ -38,5 +38,5 @@ writes: [aifactory/web/src/components/overview/, aifactory/web/src/views/Overvie
 - Unit testy komponent Přehledu (`RepoCard.test.ts`, `RepoControls.test.ts`, případně `App.test.ts`) jsou upravené podle nového rozložení a procházejí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/51 · náklady $2.53

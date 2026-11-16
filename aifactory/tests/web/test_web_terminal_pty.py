@@ -18,8 +18,7 @@ from starlette.types import Message
 from test_web_terminal import _client
 
 from aifactory import oscompat
-from aifactory.versioning import UpgradeError
-from aifactory.web import guard, terminal_pty
+from aifactory.web import terminal_pty
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX PTY sessions")
 BASE = "/api/terminal/sessions"
@@ -170,54 +169,10 @@ def test_disconnect_cleanup(tmp_path: Path, blocked_send: bool) -> None:
     asyncio.run(scenario())
 
 
-def test_existing_terminal_io_does_not_rescan_migration_backup(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    with _client(tmp_path) as client:
-        created = client.post(BASE, json={"cols": 80, "rows": 24})
-        assert created.status_code == 200
-        token = created.json()["data"]["id"]
-
-        def deny(home: Path, *, writing: bool = False) -> None:
-            raise UpgradeError("migration_pending", "Backup validation must not run per key")
-
-        monkeypatch.setattr(guard, "check_home", deny)
-        # A session already owns its validated shell. Input and sizing must not
-        # perform filesystem validation again, even for individual keystrokes.
-        for character in "echo":
-            response = client.post(f"{BASE}/{token}/input", json={"data": character})
-            assert response.status_code == 200, response.text
-        assert (
-            client.post(f"{BASE}/{token}/resize", json={"cols": 90, "rows": 30}).status_code == 200
-        )
-
-        app = cast(Starlette, client.app)
-        app.state.terminal_sessions["closed"] = SimpleNamespace(closed=True)
-        try:
-            # Only exact operations on a live session qualify. New shells,
-            # unknown/closed sessions and unrelated writes retain the full guard.
-            for path in (
-                BASE,
-                f"{BASE}/missing/input",
-                f"{BASE}/closed/input",
-                f"{BASE}/{token}",
-                f"{BASE}/{token}/input/extra",
-                "/api/terminal/exec",
-                "/api/backlog/commit",
-            ):
-                response = client.post(path, json={})
-                assert response.status_code == 409, path
-                assert response.json()["error"]["code"] == "migration_pending"
-        finally:
-            del app.state.terminal_sessions["closed"]
-        assert client.delete(f"{BASE}/{token}").status_code == 200
-        assert client.post(f"{BASE}/{token}/input", json={"data": "x"}).status_code == 409
-
-
 @pytest.mark.parametrize(
     "reason", ["cross_origin", "terminal_disabled", "update_busy", "stale_code"]
 )
-def test_existing_terminal_io_retains_other_write_guards(
+def test_terminal_io_keeps_the_write_guards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reason: str
 ) -> None:
     with _client(tmp_path) as client:
@@ -514,7 +469,6 @@ def test_windows_backend_with_threaded_transport(
     """Exercise Windows dispatch and blocking transport on POSIX without winpty installed."""
     import socket
     import threading
-    from types import SimpleNamespace
 
     from aifactory.web.terminal import _shell
 

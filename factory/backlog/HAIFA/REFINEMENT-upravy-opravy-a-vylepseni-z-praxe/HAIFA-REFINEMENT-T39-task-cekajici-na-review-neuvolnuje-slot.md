@@ -38,5 +38,5 @@ Dotčená místa (současný stav):
 - Docstring modulu `run/queue.py` a příslušné pasáže v `guide/06-behy.md` a `skill/skill.md` popisují nové počítání slotů.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/52 · náklady $2.91

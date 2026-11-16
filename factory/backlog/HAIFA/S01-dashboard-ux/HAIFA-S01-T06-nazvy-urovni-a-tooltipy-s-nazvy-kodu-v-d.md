@@ -29,5 +29,5 @@ Pevná omezení:
 - Testy nevolají model.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-03 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/32 · náklady $4.68

@@ -1,4 +1,4 @@
-"""HAIFA library items: agents, workflows, skills and pi extensions.
+"""GIRO library items: agents, workflows, skills and pi extensions.
 
 Each item has a format, a content version and an origin; the seed ships in the package.
 """

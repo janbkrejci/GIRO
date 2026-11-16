@@ -27,5 +27,5 @@ Hotovo znamená:
 - Stávající testy v `test_allow_writes.py` (včetně `writes_in_pr` a úspěšného pokračování) procházejí a v úspěšném případě má nový pokus v base rozšířené writes.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/132 · náklady $0.00

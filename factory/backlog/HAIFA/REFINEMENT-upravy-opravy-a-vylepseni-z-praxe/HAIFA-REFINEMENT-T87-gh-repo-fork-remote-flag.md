@@ -28,5 +28,5 @@ Sdílení změn knihovny přes fork padá na novějším `gh`. Dashboard → Kni
 - Test zčervená, když se `--remote` do volání vrátí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-26 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/176 · náklady $0.00

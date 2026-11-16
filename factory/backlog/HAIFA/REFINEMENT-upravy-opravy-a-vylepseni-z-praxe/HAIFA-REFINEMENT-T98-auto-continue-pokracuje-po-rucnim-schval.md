@@ -27,5 +27,5 @@ Hotovo znamená:
 - Dotčené stávající testy v aifactory/tests/run/test_auto_continue.py, test_auto_merge.py, tests/review/test_approve_merge_retry.py a test_task_run_cli.py procházejí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-01 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/190 · náklady $0.00

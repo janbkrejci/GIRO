@@ -13,12 +13,12 @@ function api(exists = false, remote: string | null = null) {
   let ready = exists
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.startsWith('/api/machine/check')) return envelope({ ok: false, findings: [finding('git_identity_missing'), finding('library_missing', 'library')], harness_repos: { claude: 2 }, checked_at: 'now' }, false)
-    if (url === '/api/library') return envelope({ exists: ready, library: '/home/.haifa/library', remote, ahead: 1, behind: 0, default_url: 'https://github.com/janbkrejci/GIRO-LIBRARY.git', items: [] })
+    if (url === '/api/library') return envelope({ exists: ready, library: '/home/.giro/library', remote, ahead: 1, behind: 0, default_url: 'https://github.com/janbkrejci/GIRO-LIBRARY.git', items: [] })
     if (url === '/api/library/overrides') return envelope({ library: 'abc', overrides: [], errors: [] })
-    if (url === '/api/library/plan') return envelope({ digest: 'reviewed', library: '/home/.haifa/library', files: [{ path: 'agent.yaml', content: 'SECRET CONTENT', diff: '', binary: false }], items: [], blockers: [] })
+    if (url === '/api/library/plan') return envelope({ digest: 'reviewed', library: '/home/.giro/library', files: [{ path: 'agent.yaml', content: 'SECRET CONTENT', diff: '', binary: false }], items: [], blockers: [] })
     if (url === '/api/library/apply') { ready = true; return envelope({ commit: 'abc' }) }
     if (url === '/api/library/push' || url === '/api/library/pull') return envelope({ after: 'abc' })
-    if (url === '/api/dashboard/settings') return envelope({ port: 4700, home: '/home/.haifa', registry: '/home/.haifa/dashboard.yaml', restart_required: false })
+    if (url === '/api/dashboard/settings') return envelope({ port: 4700, home: '/home/.giro', registry: '/home/.giro/dashboard.yaml', restart_required: false })
     throw new Error(`unexpected ${url} ${init?.method}`)
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -32,7 +32,7 @@ describe('Knihovna page', () => {
     expect(['git_missing', 'uv_missing', 'just_missing'].map(c => findingGroup(finding(c)))).toEqual(['tools', 'tools', 'tools'])
     expect(findingGroup(finding('harness_login'))).toBe('harnesses')
     expect(findingGroup(finding('gh_login'))).toBe('hosting')
-    expect(findingGroup(finding('factory_version'))).toBe('haifa')
+    expect(findingGroup(finding('factory_version'))).toBe('giro')
     expect(findingGroup(finding('env_override'))).toBe('environment')
     api()
     const wrapper = mount(SetupView); await flushPromises()

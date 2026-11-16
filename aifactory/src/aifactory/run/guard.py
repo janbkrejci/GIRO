@@ -197,7 +197,7 @@ class TaskWriteGuard:
                 path = base / f"{self._seq:03d}"
             path.mkdir(parents=True)
             return path
-        return Path(tempfile.mkdtemp(prefix="haifa-guard-"))
+        return Path(tempfile.mkdtemp(prefix="giro-guard-"))
 
     def snapshot(self, run: Any) -> dict[str, Any]:
         name = getattr(getattr(run, "current_agent", None), "name", None) or "the agent"

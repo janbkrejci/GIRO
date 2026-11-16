@@ -47,5 +47,5 @@ Hotovo znamená:
 - `just lint`, `just typecheck` a `just pytest tests/workflow/ tests/backlog/` projdou, plus dotčené testy `skill` a `library/test_library_seed.py`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/102 · náklady $2.49

@@ -126,11 +126,11 @@ R = TypeVar("R")
 
 @contextlib.contextmanager
 def write_lock(root: Path, operation: str = "backlog") -> Iterator[None]:
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.run.store import _path_lock
 
     key = hashlib.sha256(str(root.resolve()).encode()).hexdigest()
-    path = haifa_home() / f"{operation}-locks" / f"{key}.lock"
+    path = giro_home() / f"{operation}-locks" / f"{key}.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
     with _path_lock(path).hold(30):
         yield
@@ -300,7 +300,7 @@ _CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._]*$")
 
 
 def compose_id(parent_id: str | None, code: str) -> str:
-    """The full id of a new node from its short code: ``S10`` under ``HAIFA`` is ``HAIFA-S10``.
+    """The full id of a new node from its short code: ``S10`` under ``GIRO`` is ``HAIFA-S10``.
 
     The id is always composed (the parent's id, ``-``, the code); a code that already
     carries the parent's prefix is taken without it. A code is letters, digits, ``.``

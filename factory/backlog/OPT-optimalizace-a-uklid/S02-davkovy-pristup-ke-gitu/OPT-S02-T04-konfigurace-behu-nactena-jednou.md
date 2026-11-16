@@ -17,4 +17,4 @@ Hotovo znamená:
 - Test ověří, že jedno naplánování fronty a jedna kontrola allow_writes načtou konfiguraci jednou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

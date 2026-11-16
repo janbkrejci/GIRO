@@ -17,7 +17,7 @@ function system(status: SystemInfo['status'] = 'ok', free: number | null = 8 * G
     status,
     disk: { free: 40 * GB, total: 100 * GB, status },
     volumes: [
-      { id: 'C:', paths: ['C:/haifa', 'C:/repos'], free: 40 * GB, total: 100 * GB, status },
+      { id: 'C:', paths: ['C:/giro', 'C:/repos'], free: 40 * GB, total: 100 * GB, status },
       { id: 'D:', paths: ['D:/repo'], free: null, total: null, status: 'ok' },
     ],
     memory: { free, total: free === null ? null : 16 * GB, status },
@@ -58,7 +58,7 @@ describe('SystemInfoChip', () => {
     const text = document.body.querySelector('[role="tooltip"]')?.textContent
     expect(text).toBe(chip.attributes('aria-label'))
     expect(text).toBe('System info\nDisk: volné 40 GB / celkem 100 GB\nPaměť: volná 8 GB / celkem 16 GB\nKliknutím uklidíš disk')
-    for (const path of ['C:', 'C:/haifa', 'C:/repos', 'D:', 'D:/repo']) expect(text).not.toContain(path)
+    for (const path of ['C:', 'C:/giro', 'C:/repos', 'D:', 'D:/repo']) expect(text).not.toContain(path)
   })
 
   it('shows unavailable disk and memory as info', async () => {

@@ -1,4 +1,4 @@
-# Uninstalls HAIFA (the `factory` tool) on Windows. -Purge also deletes the HAIFA home
+# Uninstalls GIRO (the `factory` tool) on Windows. -Purge also deletes the GIRO home
 # (library, logs, env), -KeepData keeps it; without either the script asks. Dependencies
 # (git, uv, gh, node, claude, codex) and the repositories' .factory/ stay. Started by
 # uninstall.bat; ASCII only, PowerShell 5.1 reads it as ANSI.
@@ -10,8 +10,8 @@ function Fail([string]$Message) {
     exit 1
 }
 
-# The same rules as aifactory.home.haifa_home.
-function Get-HaifaHome {
+# The same rules as aifactory.home.giro_home.
+function Get-GiroHome {
     if ($env:GIRO_HOME) { return $env:GIRO_HOME }
     if ($env:XDG_CONFIG_HOME) { return Join-Path $env:XDG_CONFIG_HOME 'giro' }
     $base = if ($env:HOME) { $env:HOME } else { $env:USERPROFILE }
@@ -32,11 +32,7 @@ if (Test-Path -LiteralPath $launcher -PathType Leaf) {
     $home_dir = (& $launcher --data-home | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) { Fail 'Cannot safely resolve the GIRO data home' }
 } else {
-    $home_dir = Get-HaifaHome
-    $legacy = Join-Path (Split-Path $home_dir -Parent) 'haifa'
-    if (-not $env:GIRO_HOME -and (Test-Path -LiteralPath $legacy)) {
-        Fail 'Legacy data exist; inspect and set GIRO_HOME explicitly before uninstalling.'
-    }
+    $home_dir = Get-GiroHome
 }
 if ($home_dir -eq '~' -or $home_dir.StartsWith('~/') -or $home_dir.StartsWith('~\')) {
     $base = if ($env:HOME) { $env:HOME } else { $env:USERPROFILE }
@@ -51,10 +47,6 @@ $purge_home = [bool]$Purge
 if (-not $Purge -and -not $KeepData -and (Test-Path -LiteralPath $home_dir)) {
     $answer = Read-Host "Delete also the GIRO data in $home_dir (library with unpushed changes, logs, settings)? [y/N]"
     $purge_home = $answer -match '^(y|yes|a|ano)$'
-}
-
-if ($purge_home -and (Test-Path -LiteralPath (Join-Path $home_dir 'giro-migration.json'))) {
-    Fail 'Migration data are protected; use -KeepData and follow the rollback instructions.'
 }
 
 $listed = uv tool list | Out-String

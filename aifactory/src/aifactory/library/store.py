@@ -1,4 +1,4 @@
-"""The HAIFA library in the home directory (AR13, AR14, AR17).
+"""The GIRO library in the home directory (AR13, AR14, AR17).
 
 The library is a git repository at ``$GIRO_HOME/library`` (``$GIRO_LIBRARY`` overrides
 it). Reads use the tree of HEAD, never the working tree. Every write is a plan (files
@@ -34,7 +34,7 @@ import yaml
 from aifactory import __version__, gitrun, oscompat, yamlload
 from aifactory.engine.role_registry import Issue
 from aifactory.environment import value
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.library import history as hist
 from aifactory.library.load import (
     PROMPT_FILES,
@@ -93,11 +93,11 @@ def library_root(environ: Mapping[str, str] | None = None) -> Path:
     explicit = value(LIBRARY_ENV, env)
     if explicit:
         return Path(explicit).expanduser()
-    return haifa_home(environ) / "library"
+    return giro_home(environ) / "library"
 
 
 def _home_dir(environ: Mapping[str, str] | None) -> Path:
-    path = haifa_home(environ)
+    path = giro_home(environ)
     if not path.is_dir():
         path.mkdir(parents=True, exist_ok=True)
         os.chmod(path, 0o700)

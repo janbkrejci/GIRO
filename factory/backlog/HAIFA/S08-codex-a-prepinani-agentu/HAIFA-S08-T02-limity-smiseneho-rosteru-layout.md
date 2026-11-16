@@ -19,4 +19,4 @@ Done means:
 - Rebuild frontend assets and run the relevant frontend checks; normal factory test phase uses just check-scoped. No backend/roster/seed/configuration changes, no unrelated tasks, no vendor/prototype/adws/.factory changes.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

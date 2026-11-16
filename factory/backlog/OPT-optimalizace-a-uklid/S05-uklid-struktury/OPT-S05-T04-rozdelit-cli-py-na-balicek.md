@@ -19,4 +19,4 @@ Hotovo znamená:
 - Test startu CLI z S01-T01 projde.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

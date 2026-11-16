@@ -41,5 +41,5 @@ Po úspěšném sloučení PR tasku factory smaže jeho větev, lokálně i na r
 - `just test` je zelené.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/119 · náklady $0.00

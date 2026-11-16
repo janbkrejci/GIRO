@@ -12,7 +12,7 @@ from aifactory.backlog import check_backlog
 from aifactory.backlog.loader import iter_tasks, load_backlog
 from aifactory.check import run_check
 from aifactory.demo import BASE, create_demo, default_dir
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.web.registry import Registry
 from cli_json import run_json
 
@@ -31,7 +31,7 @@ def _git(root: Path, *args: str) -> str:
     ).stdout.strip()
 
 
-def test_creates_a_committed_local_repo_in_the_haifa_home() -> None:
+def test_creates_a_committed_local_repo_in_the_giro_home() -> None:
     result = create_demo()
 
     assert result.created and result.registered
@@ -53,7 +53,7 @@ def test_creates_a_committed_local_repo_in_the_haifa_home() -> None:
         )
     gitignore = (root / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert ".factory/worktrees/" in gitignore and ".factory/trace.db*" in gitignore
-    state, _warnings = Registry(haifa_home()).snapshot()
+    state, _warnings = Registry(giro_home()).snapshot()
     assert [Path(e.path).resolve() for e in state.repos] == [root.resolve()]
 
 
@@ -96,7 +96,7 @@ def test_again_changes_nothing_and_returns_the_path(tmp_path: Path) -> None:
     assert again.repo_id == first.repo_id
     assert readme.read_text(encoding="utf-8") == "mine\n"
     assert _git(first.path, "rev-parse", "HEAD") == head
-    state, _warnings = Registry(haifa_home()).snapshot()
+    state, _warnings = Registry(giro_home()).snapshot()
     assert len(state.repos) == 1
 
 

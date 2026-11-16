@@ -76,7 +76,7 @@ def test_assistant_conversation_browser(tmp_path: Path, monkeypatch: pytest.Monk
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             page.goto(f"{url}/#/r/{identifier}/runs")
@@ -170,7 +170,7 @@ def test_assistant_unavailable_on_intent_browser(
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         writes: list[Any] = []
         page.on(
@@ -261,7 +261,7 @@ def test_assistant_select_harness_for_pi_repo_browser(
     with dashboard(repo, home) as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             page.goto(f"{url}/#/r/{identifier}/runs")
@@ -329,14 +329,14 @@ def test_assistant_proposed_action_browser(tmp_path: Path, monkeypatch: pytest.M
                 "reason": "Task mění i dokumentaci.",
             }
         )
-        text = f"Navrhuji rozšířit writes.\n\n```haifa-action\n{proposal}\n```\n"
+        text = f"Navrhuji rozšířit writes.\n\n```giro-action\n{proposal}\n```\n"
         return AgentResult(text=text, returncode=0, tokens=10, cost=0.01)
 
     monkeypatch.setattr(agent_cc, "run", run)
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             repo_id.append(identifier)
@@ -393,14 +393,14 @@ def test_assistant_follow_up_browser(tmp_path: Path, monkeypatch: pytest.MonkeyP
                 "reason": "Task je hotový, chybí docs.",
             }
         )
-        text = f"Navrhuji navázat.\n\n```haifa-action\n{proposal}\n```\n"
+        text = f"Navrhuji navázat.\n\n```giro-action\n{proposal}\n```\n"
         return AgentResult(text=text, returncode=0, tokens=10, cost=0.01)
 
     monkeypatch.setattr(agent_cc, "run", run)
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             repo_id.append(identifier)

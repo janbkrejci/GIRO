@@ -381,7 +381,7 @@ def test_project_binding_in_job_and_save(
         )
     )
     from aifactory.harness import settings
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
 
     settings.write(
@@ -393,7 +393,7 @@ def test_project_binding_in_job_and_save(
                 "pi": {"enabled": False},
             },
         },
-        haifa_home(),
+        giro_home(),
     )
     RepositorySettings(repo).update({"harness": "codex"})
     seen: list[dict[str, Any]] = []

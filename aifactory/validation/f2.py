@@ -45,12 +45,12 @@ def _start_backlog(ctx: Context, st: F2Run) -> bool:
 
 
 def _add_tasks(ctx: Context, st: F2Run, tasks: tuple[fb.F2Task, ...]) -> None:
-    st.adds.extend((t.id, ctx.haifa(*fb.add_argv(t))) for t in tasks)
+    st.adds.extend((t.id, ctx.giro(*fb.add_argv(t))) for t in tasks)
 
 
 def _push_backlog(ctx: Context, res: ScenarioResult, adds: list[tuple[str, Cmd]]) -> str | None:
     """``backlog check``, commit and push of the five added tasks; the base sha."""
-    check = ctx.haifa("backlog", "check")
+    check = ctx.giro("backlog", "check")
     git(ctx.repo, "add", "--", *fb.BACKLOG_DIRS)
     git(ctx.repo, "commit", "-q", "-m", "F2: sample backlog (2 modules, 5 tasks)")
     git(ctx.repo, "push", "-q", "origin", f"HEAD:{ctx.base}")
@@ -93,12 +93,12 @@ def _run_ok(run: dict[str, Any], pr: dict[str, Any], ok: bool = True) -> bool:
 
 
 def _approve(ctx: Context, res: ScenarioResult, task_id: str) -> Cmd:
-    cmd = ctx.haifa("task", "approve", task_id)
+    cmd = ctx.giro("task", "approve", task_id)
     for _ in range(0 if ctx.local else 6):
         if cmd.error_code != "merge_failed":
             break
         time.sleep(10)
-        cmd = ctx.haifa("task", "approve", task_id)
+        cmd = ctx.giro("task", "approve", task_id)
     if cmd.payload.get("merge_sha"):
         res.commits.append(str(cmd.payload["merge_sha"]))
     ctx.catch_up_base()
@@ -118,7 +118,7 @@ def _approved(res: ScenarioResult, name: str, cmds: list[tuple[str, Cmd]]) -> bo
 
 
 def _parallel(ctx: Context, res: ScenarioResult, runs: dict[str, dict[str, Any]]) -> bool:
-    pending = [ctx.haifa_async("task", "run", t, task=t) for t in fb.PARALLEL]
+    pending = [ctx.giro_async("task", "run", t, task=t) for t in fb.PARALLEL]
     cmds = [p.wait() for p in pending]
     for task_id, cmd in zip(fb.PARALLEL, cmds, strict=True):
         _record(ctx, res, runs, task_id, cmd.run, cmd.pr)
@@ -141,13 +141,13 @@ def _parallel(ctx: Context, res: ScenarioResult, runs: dict[str, dict[str, Any]]
 
 
 def _auto_chain(ctx: Context, res: ScenarioResult, runs: dict[str, dict[str, Any]]) -> bool:
-    enabled = ctx.haifa("config", "local", "set", "--auto-continue", "on")
+    enabled = ctx.giro("config", "local", "set", "--auto-continue", "on")
     if not res.check("enable_local_auto_continue", enabled.ok, enabled.brief()):
         return False
     try:
         cmd = ctx.run_task(fb.AUTO_START, variant="auto")
     finally:
-        disabled = ctx.haifa("config", "local", "set", "--auto-continue", "off")
+        disabled = ctx.giro("config", "local", "set", "--auto-continue", "off")
         res.check("disable_local_auto_continue", disabled.ok, disabled.brief())
     chain = _dict(cmd.payload.get("chain"))
     items = chain.get("runs")
@@ -253,7 +253,7 @@ def _final_checks(
     res.measurements["leftover_worktrees"] = leftover
     res.check("no_leftover_worktrees", not leftover, str(leftover))
 
-    check = ctx.haifa("backlog", "check")
+    check = ctx.giro("backlog", "check")
     res.check("backlog_check_ok", check.ok and check.code == 0, check.brief())
 
     if ctx.local:

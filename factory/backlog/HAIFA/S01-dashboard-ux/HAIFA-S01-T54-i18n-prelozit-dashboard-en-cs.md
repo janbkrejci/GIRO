@@ -23,5 +23,5 @@ Ověření: kontrola úplnosti EN/CS katalogů a nepřeložených UI literálů,
 Ověření: vyhledat přímé volající v celém aifactory/tests/ a zvolit jen testy dotčeného chování. Spustit každý změněný testovací soubor, just lint, just typecheck, just web-test, just web-build a příslušné browser testy změněných obrazovek podle AGENTS.md. Testy bez živých modelů a služeb, s izolovaným HAIFA_HOME; nespouštět celou sadu v tasku.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/244 · náklady $0.00

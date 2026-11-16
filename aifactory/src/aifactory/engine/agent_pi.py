@@ -48,7 +48,7 @@ def pi_executable() -> str:
 
 
 # pi has no way to forbid a shell command: `disallowed_commands` is not passed
-# on, and HAIFA reports that at `factory check` and when a run starts.
+# on, and GIRO reports that at `factory check` and when a run starts.
 SUPPORTS_DISALLOWED_COMMANDS = False
 
 # Where codex and pi find the repo's skills (a copy of .claude/skills).

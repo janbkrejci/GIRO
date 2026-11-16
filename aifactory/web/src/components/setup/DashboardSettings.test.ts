@@ -3,7 +3,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import DashboardSettings from './DashboardSettings.vue'
 
-const SETTINGS = { port: 4700, home: '/home/me/.haifa', registry: '/home/me/.haifa/dashboard.yaml', restart_required: false }
+const SETTINGS = { port: 4700, home: '/home/me/.giro', registry: '/home/me/.giro/dashboard.yaml', restart_required: false }
 
 function envelope(data: unknown, status = 200) {
   return new Response(JSON.stringify({ ok: true, data, error: null, warnings: [] }), { status })

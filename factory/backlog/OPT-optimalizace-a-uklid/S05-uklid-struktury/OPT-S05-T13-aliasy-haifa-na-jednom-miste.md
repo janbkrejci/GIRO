@@ -17,4 +17,4 @@ Hotovo znamená:
 - Stávající proměnné `HAIFA_*` dál fungují.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

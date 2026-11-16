@@ -30,5 +30,5 @@ Pevná omezení:
 - Testy nevolají model ani síť.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-08 · workflow finish-test-review · PR https://github.com/janbkrejci/HAIFA/pull/94 · náklady $0.00

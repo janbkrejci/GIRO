@@ -24,5 +24,5 @@ Hotovo znamená:
 Před implementací vyhledat přímé volající v celém aifactory/tests/. Spustit just lint, just typecheck, relevantní backendové testy, just web-test, všechny editované testové soubory a cílený browser test změněné kontroly/chipu; přegenerovat statický frontend přes just web-build. Limity testů stanovit s rezervou podle měření; ve factory běhu nespouštět celou sadu. Rozsah writes zahrnuje backend, frontend, jejich testy a generovaný frontend v aifactory/.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-10 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/212 · náklady $7.25

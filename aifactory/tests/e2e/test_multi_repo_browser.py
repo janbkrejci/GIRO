@@ -77,7 +77,7 @@ def test_multi_repo_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     planner.update(wait_for_file=str(release), wait_timeout_s=RUN_TIMEOUT_S)
     script.write_text(json.dumps({"agents": {"planner": [planner]}}), encoding="utf-8")
     wire, marker = diagnostic_tripwire(tmp_path)
-    home, log = tmp_path / "haifa-home", tmp_path / "obs.log"
+    home, log = tmp_path / "giro-home", tmp_path / "obs.log"
     assert not home.exists()
     net = Net()
     choosers: list[str] = []
@@ -108,7 +108,7 @@ def test_multi_repo_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
                 context.route("**/*", local_only)
                 page = context.new_page()
-                page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+                page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
 
                 def no_dialog(dialog: Dialog) -> None:
                     net.dialogs.append(f"{dialog.type}: {dialog.message}")
@@ -294,7 +294,7 @@ def test_multi_repo_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
                     expect(page.locator('[data-test="project-filter"]')).to_contain_text("M01")
                     assert (
                         page.evaluate(
-                            "key => localStorage.getItem(key)", f"haifa.backlog.project.{id_a}"
+                            "key => localStorage.getItem(key)", f"giro.backlog.project.{id_a}"
                         )
                         == "M01"
                     )

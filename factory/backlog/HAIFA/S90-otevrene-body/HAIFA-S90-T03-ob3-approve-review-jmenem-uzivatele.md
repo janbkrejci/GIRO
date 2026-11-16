@@ -17,5 +17,5 @@ Done means:
 - Ověřeno proti GitHubu.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-12 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/21 · náklady $2.87 (běh aff335c7, ověření a dokončení ručně)

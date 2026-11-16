@@ -194,7 +194,7 @@ def _serve(details: dict[str, dict[str, Any]]) -> Any:
 
     def serve(route: Route) -> None:
         url = urlsplit(route.request.url)
-        assert url.netloc == "haifa.test", route.request.url
+        assert url.netloc == "giro.test", route.request.url
         path = url.path
         prefix = "/api/repos/haifa/runs"
         data: Any
@@ -350,9 +350,9 @@ def test_long_run_waterfall_scrolls_locally() -> None:
                 constructor() { super(); window.waterfallLive = this; }
                 close() {}
             }""")
-            page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
             page.route("**/*", _serve(details))
-            page.goto("http://haifa.test/#/r/haifa/runs/long-run")
+            page.goto("http://giro.test/#/r/haifa/runs/long-run")
             region = page.locator('[data-test="waterfall-scroll"]')
             expect(region).to_be_visible()
             expect(region).to_have_attribute("data-overflow", "true")
@@ -441,9 +441,7 @@ def test_long_run_waterfall_scrolls_locally() -> None:
             tooltip = page.get_by_role("tooltip")
             expect(tooltip).to_contain_text(last["name"])
             target.click()
-            expect(page).to_have_url(
-                f"http://haifa.test/#/r/haifa/runs/long-run/{last['phase_id']}"
-            )
+            expect(page).to_have_url(f"http://giro.test/#/r/haifa/runs/long-run/{last['phase_id']}")
             expect(target).to_have_attribute("aria-pressed", "true")
             panel = page.locator(".phase-panel")
             expect(panel).to_be_visible()
@@ -454,7 +452,7 @@ def test_long_run_waterfall_scrolls_locally() -> None:
             assert region.evaluate("el => el.scrollLeft") > 0
 
             # a short run fills the region without a horizontal scroll
-            page.goto("http://haifa.test/#/r/haifa/runs/short-run")
+            page.goto("http://giro.test/#/r/haifa/runs/short-run")
             expect(page.locator('button.block[data-phase="plan"]')).to_be_visible()
             short = region.evaluate(GEOMETRY)
             assert short["scrollWidth"] <= short["clientWidth"], short

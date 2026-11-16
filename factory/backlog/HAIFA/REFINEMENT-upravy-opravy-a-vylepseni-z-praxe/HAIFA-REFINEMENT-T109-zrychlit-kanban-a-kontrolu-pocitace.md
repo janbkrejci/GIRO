@@ -27,5 +27,5 @@ Hotovo znamená:
 Testovací plán: před implementací vyhledat přímé volající změněných funkcí v celém aifactory/tests/. Již nalezeni web/test_web_backlog.py (strom, filtry, auto_merge, detail, handoff), web/test_web_backlog_graph.py, web/test_web_backlog_queue.py, web/test_web_overview.py, web/test_web_monitoring.py, web/test_web_cleanup.py, run/test_unchanged.py a web/test_web_workflow_advice.py (test_add_and_edit_save přímo patchuje _merge_policy). Vybrat pouze testy skutečně dotčeného chování; při změně machine čtení zahrnout web/test_web_machine.py zejména test_machine_cache_and_offline a test_harness_repo_counts_follow_registry_with_cached_probes, případně dotčené check testy. Při změně repo_settings vyhledat také jeho přímé volající a ochranné testy. Vždy just lint a just typecheck. Pro frontend just web-test a just web-build; cílený browser test jen změněné obrazovky, pokud se mění její chování/layout. Každý editovaný testový soubor spustit celý alespoň jednou. Ve factory běhu nespouštět celou sadu. Writes aifactory/ zahrnuje backend, frontend, testy a shipped static; případné další cesty přidat do vlastního writes před během.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-10 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/213 · náklady $0.00

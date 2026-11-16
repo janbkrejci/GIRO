@@ -47,5 +47,5 @@ Pravidla musí respektovat všichni agenti, kterých se týkají (builder, fix, 
 - Na novou logiku (sestavení popisu PR, založení TODO tasku/stepu, blokace) jsou testy.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/35 · náklady $7.03

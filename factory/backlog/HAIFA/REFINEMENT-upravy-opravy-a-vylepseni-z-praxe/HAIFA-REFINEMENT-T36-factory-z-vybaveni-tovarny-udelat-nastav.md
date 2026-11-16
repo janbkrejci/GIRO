@@ -41,5 +41,5 @@ Sekce stránky Factory půjdou sbalit a rozbalit kliknutím na nadpis. Rozbalen�
 - Pokud repo verzuje sestavený frontend v `aifactory/src/aifactory/web/static/`, přebuildovat ho.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/59 · náklady $2.71

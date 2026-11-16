@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 
-from validation.sandbox import HAIFA_ROOT, SetupError
+from validation.sandbox import GIRO_ROOT, SetupError
 
 ROSTER_FILES: tuple[tuple[str, str], ...] = (
     ("agents.yaml", ".factory/agents.yaml"),
@@ -48,8 +48,8 @@ def _agent_names(path: Path) -> list[str]:
 
 
 def resolve_roster(value: Path) -> Path:
-    """The absolute roster dir (relative to the HAIFA root); ``SetupError`` if incomplete."""
-    path = value if value.is_absolute() else HAIFA_ROOT / value
+    """The absolute roster dir (relative to the GIRO root); ``SetupError`` if incomplete."""
+    path = value if value.is_absolute() else GIRO_ROOT / value
     path = path.resolve()
     if not path.is_dir():
         raise SetupError(f"--roster {value}: {path} is not a directory")

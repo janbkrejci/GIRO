@@ -31,5 +31,5 @@ Navrhni a implementuj funkci, která umožní prohlížet markdowny souvisejíc�
 - Jsou testy backendu (pytest) i frontendu (vitest), `just test` prochází a zbuildovaný bundle ve `web/static` je aktualizovaný přes `just web-build`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/38 · náklady $2.32

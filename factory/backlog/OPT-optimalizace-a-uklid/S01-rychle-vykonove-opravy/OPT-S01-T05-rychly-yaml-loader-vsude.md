@@ -16,4 +16,4 @@ Hotovo znamená:
 - Test hlídá, že mimo `yamlload.py` nikdo nevolá `yaml.safe_load` ani `yaml.load`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
