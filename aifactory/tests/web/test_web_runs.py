@@ -522,8 +522,8 @@ def test_publish_auto_merge_uses_launcher(
 ) -> None:
     from thread_launcher import ThreadLauncher
 
+    from aifactory.errors import TaskRunError
     from aifactory.run import queue
-    from aifactory.run.errors import TaskRunError
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
     from run_repo import T01, make_run_repo
@@ -581,7 +581,7 @@ def test_allow_writes_does_not_launch_when_writes_are_not_committed(
 ) -> None:
     from importlib import import_module
 
-    from aifactory.run import TaskRunError
+    from aifactory.errors import TaskRunError
 
     module = import_module("aifactory.run.allow_writes")
     calls: list[tuple[Path, str, str | None]] = []
@@ -662,7 +662,7 @@ def test_local_off_during_fake_worker_keeps_accepted_run_and_blocks_next(
 ) -> None:
     import threading
 
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
     from aifactory.run.policy import acceptance
 
     home = tmp_path / "home"

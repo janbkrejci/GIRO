@@ -26,6 +26,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from aifactory import gitops
 from aifactory.config import (
     ConfigError,
     ConfigIssue,
@@ -49,7 +50,6 @@ from aifactory.config.settings import (
 )
 from aifactory.config.source import LOCAL_FILE, git
 from aifactory.oscompat import atomic_write
-from aifactory.run import gitops
 
 JsonDict = dict[str, Any]
 

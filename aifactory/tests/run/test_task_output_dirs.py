@@ -14,7 +14,8 @@ from pathlib import Path
 import pytest
 from run_repo import DOC, SPEC, T01, Script, commit_all, fake_env, git, make_run_repo, ok, write
 
-from aifactory.run import TaskRunError, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import run_task
 
 CONFIG = ".factory/config.yaml"
 PROJECT_INDEX = "backlog/M01-core/index.md"

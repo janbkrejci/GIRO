@@ -91,10 +91,8 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
 import secrets
 import sqlite3
-import threading
 import time
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import asdict, dataclass
@@ -105,9 +103,10 @@ from typing import Any
 from aifactory import database, failure, oscompat
 from aifactory.engine.tracer import BUSY_TIMEOUT
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
+from aifactory.locks import path_lock
 from aifactory.providers.base import PullRequest
 from aifactory.run.changes import install as install_changes
-from aifactory.run.errors import TaskRunError
 
 RUNNING, SUCCEEDED, FAILED, ABORTED = "running", "succeeded", "failed", "aborted"
 STOPPED = "stopped"
@@ -587,64 +586,6 @@ def is_db_busy(exc: BaseException) -> bool:
     return False
 
 
-class _PathLock:
-    """A cross-process ``flock`` on one file, re-entrant within the process."""
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        self.local = threading.RLock()
-        self.depth = 0
-        self.fd: int | None = None
-
-    @contextlib.contextmanager
-    def hold(self, timeout: float) -> Iterator[None]:
-        deadline = time.monotonic() + timeout
-        if not self.local.acquire(timeout=timeout):
-            raise TaskRunError("trace_db_locked", f"{self.path} is held by another thread")
-        try:
-            if self.depth == 0:
-                self.fd = self._lock(deadline)
-            self.depth += 1
-            try:
-                yield
-            finally:
-                self.depth -= 1
-                if self.depth == 0 and self.fd is not None:
-                    with contextlib.suppress(OSError):
-                        oscompat.unlock(self.fd)
-                    os.close(self.fd)
-                    self.fd = None
-        finally:
-            self.local.release()
-
-    def _lock(self, deadline: float) -> int:
-        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
-        while True:
-            try:
-                oscompat.lock(fd, blocking=False)
-                return fd
-            except OSError:
-                if time.monotonic() >= deadline:
-                    os.close(fd)
-                    raise TaskRunError(
-                        "trace_db_locked", f"{self.path} is held by another process"
-                    ) from None
-                time.sleep(0.05)
-
-
-_PATH_LOCKS: dict[str, _PathLock] = {}
-_PATH_LOCKS_GUARD = threading.Lock()
-
-
-def _path_lock(path: Path) -> _PathLock:
-    key = str(path.resolve())
-    with _PATH_LOCKS_GUARD:
-        lock = _PATH_LOCKS.get(key)
-        if lock is None:
-            lock = _PATH_LOCKS[key] = _PathLock(path)
-        return lock
-
-
 def _ensure_wal(conn: sqlite3.Connection, db_path: Path) -> None:
     """Switch the trace DB to WAL, with a busy timeout and retries (see the module docstring)."""
     for _ in range(_WAL_ATTEMPTS):
@@ -804,14 +745,14 @@ class TaskRunStore:
         No DB transaction stays open in the block, so slow work (git) inside it
         does not keep other runs or the dashboard from writing the trace DB.
         """
-        lock = _path_lock(self.db_path.with_name(self.db_path.name + ".lock"))
+        lock = path_lock(self.db_path.with_name(self.db_path.name + ".lock"))
         with lock.hold(SERIAL_TIMEOUT):
             yield
 
     @contextlib.contextmanager
     def merge_lock(self, timeout: float = 600.0) -> Iterator[None]:
         """Hold ``<trace db>.merge.lock``: one auto-merge into base at a time, across processes."""
-        lock = _path_lock(self.db_path.with_name(self.db_path.name + ".merge.lock"))
+        lock = path_lock(self.db_path.with_name(self.db_path.name + ".merge.lock"))
         with lock.hold(timeout):
             yield
 

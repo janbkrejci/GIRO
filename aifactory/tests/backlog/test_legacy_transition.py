@@ -6,8 +6,8 @@ import pytest
 
 from aifactory.backlog import Task, add_task, edit_task, follow_up_task, load_backlog
 from aifactory.backlog.taskfile import mark_done
+from aifactory.gitops import git
 from aifactory.repo_settings import RepositorySettings, SettingsError
-from aifactory.run.gitops import git
 from cli_json import run_json
 from legacy_backlog import derived as old_derived
 from legacy_backlog import loader as old_loader

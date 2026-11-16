@@ -17,8 +17,8 @@ from pathlib import Path
 from aifactory.backlog import Backlog, Task
 from aifactory.config import ProjectSettings
 from aifactory.providers import git as provider_git
-from aifactory.run.scope import OutputPaths, output_paths
 from aifactory.run.store import SUCCEEDED, TaskPrRow, TaskRunRow, TaskRunStore
+from aifactory.scope import OutputPaths, output_paths
 
 # characters of one text (task text, spec, documentation) put into the prompt
 TEXT_LIMIT = 6000

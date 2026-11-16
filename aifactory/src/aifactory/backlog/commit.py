@@ -114,11 +114,11 @@ def commit_backlog(
 
     `rc` is the caller's already loaded run configuration of `repo` (loaded when None).
     """
+    from aifactory import gitops
     from aifactory.config import ConfigError, load_run_config
+    from aifactory.errors import TaskRunError
     from aifactory.providers import ProviderError
     from aifactory.providers import git as provider_git
-    from aifactory.run import gitops
-    from aifactory.run.errors import TaskRunError
 
     try:
         main = gitops.main_root(repo)
@@ -168,7 +168,7 @@ def commit_backlog(
     except RuntimeError as exc:
         raise TaskEditError("commit_failed", str(exc)) from exc
     if old is not None:
-        from aifactory.run import basemoves
+        from aifactory import basemoves
 
         basemoves.record(
             main, f"refs/heads/{base}", old, sha, checkout=main, command="backlog commit"

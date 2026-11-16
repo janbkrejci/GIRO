@@ -23,22 +23,22 @@ from pydantic import ConfigDict, Field
 from aifactory import backlog as core
 from aifactory import gitrun, oscompat, yamlload
 from aifactory.config import FactoryConfig, load_run_config
+from aifactory.config.runtime import main_ignored, prepare_cfg
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentCall, EnvelopeBase, PhaseParams
 from aifactory.engine.runner import Run
 from aifactory.engine.tracer import Tracer
 from aifactory.errors import UsageError
+from aifactory.guard import TaskWriteGuard
 from aifactory.harness import canonical, install
 from aifactory.harness.agent_dirs import remove_agent_dirs, sweep_orphans
 from aifactory.harness.check import check_harness
 from aifactory.harness.settings import context_binding
 from aifactory.providers.git import PARALLEL_CHECKOUT
-from aifactory.run.guard import TaskWriteGuard
-from aifactory.run.scope import TaskScope
-from aifactory.run.task import _main_ignored, named_workflow, prepare_cfg
+from aifactory.scope import TaskScope
 from aifactory.workflow import DEFAULT_WORKFLOWS_DIR
 from aifactory.workflow.check import check_agents
-from aifactory.workflow.parse import outline, parse_workflow
+from aifactory.workflow.parse import named_workflow, outline, parse_workflow
 
 install()
 logger = logging.getLogger(__name__)
@@ -402,8 +402,8 @@ def recommend(
     output_type = TaskRecommendationOutput if task_parameters else WorkflowRecommendationOutput
     rc = load_run_config(repo, ctx["commit"])
     loaded = rc.config
+    from aifactory.config.runtime import apply_agents_override
     from aifactory.harness.settings import ensure_enabled
-    from aifactory.run.task import apply_agents_override
 
     try:
         binding = ctx["advisor"] if "advisor" in ctx else context_binding({}, repo=repo)
@@ -488,7 +488,7 @@ def recommend(
                 repo,
                 isolated,
                 TaskScope(job_id, (), ()),
-                (*_main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
+                (*main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
             )
             payload = json.loads(json.dumps(ctx))
             # Keep the task intact; deterministically bound surrounding context.

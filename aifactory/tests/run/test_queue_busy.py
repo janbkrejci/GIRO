@@ -10,7 +10,8 @@ from test_factory_start import FakeStart
 from test_parallel_chain import T01, T02, T03, FakeRunner, no_files, setup_tasks, started
 
 from aifactory import cli
-from aifactory.run import STOP_FAILED, TaskRunError, TaskRunRow, run_chain, start_factory
+from aifactory.errors import TaskRunError
+from aifactory.run import STOP_FAILED, TaskRunRow, run_chain, start_factory
 
 
 @pytest.mark.parametrize("persistent", [False, True])

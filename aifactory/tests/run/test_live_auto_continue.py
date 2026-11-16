@@ -16,8 +16,9 @@ from test_auto_continue import T01, T02, T03, build, ids, runs_of, setup_chain
 from test_parallel_chain import FakeRunner, no_files, setup_tasks, started
 
 from aifactory.backlog import Task, load_backlog
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, heal, run_chain, run_task
+from aifactory.run import TaskRunRow, TaskRunStore, heal, run_chain, run_task
 from aifactory.run import retry as retry_mod
 from aifactory.run import task as task_mod
 from aifactory.run.members import ProcessRunner
@@ -276,7 +277,7 @@ def test_two_workers_and_restart_read_persisted_policy_per_repository(tmp_path: 
     worker = (
         "import sys; from pathlib import Path; "
         "from aifactory.run.policy import acceptance; "
-        "from aifactory.run.errors import TaskRunError\n"
+        "from aifactory.errors import TaskRunError\n"
         "try:\n"
         " with acceptance(Path(sys.argv[1])): print('accepted')\n"
         "except TaskRunError as exc: print(exc.code)\n"
@@ -312,7 +313,7 @@ def test_two_live_workers_observe_off_without_restart(tmp_path: Path) -> None:
     worker = (
         "import sys; from pathlib import Path; "
         "from aifactory.run.policy import acceptance; "
-        "from aifactory.run.errors import TaskRunError\n"
+        "from aifactory.errors import TaskRunError\n"
         "for command in sys.stdin:\n"
         " try:\n"
         "  with acceptance(Path(sys.argv[1])): print('accepted', flush=True)\n"

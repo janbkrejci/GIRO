@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from aifactory import oscompat
-from aifactory.web.registry import RepoError
+from aifactory.registry import RepoError
 
 MAX_ENTRIES = 500
 """The most directories ``list_dirs`` returns; ``truncated`` tells there were more."""

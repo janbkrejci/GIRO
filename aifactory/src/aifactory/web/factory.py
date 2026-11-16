@@ -27,13 +27,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+from aifactory.registry import RepoError
 from aifactory.web.backlog import UsageError
-from aifactory.web.registry import RepoError
 
 if TYPE_CHECKING:
     from aifactory.check.machine import Machine
     from aifactory.check.model import CheckReport
-    from aifactory.web.registry import RegistryState
+    from aifactory.registry import RegistryState
 
 JsonDict = dict[str, Any]
 
@@ -179,7 +179,7 @@ def _now() -> str:
 
 def _trace_db_finding(root: Path, registry_state: RegistryState) -> Any:
     from aifactory.check.model import Finding
-    from aifactory.web.repos import check_trace_db
+    from aifactory.repo_vet import check_trace_db
 
     try:
         check_trace_db(root, registry_state)

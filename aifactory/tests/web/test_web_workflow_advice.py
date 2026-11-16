@@ -173,11 +173,11 @@ def test_idempotent_save_and_foreign_edit(tmp_path: Path) -> None:
 
 def test_rollback_and_journal_then_base_resolution(tmp_path: Path) -> None:
     from advice_fixture import git
+    from aifactory import backup, mainwrites
     from aifactory.config import load_run_config
-    from aifactory.run import backup, mainwrites
-    from aifactory.run.task import named_workflow
     from aifactory.web import backlog
     from aifactory.web.backlog import UsageError
+    from aifactory.workflow.parse import named_workflow
 
     repo = make_repo(tmp_path / "repo")
     with client_for(repo, lambda *args: output("research", new=True)) as client:
@@ -213,8 +213,8 @@ def test_rollback_and_journal_then_base_resolution(tmp_path: Path) -> None:
 
 
 def test_two_repos_with_identical_task_ids_are_isolated(tmp_path: Path) -> None:
+    from aifactory.registry import Registry
     from aifactory.web.app import create_multi_app
-    from aifactory.web.registry import Registry
 
     first = make_repo(tmp_path / "first")
     second = make_repo(tmp_path / "second")
@@ -314,11 +314,11 @@ def test_advice_save_survives_concurrent_guard_restoration(tmp_path: Path) -> No
     from types import SimpleNamespace
 
     from aifactory.config import load_run_config
+    from aifactory.config.runtime import prepare_cfg
     from aifactory.engine import agents
     from aifactory.engine.permissions import PermissionBreach
-    from aifactory.run.guard import TaskWriteGuard
-    from aifactory.run.scope import TaskScope
-    from aifactory.run.task import prepare_cfg
+    from aifactory.guard import TaskWriteGuard
+    from aifactory.scope import TaskScope
 
     repo = make_repo(tmp_path / "repo")
     worktree = make_repo(tmp_path / "foreign-worktree")

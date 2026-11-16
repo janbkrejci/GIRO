@@ -67,7 +67,7 @@ def database_path(root: Path, local: Path, url: str | None = None) -> Path:
             raise ValueError("database URL must use http:// or https://")
         if parsed.username or parsed.password or parsed.query or parsed.fragment:
             raise ValueError("database URL must not contain credentials, query or fragment")
-        from aifactory.run.gitops import read_git
+        from aifactory.gitops import read_git
 
         config = root / ".factory/config.yaml"
         settings = (

@@ -28,8 +28,8 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from aifactory import backup, gitops
 from aifactory.environment import value
-from aifactory.run import backup, gitops
 
 RUN_ENV = "GIRO_RUN_ID"
 """Environment variable holding the id of the task run a process belongs to."""

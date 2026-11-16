@@ -15,10 +15,11 @@ from starlette.testclient import TestClient
 
 from aifactory import failure
 from aifactory.backlog import find_task, load_for_edit
-from aifactory.run import TaskRunError, TaskRunStore, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import TaskRunStore, run_task
 from aifactory.run.allow_writes import allow_writes, plan_allow_writes, violation_paths
-from aifactory.run.scope import effective_task_writes
 from aifactory.run.store import FAILED, SUCCEEDED
+from aifactory.scope import effective_task_writes
 from aifactory.web.app import create_app
 from cli_json import run_json
 

@@ -12,7 +12,8 @@ from starlette.testclient import TestClient
 
 from aifactory import failure
 from aifactory.backlog import find_task, load_for_edit
-from aifactory.run import TaskRunError, TaskRunStore, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import TaskRunStore, run_task
 from aifactory.run.allow_writes import plan_allow_writes
 from aifactory.run.retry import retry_run
 from aifactory.run.store import FAILED, SUCCEEDED

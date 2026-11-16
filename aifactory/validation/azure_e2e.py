@@ -315,7 +315,7 @@ def isolated_home(workdir: Path) -> Path:
     The dashboard registry (``dashboard.yaml``) is the run's own, so registering and
     unregistering the temporary repo never touches the operator's dashboard.
     """
-    from aifactory.web.registry import LOCK_FILE, REGISTRY_FILE
+    from aifactory.registry import LOCK_FILE, REGISTRY_FILE
     from validation.runner import isolated_giro_home
 
     home = isolated_giro_home(workdir)
@@ -613,7 +613,7 @@ class E2E:
             raise Stop("main accepts direct pushes; the policy does not protect it")
 
     def install(self) -> None:
-        from aifactory.web.registry import Registry
+        from aifactory.registry import Registry
         from aifactory.web.repos import add_repo
 
         assert self.remote_url is not None
@@ -832,7 +832,7 @@ class E2E:
         report = self.report
         if self.registry_id is not None:
             try:
-                from aifactory.web.registry import Registry
+                from aifactory.registry import Registry
                 from aifactory.web.repos import remove_repo
 
                 remove_repo(Registry(self.home), self.registry_id)

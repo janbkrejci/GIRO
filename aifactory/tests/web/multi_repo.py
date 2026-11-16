@@ -105,7 +105,8 @@ def multi_client(home: Path, tmp_path: Path, **kwargs: Any) -> TestClient:
 def register(client: TestClient, path: Path) -> dict[str, Any]:
     """Register ``path`` in the client's registry without installing factory (what
     ``POST /api/repos`` did before it installed); returns the ``repo_status`` item."""
-    from aifactory.web.repos import register_repo, repo_status
+    from aifactory.repo_vet import register_repo
+    from aifactory.web.repos import repo_status
 
     entry, _created, _warnings = register_repo(client.app.state.registry, str(path))  # type: ignore[attr-defined]
     return repo_status(entry)

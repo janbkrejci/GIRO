@@ -121,8 +121,8 @@ def test_follows_must_reference_a_task(tmp_path: Path) -> None:
 def test_prompt_names_the_followed_task(tmp_path: Path, capsys: Capsys) -> None:
     from aifactory.backlog import Task
     from aifactory.run.follows import followed_task
-    from aifactory.run.scope import output_paths, task_scope
     from aifactory.run.task import task_prompt
+    from aifactory.scope import output_paths, task_scope
 
     root = sample_repo(tmp_path)
     args = ["task", "follow-up", "M01-S01-T01", "--body", "Dál.", "--json", *_repo(root)]

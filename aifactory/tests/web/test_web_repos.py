@@ -811,22 +811,20 @@ def test_repo_git_read_rejects_exhausted_budget_before_start(
     caplog: pytest.LogCaptureFixture,
     seconds: float,
 ) -> None:
-    from aifactory import procrun
-    from aifactory.web import repos
+    from aifactory import procrun, repo_vet
 
     def forbidden(*args: object, **kwargs: object) -> None:
         pytest.fail("no git may start with an exhausted budget")
 
-    monkeypatch.setattr(repos, "_read_git", forbidden)
+    monkeypatch.setattr(repo_vet, "_read_git", forbidden)
     monkeypatch.setattr(procrun, "run", forbidden)
     with procrun.budget(seconds), pytest.raises(procrun.BudgetExceeded):
-        repos.read_git(tmp_path, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
+        repo_vet.read_git(tmp_path, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
     assert not any(record.exc_info for record in caplog.records)
 
 
 def test_repo_git_read_has_useful_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from aifactory import gitrun, procrun
-    from aifactory.web import repos
+    from aifactory import gitrun, procrun, repo_vet
 
     calls: list[object] = []
 
@@ -838,5 +836,5 @@ def test_repo_git_read_has_useful_budget(tmp_path: Path, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(gitrun, "run", run)
     with procrun.budget(10):
-        assert repos.read_git(tmp_path, "rev-parse", "HEAD") == "head"
+        assert repo_vet.read_git(tmp_path, "rev-parse", "HEAD") == "head"
     assert calls == [["git", "rev-parse", "HEAD"]]

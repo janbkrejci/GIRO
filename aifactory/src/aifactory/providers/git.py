@@ -183,7 +183,7 @@ def advance_branch(
     The move is recorded in the base-move journal (``run/basemoves.py``) so the
     guard of a concurrent task run does not blame its agent for it.
     """
-    from aifactory.run import basemoves
+    from aifactory import basemoves
 
     current = rev_parse(root, f"refs/heads/{branch}")
     if current != old_sha:

@@ -106,8 +106,10 @@ from aifactory.config.loader import load_config
 from aifactory.config.repo_state import repo_state
 from aifactory.config.source import CommitSource
 from aifactory.config.status import config_changes
-from aifactory.run.errors import TaskRunError
-from aifactory.run.gitops import repo_layout
+from aifactory.errors import TaskRunError
+from aifactory.gitops import repo_layout
+from aifactory.registry import Registry, RepoEntry
+from aifactory.repo_vet import trace_db_of
 from aifactory.run.queue import Slots
 from aifactory.web.backlog import (
     BOARD_STATES,
@@ -125,8 +127,6 @@ from aifactory.web.chains import max_parallel_runs_in
 from aifactory.web.config_cache import CONFIG_TTL as CONFIG_TTL
 from aifactory.web.config_cache import ConfigCache
 from aifactory.web.control import FactoryControl
-from aifactory.web.registry import Registry, RepoEntry
-from aifactory.web.repos import trace_db_of
 
 JsonDict = dict[str, Any]
 T = TypeVar("T")

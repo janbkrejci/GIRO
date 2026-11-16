@@ -17,7 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
 from trace_fixture import T1, T2, make_trace_db  # noqa: E402
 
 from aifactory import oscompat  # noqa: E402
-from aifactory.run import STOPPED, TaskRunError, TaskRunStore, stop_run  # noqa: E402
+from aifactory.errors import TaskRunError
+from aifactory.run import STOPPED, TaskRunStore, stop_run  # noqa: E402
 from aifactory.run.store import FAILED  # noqa: E402
 from cli_json import run_json  # noqa: E402
 

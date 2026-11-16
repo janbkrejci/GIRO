@@ -26,7 +26,7 @@ from aifactory.config.settings import load_local
 from aifactory.environment import value
 from aifactory.home import giro_home
 from aifactory.learn.collect import Objection, collect
-from aifactory.web.registry import ID_RE, Registry, RepoEntry, same_repo
+from aifactory.registry import ID_RE, Registry, RepoEntry, same_repo
 
 FACTORY_REPO_ENV = "GIRO_FACTORY_REPO"
 FACTORY_PROJECT = "aifactory"

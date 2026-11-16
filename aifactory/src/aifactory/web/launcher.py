@@ -46,8 +46,8 @@ from typing import Protocol
 
 from aifactory import home, oscompat
 from aifactory.config import ConfigError
+from aifactory.errors import TaskRunError
 from aifactory.run import members
-from aifactory.run.errors import TaskRunError
 from aifactory.run.members import DEFAULT_COMMAND, command_prefix, set_command_prefix
 from aifactory.run.store import TaskRunRow
 from aifactory.run.task import existing_store

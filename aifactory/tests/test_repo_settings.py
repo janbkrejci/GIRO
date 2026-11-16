@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
+from aifactory.gitops import git
 from aifactory.repo_settings import RepositorySettings, SettingsError, repository_identity
-from aifactory.run.gitops import git
 
 
 @pytest.fixture

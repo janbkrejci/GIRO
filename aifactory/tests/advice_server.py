@@ -14,8 +14,8 @@ import uvicorn
 
 from advice_fixture import output
 from aifactory.codeprint import CodeWatch
+from aifactory.registry import Registry
 from aifactory.web.app import create_multi_app
-from aifactory.web.registry import Registry
 from aifactory.web.workflow_advice import AdviceManager
 
 

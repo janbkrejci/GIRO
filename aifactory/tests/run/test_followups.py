@@ -21,9 +21,9 @@ from aifactory.backlog import (
     load_backlog,
 )
 from aifactory.engine.data_types import FollowUp, PlanOutput
+from aifactory.errors import TaskRunError
 from aifactory.review import ReviewError, approve_task
 from aifactory.run import TaskRunStore, run_task
-from aifactory.run.errors import TaskRunError
 from aifactory.run.followups import collect, follow_up_marker, record
 from aifactory.workflow import StepRecord, WorkflowRun
 

@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING, Any
 from aifactory import failure as failures
 from aifactory.backlog import Task, TaskEditError, effective
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
 from aifactory.providers import GitProvider
-from aifactory.run.errors import TaskRunError
 from aifactory.run.fallback import SWITCH_KEY
 from aifactory.run.store import FAILED, SUCCEEDED
 from aifactory.workflow import CodeRunner

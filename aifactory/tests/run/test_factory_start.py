@@ -14,8 +14,9 @@ from run_repo import commit_all, git, make_run_repo, write
 from test_parallel_chain import CORE, STEP, T01, T02, T03, T04, _db, _pr, no_files, setup_tasks
 
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, start_factory
+from aifactory.run import TaskRunRow, TaskRunStore, start_factory
 from aifactory.run.queue import _start_with_lock_retry
 
 

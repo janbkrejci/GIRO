@@ -48,8 +48,8 @@ from aifactory.run import (
     run_chain,
     run_task,
 )
-from aifactory.run.scope import output_paths
 from aifactory.run.store import MERGED_BY_AUTO, MERGED_BY_OPERATOR
+from aifactory.scope import output_paths
 from aifactory.workflow import EngineCodeRunner
 from cli_json import read_envelope
 

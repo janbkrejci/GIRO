@@ -14,8 +14,8 @@ from aifactory.engine.data_types import AgentResult
 from aifactory.engine.tracer import Tracer
 from aifactory.harness.check import HarnessStatus
 from aifactory.home import giro_home
+from aifactory.registry import Registry
 from aifactory.run.store import TaskRunStore
-from aifactory.web.registry import Registry
 
 
 def _run(db: Any, run_id: str, task_id: str) -> None:

@@ -15,9 +15,9 @@ from aifactory.home import giro_home
 from aifactory.learn.sources import FACTORY_REPO_ENV
 from aifactory.learn.store import ACCEPTED, PROPOSED, REJECTED
 from aifactory.learn.view import lessons as view_lessons
+from aifactory.registry import Registry
 from aifactory.web.app import create_app
 from aifactory.web.learn import LearnManager
-from aifactory.web.registry import Registry
 from learn_fixture import fake_learner, make_learn_repo, register_learn_repos
 
 RULE = "Add a test for every new CLI command."

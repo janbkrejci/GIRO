@@ -23,7 +23,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.store import PAUSED, PAUSING, RUNNING, TaskRunRow, TaskRunStore
 
 POLL_SECONDS = 1.0

@@ -20,9 +20,9 @@ from run_repo import (
     write,
 )
 
+from aifactory.errors import TaskRunError
 from aifactory.review import ReviewError, approve_task, resolve_task
 from aifactory.run import TaskRunStore, run_task
-from aifactory.run.errors import TaskRunError
 from aifactory.web.backlog import run_check
 from aifactory.web.review import review_detail
 

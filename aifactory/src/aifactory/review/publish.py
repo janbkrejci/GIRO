@@ -18,10 +18,10 @@ from aifactory.config.settings import ProjectSettings
 from aifactory.providers.base import OPEN, GitProvider, ProviderError, PullRequest
 from aifactory.review.prbody import pr_body, pr_title
 from aifactory.run.followups import CreatedFollowUp
-from aifactory.run.resolve import INTERNAL_WORKFLOWS
 from aifactory.run.stack import open_stack
 from aifactory.run.store import SUCCEEDED, TaskPrRow, TaskRunRow, TaskRunStore, _now
 from aifactory.workflow import WorkflowRun
+from aifactory.workflow.parse import INTERNAL_WORKFLOWS
 
 
 def run_pr_body(

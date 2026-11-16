@@ -116,8 +116,8 @@ def test_member_failure_before_claim_removes_operation(
 
     from run_repo import make_run_repo
 
+    from aifactory.errors import TaskRunError
     from aifactory.run import members
-    from aifactory.run.errors import TaskRunError
 
     repo = make_run_repo(tmp_path / "repo")
 
@@ -211,8 +211,8 @@ def test_member_operation_handoff_and_timeout(
 
     from run_repo import make_run_repo
 
+    from aifactory.errors import TaskRunError
     from aifactory.run import members
-    from aifactory.run.errors import TaskRunError
 
     repo = make_run_repo(tmp_path / "repo")
     events: list[str] = []

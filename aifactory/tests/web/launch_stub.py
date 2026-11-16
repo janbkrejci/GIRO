@@ -25,7 +25,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.store import RUNNING, SUCCEEDED, TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_fail, envelope_ok
 

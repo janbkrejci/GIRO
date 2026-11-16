@@ -12,17 +12,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from aifactory import gitops
 from aifactory.backlog import Task, load_backlog
 from aifactory.config import ConfigError, load_run_config
+from aifactory.errors import TaskRunError
 from aifactory.providers import GitProvider
 from aifactory.review.errors import ReviewError
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
 from aifactory.run.queue import auto_merge_enabled
-from aifactory.run.resolve import RESOLVE_WORKFLOW
 from aifactory.run.stack import open_stack, stacked_on
 from aifactory.run.store import STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow, TaskRunStore
 from aifactory.workflow import CodeRunner
+from aifactory.workflow.parse import RESOLVE_WORKFLOW
 
 
 def _dependents(store: TaskRunStore, merged_branch: str) -> list[TaskPrRow]:

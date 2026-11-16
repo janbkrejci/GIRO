@@ -37,6 +37,7 @@ from test_auto_merge import setup as setup_merge
 from aifactory import failure
 from aifactory.backlog import Task, load_backlog
 from aifactory.cli import main
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review.automerge import AutoMergeResult
 from aifactory.run import (
@@ -44,7 +45,6 @@ from aifactory.run import (
     STOP_EXHAUSTED,
     STOP_FAILED,
     ChainResult,
-    TaskRunError,
     queue,
     run_chain,
 )

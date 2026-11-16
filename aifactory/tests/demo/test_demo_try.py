@@ -13,7 +13,7 @@ from aifactory.backlog.loader import iter_tasks, load_backlog
 from aifactory.check import run_check
 from aifactory.demo import BASE, create_demo, default_dir
 from aifactory.home import giro_home
-from aifactory.web.registry import Registry
+from aifactory.registry import Registry
 from cli_json import run_json
 
 

@@ -127,12 +127,12 @@ R = TypeVar("R")
 @contextlib.contextmanager
 def write_lock(root: Path, operation: str = "backlog") -> Iterator[None]:
     from aifactory.home import giro_home
-    from aifactory.run.store import _path_lock
+    from aifactory.locks import path_lock
 
     key = hashlib.sha256(str(root.resolve()).encode()).hexdigest()
     path = giro_home() / f"{operation}-locks" / f"{key}.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
-    with _path_lock(path).hold(30):
+    with path_lock(path).hold(30):
         yield
 
 
@@ -250,8 +250,8 @@ def _write_checked(
                 exit_code=1,
                 issues=new,
             )
+        from aifactory import mainwrites
         from aifactory.database.backlog import publish
-        from aifactory.run import mainwrites
 
         publish(root, pending)
 

@@ -288,7 +288,7 @@ def direct_blockers(
     """Blockers of a direct commit to base: ``not_on_base``, ``run_in_progress`` and,
     with `check_remote` and a remote, ``base_behind``/``base_diverged`` (raises
     ``fetch_failed``). Without a store no run can be in progress."""
-    from aifactory.run import gitops
+    from aifactory import gitops
 
     blockers: list[Blocker] = []
     warnings: list[str] = []
@@ -536,7 +536,7 @@ def _advance(
         if where is not None:
             _stage_matching(where, files, warnings, materialize=materialize)
         git.git(root, "update-ref", f"refs/heads/{base}", sha, old)
-        from aifactory.run import basemoves
+        from aifactory import basemoves
 
         basemoves.record(root, f"refs/heads/{base}", old, sha, checkout=where, command=command)
     return warnings

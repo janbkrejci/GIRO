@@ -1578,9 +1578,9 @@ def _fail_from_exception(exc: Exception, as_json: bool, label: str) -> int:
     from aifactory.backlog import TaskEditError
     from aifactory.config import ConfigError
     from aifactory.engine.role_registry import RolesError
+    from aifactory.errors import TaskRunError
     from aifactory.harness.config import HarnessConfigError
     from aifactory.review import ReviewError
-    from aifactory.run import TaskRunError
 
     if isinstance(exc, TaskEditError):
         if as_json:
@@ -1637,8 +1637,8 @@ def _backlog_root(repo: str | None) -> Path:
 
 def _backlog_sync(args: argparse.Namespace) -> int:
     from aifactory.config import ConfigError
+    from aifactory.errors import TaskRunError
     from aifactory.review import ReviewError, sync_backlog
-    from aifactory.run import TaskRunError
 
     try:
         result = sync_backlog(_backlog_root(args.repo))
@@ -2436,7 +2436,7 @@ def _task_priority(root: Path, backlog: Any) -> dict[str, dict[str, Any]]:
     """
     import sqlite3
 
-    from aifactory.run import TaskRunError
+    from aifactory.errors import TaskRunError
     from aifactory.run.queue import priority_map
     from aifactory.run.task import existing_store
 
@@ -2970,8 +2970,9 @@ def _task_clean(args: argparse.Namespace, root: Path) -> int:
 
 
 def _task_stop(args: argparse.Namespace, root: Path) -> int:
-    from aifactory.run import TaskRunError, task_runs_for
+    from aifactory.errors import TaskRunError
     from aifactory.run import stop as run_stop
+    from aifactory.run import task_runs_for
 
     task_id: str = args.task_id
     run_id: str | None = args.run
@@ -2990,7 +2991,8 @@ def _task_stop(args: argparse.Namespace, root: Path) -> int:
 
 
 def _task_pause(args: argparse.Namespace, root: Path, *, resume: bool) -> int:
-    from aifactory.run import TaskRunError, pause_run, resume_run, task_runs_for
+    from aifactory.errors import TaskRunError
+    from aifactory.run import pause_run, resume_run, task_runs_for
     from aifactory.run import stop as run_stop
 
     task_id: str = args.task_id
@@ -3018,8 +3020,8 @@ def _task(args: argparse.Namespace) -> int:
         return 0
     from aifactory.backlog import TaskEditError
     from aifactory.config import ConfigError
+    from aifactory.errors import TaskRunError
     from aifactory.review import ReviewError
-    from aifactory.run import TaskRunError
 
     command: str = args.task_command
     root = _backlog_root(args.repo)
@@ -3275,11 +3277,12 @@ def _obs(args: argparse.Namespace) -> int:
 
     from aifactory.config import ConfigError, load_local_checked
     from aifactory.home import giro_home
+    from aifactory.registry import Registry, RepoEntry, RepoError
+    from aifactory.repo_vet import register_repo
     from aifactory.web import app as web_app
     from aifactory.web import server as web_server
     from aifactory.web.backlog import UsageError
-    from aifactory.web.registry import Registry, RepoEntry, RepoError
-    from aifactory.web.repos import register_repo, repo_status
+    from aifactory.web.repos import repo_status
 
     label = "factory obs"
     if args.port is not None and not 1 <= args.port <= 65535:
@@ -3406,8 +3409,8 @@ def _add_upgrade_command(parser: argparse.ArgumentParser) -> None:
 def _dashboard_running() -> bool:
     """Whether the dashboard of this GIRO home answers on its registered port."""
     from aifactory.home import giro_home
+    from aifactory.registry import Registry
     from aifactory.web import server as web_server
-    from aifactory.web.registry import Registry
 
     state, _warnings = Registry(giro_home()).snapshot()
     return web_server.probe_dashboard(state.port, web_server.resolve_host(None))

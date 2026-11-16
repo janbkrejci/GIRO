@@ -309,7 +309,7 @@ def test_missing_planner_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 def test_missing_planner_agent_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from aifactory.config import load_run_config
-    from aifactory.run.task import prepare_cfg
+    from aifactory.config.runtime import prepare_cfg
 
     repo = make_repo(tmp_path / "repo")
     ctx = context(repo, "P01-S01-T01", {})

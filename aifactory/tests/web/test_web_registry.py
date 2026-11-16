@@ -1,4 +1,4 @@
-"""The dashboard registry ``dashboard.yaml`` in the GIRO home (``web/registry.py``)."""
+"""The dashboard registry ``dashboard.yaml`` in the GIRO home (``aifactory/registry.py``)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import pytest
 import yaml
 from multi_repo import symlink
 
-from aifactory.web.registry import (
+from aifactory.registry import (
     ID_RE,
     Registry,
     RepoError,
@@ -49,7 +49,7 @@ def test_file_modes_and_content(tmp_path: Path) -> None:
 _ADD_SCRIPT = """
 import sys
 from pathlib import Path
-from aifactory.web.registry import Registry
+from aifactory.registry import Registry
 registry = Registry(Path(sys.argv[1]))
 for n in range(10):
     path = Path(sys.argv[2]) / f"{sys.argv[3]}{n}"

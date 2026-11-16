@@ -34,12 +34,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aifactory import failure as failures
+from aifactory import gitops
 from aifactory.backlog import Task, load_backlog, unmet
 from aifactory.backlog.roots import owning_root
 from aifactory.backlog.taskfile import mark_done, run_entry
 from aifactory.config import ConfigError, RunConfig, load_run_config
 from aifactory.config.settings import ProjectSettings
 from aifactory.engine.data_types import ReviewOutput
+from aifactory.errors import TaskRunError
 from aifactory.providers import (
     CHECKS_FAILING,
     CLOSED,
@@ -57,10 +59,6 @@ from aifactory.review import ci
 from aifactory.review.errors import ReviewError
 from aifactory.review.prbody import branch_cost
 from aifactory.review.publish import PublishResult, publish
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
-from aifactory.run.resolve import CI_FIX_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW, RESOLVE_WORKFLOW
-from aifactory.run.scope import matches
 from aifactory.run.stack import open_stack, stacked_on
 from aifactory.run.store import (
     MERGED_BY_OPERATOR,
@@ -75,8 +73,10 @@ from aifactory.run.store import (
 )
 from aifactory.run.task import TaskRunResult, run_task, session_dir_of
 from aifactory.run.unchanged import finish_unchanged, unchanged
+from aifactory.scope import matches
 from aifactory.workflow import CodeRunner, WorkflowRun
 from aifactory.workflow.journal import JOURNAL_FILE, read_journal
+from aifactory.workflow.parse import CI_FIX_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW, RESOLVE_WORKFLOW
 
 if TYPE_CHECKING:
     from aifactory.run.allow_writes import AllowWritesResult

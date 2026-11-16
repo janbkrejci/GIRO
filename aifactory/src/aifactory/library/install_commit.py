@@ -187,7 +187,7 @@ def _store(root: Path) -> TaskRunStore | None:
         return None
     if not path.exists():
         return None
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
     from aifactory.run.store import TaskRunStore
 
     try:
@@ -197,7 +197,7 @@ def _store(root: Path) -> TaskRunStore | None:
 
 
 def _exclude_file(root: Path) -> Path | None:
-    from aifactory.run import gitops
+    from aifactory import gitops
 
     common = gitops.common_dir(root)
     return None if common is None else common / "info" / "exclude"
@@ -587,8 +587,8 @@ def commit_init(
     **options: Any,
 ) -> InitCommitResult:
     """Preview (`dry_run`) or commit the install plan to base in one commit (or a PR)."""
+    from aifactory import gitops
     from aifactory.providers import get_provider, publish
-    from aifactory.run import gitops
 
     plan = plan_init(path, pr=pr, **options)
     if dry_run:

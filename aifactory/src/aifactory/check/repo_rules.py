@@ -19,14 +19,15 @@ from aifactory.check.context import CheckContext
 from aifactory.check.model import Finding, Rule, RuleGroup
 from aifactory.config.errors import ConfigError
 from aifactory.config.loader import write_prompts
+from aifactory.config.runtime import FACTORY_DATA_DIR
 from aifactory.config.settings import load_local
 from aifactory.config.source import LOCAL_FILE, git_try
 from aifactory.config.status import change_summary
+from aifactory.errors import TaskRunError
 from aifactory.harness import THINKING_LEVELS, unenforced_disallowed
 from aifactory.harness.repo_skills import MIRROR, SOURCE, commit_snapshot, diff_snapshots
-from aifactory.run.errors import TaskRunError
-from aifactory.run.task import FACTORY_DATA_DIR, named_workflow
 from aifactory.workflow import Issue, RoleStep, Workflow, WorkflowError, preflight, walk
+from aifactory.workflow.parse import named_workflow
 
 DEFAULT_TRACE_DB = ".factory/trace.db"
 _LIST_MAX = 5

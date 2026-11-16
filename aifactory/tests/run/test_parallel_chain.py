@@ -17,6 +17,7 @@ from run_repo import Script, commit_all, fake_env, make_run_repo, ok, write
 
 from aifactory.backlog import Task, load_backlog
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review.automerge import AutoMergeResult
 from aifactory.run import (
@@ -25,7 +26,6 @@ from aifactory.run import (
     STOP_NOT_MERGED,
     Skip,
     TaskPrRow,
-    TaskRunError,
     TaskRunResult,
     TaskRunRow,
     TaskRunStore,

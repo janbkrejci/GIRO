@@ -21,7 +21,8 @@ import pytest
 
 from aifactory.engine.data_types import EventRecord
 from aifactory.engine.tracer import Tracer
-from aifactory.run import TaskRunError, TaskRunStore
+from aifactory.errors import TaskRunError
+from aifactory.run import TaskRunStore
 from aifactory.run.store import RUNNING, SUCCEEDED, TaskRunRow, is_db_busy
 
 HOLD_SECONDS = 6.5  # longer than the old 5 s busy_timeout

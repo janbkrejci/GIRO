@@ -518,8 +518,8 @@ class RepoGuard:
     """Observe checkout changes without overwriting concurrent work."""
 
     def __init__(self, repos: list[tuple[str, Path]], work: Path, turn: Path, run_id: str):
-        from aifactory.run.guard import TaskWriteGuard
-        from aifactory.run.scope import TaskScope
+        from aifactory.guard import TaskWriteGuard
+        from aifactory.scope import TaskScope
 
         self.run = SimpleNamespace(
             session_dir=turn,
@@ -542,7 +542,7 @@ class RepoGuard:
 
     def enforce(self) -> list[str]:
         """Changed checkouts; a snapshot cannot identify which process wrote them."""
-        from aifactory.run import backup
+        from aifactory import backup
 
         problems: list[str] = []
         for guard, before in zip(self.guards, self.before, strict=True):
@@ -698,8 +698,8 @@ class AssistantManager:
         from aifactory import backlog
         from aifactory.backlog.derived import harness_values
         from aifactory.config import ConfigError
+        from aifactory.repo_vet import trace_db_of
         from aifactory.web.overview import _trace_view
-        from aifactory.web.repos import trace_db_of
 
         repo_id = screen.get("repo")
         task_id = screen.get("task")

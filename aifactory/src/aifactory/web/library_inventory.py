@@ -7,10 +7,10 @@ from typing import Any, cast
 
 from aifactory.library.load import check_repo_item, repo_path
 from aifactory.library.model import ITEM_TYPES, MAX_ITEM_BYTES, MAX_ITEM_FILES, ItemType
+from aifactory.registry import Registry
 from aifactory.web import factory
 from aifactory.web.backlog import UsageError
 from aifactory.web.factory import Failure
-from aifactory.web.registry import Registry
 
 
 def rules_body(body: dict[str, Any]) -> tuple[str, list[dict[str, str]]]:

@@ -20,12 +20,11 @@ import datetime
 from collections.abc import Sequence
 from pathlib import Path
 
-from aifactory import failure
+from aifactory import failure, gitops
 from aifactory.backlog import TaskEditError, commit_backlog, complete_task
 from aifactory.backlog.commit import BacklogCommit
 from aifactory.config import ConfigError, load_run_config
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.store import TaskRunRow, TaskRunStore, already_running
 
 COMPLETION_ERROR_PREFIX = "task not marked done: "

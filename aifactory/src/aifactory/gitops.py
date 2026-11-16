@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from aifactory import gitquery, gitrun
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 
 BRANCH_PREFIX = "factory/"
 

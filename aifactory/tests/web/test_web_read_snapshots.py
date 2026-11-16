@@ -13,10 +13,10 @@ from starlette.testclient import TestClient
 
 from aifactory import repo_settings
 from aifactory.check.context import CheckContext
+from aifactory.errors import TaskRunError
 from aifactory.harness.config import SSSFConfig
 from aifactory.library.install import init_repo
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.errors import TaskRunError
 from aifactory.web import backlog, machine
 from aifactory.web.app import create_app
 

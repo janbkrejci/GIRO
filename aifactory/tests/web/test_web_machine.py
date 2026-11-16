@@ -549,7 +549,7 @@ def test_registry_exhaustion_starts_no_git_and_logs_no_traceback(
 ) -> None:
     from aifactory import procrun
     from aifactory.library import inherit
-    from aifactory.web.registry import RepoEntry
+    from aifactory.registry import RepoEntry
 
     global_state = machine.GlobalState()
     entry = RepoEntry("a", "A", str(tmp_path), "")
@@ -593,7 +593,7 @@ def test_registry_budget_expires_inside_context_without_starting_more_git(
 ) -> None:
     from aifactory import gitrun, procrun
     from aifactory.library import inherit
-    from aifactory.web.registry import RepoEntry
+    from aifactory.registry import RepoEntry
     from gitspy import GitCall, spy_git
     from gitspy import result as gitspy_result
 

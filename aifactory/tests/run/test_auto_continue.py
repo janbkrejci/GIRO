@@ -13,6 +13,7 @@ from run_repo import Script, commit_all, fake_env, git, make_run_repo, ok, write
 
 from aifactory.backlog import Task, load_backlog
 from aifactory.cli import main
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import approve_task
 from aifactory.run import (
@@ -22,7 +23,6 @@ from aifactory.run import (
     ChainResult,
     Skip,
     TaskPrRow,
-    TaskRunError,
     TaskRunRow,
     TaskRunStore,
     run_chain,

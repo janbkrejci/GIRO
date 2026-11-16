@@ -54,7 +54,7 @@ from aifactory.backlog.model import HUMAN
 from aifactory.backlog.roots import owning_root
 from aifactory.backlog.snapshot import read_snapshot
 from aifactory.config import ProjectSettings
-from aifactory.run.scope import literal_prefix
+from aifactory.scope import literal_prefix
 from aifactory.workflow import WorkflowRun
 
 if TYPE_CHECKING:
@@ -340,7 +340,7 @@ def _can_block(backlog: Backlog, source: Task, target: Task) -> bool:
 def publication_lock(root: Path) -> Iterator[None]:
     """Use the run store's reentrant cross-process lock, also before a store exists."""
     from aifactory.config import load_local
-    from aifactory.run.store import _path_lock
+    from aifactory.locks import path_lock
 
     db = load_local(root).trace_db_path(root)
     if db.exists():
@@ -350,7 +350,7 @@ def publication_lock(root: Path) -> Iterator[None]:
 
         common = Path(git.git(root, "rev-parse", "--path-format=absolute", "--git-common-dir"))
         lock = common / "factory-followups.lock"
-    with _path_lock(lock).hold(600):
+    with path_lock(lock).hold(600):
         yield
 
 
@@ -535,8 +535,8 @@ def record(
     running: Callable[[str], object] | None = None,
 ) -> FollowUpOutcome:
     """Prepare follow-ups away from the operator's checkout, then publish only our edits."""
+    from aifactory import gitops
     from aifactory.config import load_run_config
-    from aifactory.run import gitops
 
     reported, blocked_ids = collect(wf)
     if not reported and (not blocked_ids or not blocking):

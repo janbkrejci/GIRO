@@ -100,8 +100,8 @@ def _issue_dicts(issues: list[ConfigIssue]) -> list[dict[str, Any]]:
 
 
 def _main(repo: Path) -> Path:
-    from aifactory.run import gitops
-    from aifactory.run.errors import TaskRunError
+    from aifactory import gitops
+    from aifactory.errors import TaskRunError
 
     try:
         return gitops.main_root(repo)
@@ -139,7 +139,7 @@ def _context(repo: Path) -> _Context:
 
 
 def _store(main: Path) -> TaskRunStore:
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
     from aifactory.run.store import TaskRunStore
 
     try:

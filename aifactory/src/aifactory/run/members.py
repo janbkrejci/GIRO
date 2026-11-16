@@ -44,7 +44,7 @@ from typing import Any, Protocol
 
 from aifactory import home, oscompat
 from aifactory.config import ConfigError
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.policy import acceptance
 from aifactory.run.store import (
     FAILED,
@@ -156,8 +156,8 @@ def _runs_of(repo: Path, task_id: str, store: TaskRunStore | None) -> list[TaskR
 
 def register_operation(repo: Path, task_id: str, action: str, pid: int) -> str:
     """Create the trace DB if needed and record a newly spawned process."""
+    from aifactory import gitops
     from aifactory.config import load_local
-    from aifactory.run import gitops
 
     main = gitops.main_root(repo)
     store = TaskRunStore(load_local(main).trace_db_path(main))

@@ -112,7 +112,7 @@ def read_snapshot(
     no temporary files, index updates, remote mirror synchronization or global cache.
     ``create_missing`` preserves the disk loader's empty-root behavior in memory only.
     """
-    from aifactory.run.gitops import _commit_dirs
+    from aifactory.gitops import _commit_dirs
 
     try:
         sha = resolve_commit(root, sha)

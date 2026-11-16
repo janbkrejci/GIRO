@@ -207,7 +207,7 @@ def _existing(backlog: Backlog, lesson: StoredLesson) -> Task | None:
 def _repo_id(repo: Path) -> str:
     """The registry id of ``repo``, '' when the dashboard does not know it."""
     # aifactory.web imports the learn package
-    from aifactory.web.registry import Registry, same_repo
+    from aifactory.registry import Registry, same_repo
 
     state, _warnings = Registry(giro_home()).snapshot()
     return next((e.id for e in state.repos if same_repo(e.path, repo)), "")

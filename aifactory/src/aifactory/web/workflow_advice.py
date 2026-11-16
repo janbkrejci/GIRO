@@ -17,13 +17,12 @@ from pathlib import Path
 from typing import Any
 
 from aifactory import backlog as core
-from aifactory import oscompat
+from aifactory import gitops, mainwrites, oscompat
 from aifactory.config import load_run_config
 from aifactory.errors import UsageError
 from aifactory.harness import HARNESSES, canonical
 from aifactory.harness import settings as harness_settings
 from aifactory.home import giro_home
-from aifactory.run import gitops, mainwrites
 from aifactory.web.backlog import ensure_task_not_running
 from aifactory.workflow.adaptive import (
     WorkflowRecommendationOutput,

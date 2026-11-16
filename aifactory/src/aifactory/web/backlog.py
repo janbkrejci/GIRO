@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aifactory import backlog as core
-from aifactory import failure
+from aifactory import failure, gitops
 from aifactory.backlog import Backlog, Container, Task
 from aifactory.backlog.edit import _atomic_write, serialized_write, task_revision, write_lock
 from aifactory.backlog.snapshot import load_backlog_at
@@ -41,16 +41,16 @@ from aifactory.config import ConfigError, load_local, load_run_config
 from aifactory.config.loader import WORKFLOWS_DIR
 from aifactory.config.run import worktree_base
 from aifactory.config.source import repo_root, resolve_commit
+from aifactory.errors import TaskRunError
 from aifactory.errors import UsageError as UsageError
 from aifactory.harness import THINKING_LEVELS, canonical
-from aifactory.run import gitops, task_prs_for, task_runs_for
-from aifactory.run.errors import TaskRunError
+from aifactory.run import task_prs_for, task_runs_for
 from aifactory.run.queue import priority_map
-from aifactory.run.scope import effective_task_writes, output_paths
 from aifactory.run.stack import stack_point
 from aifactory.run.store import QueuePrefs, TaskRunStore, is_db_busy
 from aifactory.run.task import existing_store
 from aifactory.run.unchanged import COMPLETION_ERROR_PREFIX
+from aifactory.scope import effective_task_writes, output_paths
 from aifactory.web.launcher import Launcher
 from aifactory.web.settings import config_status
 from aifactory.workflow import DEFAULT_WORKFLOWS_DIR
@@ -172,8 +172,8 @@ def _runtime(repo: Path) -> tuple[_Runtime, list[str]]:
     """Running tasks, tasks with an open PR and the state of each task's newest run."""
     # Use the same read-only snapshot as Overview; all_runs() would reap dead rows
     # while merely displaying the board.
+    from aifactory.repo_vet import trace_db_of
     from aifactory.web.overview import _trace_view
-    from aifactory.web.repos import trace_db_of
 
     trace, trace_warnings = _trace_view(trace_db_of(repo))
     warnings = [warning["message"] for warning in trace_warnings]

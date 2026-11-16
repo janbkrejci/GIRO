@@ -199,7 +199,7 @@ def test_follow_up_partial_failure_returns_existing_task(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stage: str
 ) -> None:
     from aifactory import backlog as core
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
 
     root = make_backlog_repo(tmp_path / "repo")
     git(root, "branch", "-M", "main")

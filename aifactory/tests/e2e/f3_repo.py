@@ -33,7 +33,7 @@ from typing import Any, TypeVar
 import yaml
 
 from aifactory import oscompat
-from aifactory.web.registry import REGISTRY_FILE, same_repo
+from aifactory.registry import REGISTRY_FILE, same_repo
 
 AIFACTORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(AIFACTORY / "tests" / "run"))

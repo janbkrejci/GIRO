@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 from run_repo import git, make_run_repo, write
 
+from aifactory import backup, basemoves, mainwrites
 from aifactory.backlog import edit_task
-from aifactory.run import backup, basemoves, mainwrites
-from aifactory.run.mainwrites import MainWrite
+from aifactory.mainwrites import MainWrite
 
 PATH = "backlog/M01-core/S01-model/M01-S01-T02-loader.md"
 

@@ -67,11 +67,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from aifactory import gitrun
+from aifactory import backup, basemoves, gitops, gitrun, mainwrites
 from aifactory.engine import permissions
 from aifactory.failure import OTHER
-from aifactory.run import backup, basemoves, gitops, mainwrites
-from aifactory.run.scope import TaskScope, matches
+from aifactory.scope import TaskScope, matches
 
 WORKTREE = "worktree"
 MAIN = "main checkout"

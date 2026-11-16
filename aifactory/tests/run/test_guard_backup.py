@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from aifactory.run import backup
+from aifactory import backup
 
 
 def git(root: Path, *args: str) -> str:

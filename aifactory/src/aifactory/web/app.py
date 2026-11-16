@@ -172,7 +172,7 @@ library without a remote through an empty git remote) share one nonblocking lock
 for validation and core adapters.
 
 More repositories: ``create_multi_app`` serves every repository in ``dashboard.yaml`` of
-the GIRO home (``registry.py``). ``GET /api/health`` (``app: giro-dashboard``, ``version``,
+the GIRO home (``aifactory.registry``). ``GET /api/health`` (``app: giro-dashboard``, ``version``,
 ``home``), ``GET /api/code`` and ``POST /api/restart`` (as above, no repository needed;
 not served per repository), ``GET /api/limits`` (the machine's subscriptions),
 ``GET /api/repos`` (the repositories with ``status``, the ``factory`` state and ``demo``, true
@@ -290,19 +290,19 @@ from starlette.routing import BaseRoute, Mount, Route, Router
 from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from aifactory import __version__, guide
+from aifactory import __version__, gitops, guide
 from aifactory.backlog import TaskEditError
 from aifactory.codeprint import CodeWatch
 from aifactory.config import ConfigError
 from aifactory.demo import is_demo
+from aifactory.errors import TaskRunError
 from aifactory.harness import settings as harness_settings
 from aifactory.home import giro_home
+from aifactory.registry import Registry, RepoError
 from aifactory.review import sync as review_sync
 from aifactory.review.errors import ReviewError
-from aifactory.run import gitops
 from aifactory.run import pause as run_pause
 from aifactory.run import stop as run_stop
-from aifactory.run.errors import TaskRunError
 from aifactory.run.store import is_db_busy
 from aifactory.skill.envelope import envelope_fail, envelope_ok
 from aifactory.web import backlog, chains, factory, library, machine, review, runs, settings, system
@@ -319,7 +319,6 @@ from aifactory.web.limits import LimitsSource
 from aifactory.web.live import LiveHub
 from aifactory.web.overview import Overview
 from aifactory.web.pr_refresh import PR_REFRESH_INTERVAL, refresh_registered
-from aifactory.web.registry import Registry, RepoError
 from aifactory.web.repos import (
     RepoContext,
     RepoContexts,
