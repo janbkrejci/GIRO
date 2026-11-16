@@ -1,24 +1,19 @@
-"""Low-level git operations for code phases. All low-level logic lives in adw_modules."""
+"""Low-level git operations for code phases, in the process cwd, through ``gitrun``."""
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
+
+from aifactory import gitrun
 
 
 def _git(*args: str) -> str:
-    # A diff of legacy files (cp1250) is no valid UTF-8; replace, never crash
-    # Unquoted paths (Testovací sady/), not git's octal-escaped quoting
-    result = subprocess.run(
-        ["git", "-c", "core.quotePath=false", *args],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
-    return result.stdout.strip()
+    """Stripped stdout; raises ``gitrun.GitCommandFailed`` (a ``RuntimeError``) on failure.
+
+    Output is decoded with replacement: a diff of legacy files (cp1250) is no valid
+    UTF-8. Paths are unquoted (Testovací sady/), not git's octal-escaped quoting.
+    """
+    return gitrun.out(None, "-c", "core.quotePath=false", *args)
 
 
 def current_branch() -> str:
@@ -31,14 +26,7 @@ def create_branch(name: str) -> str:
 
 
 def is_repo() -> bool:
-    result = subprocess.run(
-        ["git", "rev-parse", "--git-dir"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return result.returncode == 0
+    return gitrun.ok(None, "rev-parse", "--git-dir", read_only=True)
 
 
 def repo_root() -> Path:
@@ -89,14 +77,7 @@ def changed_files() -> list[str]:
 
 def ref_exists(ref: str) -> bool:
     """True when `ref` resolves to a commit. Never raises — this is a question."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-    return result.returncode == 0
+    return gitrun.ok(None, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}", read_only=True)
 
 
 def rev(ref: str = "HEAD") -> str:

@@ -129,3 +129,12 @@ def test_only_the_runner_starts_git() -> None:
         and (found := _git_subprocess_calls(path))
     }
     assert offenders == {}
+
+
+def test_engine_git_helpers_use_the_runner() -> None:
+    engine = SRC / "engine"
+    assert {
+        name: found
+        for name in ("git_helper.py", "permissions.py")
+        if (found := _git_subprocess_calls(engine / name))
+    } == {}

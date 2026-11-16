@@ -52,3 +52,32 @@ def test_guard_snapshot_names_non_ascii_paths_unquoted(tmp_path: Path) -> None:
     snap = permissions.snapshot(SimpleNamespace(repo_root=tmp_path))
 
     assert set(snap) == {"Testovací sady/a.md", "Testovací sady/nový.md"}
+
+
+def test_engine_git_goes_through_the_runner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from aifactory.engine import permissions
+    from gitspy import spy_git
+
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "t@example.com")
+    _git(tmp_path, "config", "user.name", "t")
+    (tmp_path / "a.md").write_text("a\n", encoding="utf-8")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "base")
+    monkeypatch.chdir(tmp_path)
+    calls = spy_git(monkeypatch)
+
+    assert git_helper.repo_root() == tmp_path.resolve()
+    assert git_helper.ref_exists("HEAD")
+    permissions.snapshot(SimpleNamespace(repo_root=tmp_path))
+
+    commands = [call.argv[1:] for call in calls]
+    assert ["rev-parse", "--show-toplevel"] in [c[-2:] for c in commands]
+    assert any(c[-3:] == ["diff", "HEAD", "--numstat"] for c in commands)
+    # Reads of the write guard take no optional locks.
+    reads = [c for c in calls if c.cwd == tmp_path]
+    assert reads and all(c.env and c.env.get("GIT_OPTIONAL_LOCKS") == "0" for c in reads)
