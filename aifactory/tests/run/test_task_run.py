@@ -96,6 +96,20 @@ def test_run_creates_worktree_branch_and_row(repo: Path, script: Script) -> None
     assert second.run.branch == f"factory/{T01}-2"
 
 
+@pytest.mark.parametrize("existing", [None, "false"])
+def test_run_sets_missing_untracked_cache_and_keeps_existing(
+    repo: Path, script: Script, existing: str | None
+) -> None:
+    if existing is not None:
+        git(repo, "config", "--local", "core.untrackedCache", existing)
+    script.add("planner", ok())
+
+    assert run_task(repo, T01).run.state == "succeeded"
+
+    assert git(repo, "config", "--local", "--get", "core.untrackedCache") == (existing or "true")
+    assert git(repo, "config", "--default", "", "--get", "core.fsmonitor") == ""
+
+
 def test_outputs_are_named_by_task(repo: Path, script: Script) -> None:
     script.on("planner", lambda wt: write(wt, SPEC, "# spec\n"))
     script.add("planner", ok(artifacts=[SPEC]))

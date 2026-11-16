@@ -13,6 +13,7 @@ A snapshot is cached per library commit, so loading the configuration again cost
 from __future__ import annotations
 
 import copy
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -171,7 +172,8 @@ def _write_item(dest: Path, item: Item) -> None:
         path = dest / f.path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(f.data)
-        path.chmod(0o755 if f.executable else 0o644)
+        if sys.platform != "win32":  # the mode has no effect there
+            path.chmod(0o755 if f.executable else 0o644)
     (dest / ".gitignore").write_text(IGNORE_ALL, encoding="utf-8")
 
 

@@ -948,6 +948,7 @@ def _execute_job(
         ignored = _main_ignored(main, settings.worktrees_dir, cfg)
         with store.serialized():
             gitops.ensure_excluded(main, _exclude_lines(ignored))
+            gitops.ensure_untracked_cache(main)
             worktree.parent.mkdir(parents=True, exist_ok=True)
             if job.retry is not None and worktree.is_dir():
                 pass  # a retry continues in the run's own worktree

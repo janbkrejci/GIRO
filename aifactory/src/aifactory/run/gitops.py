@@ -88,6 +88,17 @@ def ensure_excluded(root: Path, lines: Iterable[str]) -> None:
     )
 
 
+def ensure_untracked_cache(root: Path) -> None:
+    """Set ``core.untrackedCache=true`` in the repo config unless any config sets it.
+
+    The cache spares git a walk of the whole tree on each untracked-files check. An
+    existing value (from any config scope) is kept. ``core.fsmonitor`` stays off: its
+    daemon keeps folders open on Windows and would block removing worktrees.
+    """
+    if git(root, "config", "--default", "", "--get", "core.untrackedCache") == "":
+        git(root, "config", "--local", "core.untrackedCache", "true")
+
+
 def next_branch(root: Path, task_id: str, store: _Branches) -> str:
     """``factory/<task-id>-<n>``, one above every existing branch and recorded run."""
     stem = f"{BRANCH_PREFIX}{task_id}-"
