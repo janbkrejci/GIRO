@@ -23,8 +23,8 @@ from aifactory.repo_vet import trace_db_of
 from aifactory.run.store import RUNNING, TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web import factory as web_factory
-from aifactory.web.app import create_app
 from fake_exe import make_executable
+from single_repo import RepoClient, repo_app
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "check"))
 
@@ -564,9 +564,9 @@ def test_validation(api: Api) -> None:
 
 def test_single_repo_app(tmp_path: Path) -> None:
     root = make_repo(tmp_path, "solo", remote=False)
-    app = create_app(root, static_dir=tmp_path / "nostatic")
+    app = repo_app(root, static_dir=tmp_path / "nostatic")
     app.state.check_machine = FakeMachine()
-    client = TestClient(app, base_url=BASE)
+    client = RepoClient(app, base_url=BASE)
 
     check = check_body(client.get("/api/factory/check?offline=1"), 200)
     assert "trace_db_shared" not in [f["code"] for f in check["data"]["findings"]]

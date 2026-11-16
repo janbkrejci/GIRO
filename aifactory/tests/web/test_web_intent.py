@@ -12,8 +12,8 @@ from starlette.testclient import TestClient
 
 from advice_fixture import git, make_repo
 from aifactory.backlog import check_backlog, load_backlog
-from aifactory.web.app import create_app
 from intent_fixture import export_step, install_fake, task
+from single_repo import RepoClient, repo_app
 
 
 @pytest.fixture
@@ -27,8 +27,8 @@ def repo(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(repo: Path) -> Any:
-    app = create_app(repo, static_dir=repo / "absent")
-    with TestClient(app, base_url="http://127.0.0.1:4700") as test_client:
+    app = repo_app(repo, static_dir=repo / "absent")
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as test_client:
         yield test_client
 
 

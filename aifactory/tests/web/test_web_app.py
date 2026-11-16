@@ -3,29 +3,34 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+from starlette.applications import Starlette
 from starlette.testclient import TestClient
-from web_repo import git_repo
 
 from aifactory import __version__
 from aifactory.skill import envelope_problems
-from aifactory.web.app import STATIC_DIR, create_app
+from aifactory.web.app import STATIC_DIR, create_multi_app
 
 BASE = "http://127.0.0.1:4700"
 
 
-def _client(root: Path, static_dir: Path | None = None) -> TestClient:
-    return TestClient(create_app(root, static_dir=static_dir), base_url=BASE)
+def _app(tmp_path: Path, static_dir: Path | None = None, **kwargs: Any) -> Starlette:
+    return create_multi_app(home=tmp_path / "home", static_dir=static_dir, **kwargs)
 
 
-def test_health_returns_version_and_repo(tmp_path: Path) -> None:
-    root = git_repo(tmp_path / "repo")
-    response = _client(root, tmp_path / "nostatic").get("/api/health")
+def _client(tmp_path: Path, static_dir: Path | None = None) -> TestClient:
+    return TestClient(_app(tmp_path, static_dir), base_url=BASE)
+
+
+def test_health_returns_version_and_home(tmp_path: Path) -> None:
+    response = _client(tmp_path, tmp_path / "nostatic").get("/api/health")
     assert response.status_code == 200
     body = response.json()
     assert envelope_problems(body) == []
     assert body["ok"] is True
-    assert body["data"] == {"version": __version__, "repo": str(root)}
+    assert body["data"]["version"] == __version__
+    assert body["data"]["home"] == str(tmp_path / "home")
 
 
 def test_unknown_endpoint_is_not_found_envelope(tmp_path: Path) -> None:
@@ -60,20 +65,19 @@ def test_missing_build_says_how_to_build(tmp_path: Path) -> None:
 
 
 def test_foreign_host_is_rejected(tmp_path: Path) -> None:
-    app = create_app(tmp_path, static_dir=tmp_path / "nostatic")
-    client = TestClient(app, base_url="http://evil.example")
+    client = TestClient(_app(tmp_path, tmp_path / "nostatic"), base_url="http://evil.example")
     assert client.get("/api/health").status_code == 400
 
 
 def test_network_address_accepts_any_host(tmp_path: Path) -> None:
     # factory obs --host 0.0.0.0: the dashboard is reached by the machine's LAN name or IP
-    app = create_app(tmp_path, static_dir=tmp_path / "nostatic", allowed_hosts=["*"])
+    app = _app(tmp_path, tmp_path / "nostatic", allowed_hosts=["*"])
     client = TestClient(app, base_url="http://192.168.1.5:4700")
     assert client.get("/api/health").status_code == 200
 
 
 def test_packaged_build_is_served(tmp_path: Path) -> None:
     assert (STATIC_DIR / "index.html").is_file()
-    response = TestClient(create_app(tmp_path), base_url=BASE).get("/")
+    response = TestClient(_app(tmp_path), base_url=BASE).get("/")
     assert response.status_code == 200
     assert '<div id="app">' in response.text

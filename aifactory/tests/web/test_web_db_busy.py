@@ -14,7 +14,7 @@ from starlette.testclient import TestClient
 from trace_fixture import make_trace_db
 
 from aifactory.skill import envelope_problems
-from aifactory.web.app import create_app
+from single_repo import RepoClient, repo_app
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 
@@ -40,7 +40,7 @@ def _db(repo: Path) -> Path:
 
 
 def test_api_waits_for_a_lock_held_longer_than_5s(repo: Path, tmp_path: Path) -> None:
-    client = TestClient(create_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    client = RepoClient(repo_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
     holder: subprocess.Popen[str] = hold_write_lock(_db(repo), HOLD_SECONDS)
     try:
         start = time.monotonic()
@@ -58,7 +58,7 @@ def test_api_says_trace_db_locked_when_the_wait_runs_out(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("aifactory.run.store.BUSY_TIMEOUT", 0.2)
-    client = TestClient(create_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    client = RepoClient(repo_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
     holder = hold_write_lock(_db(repo), 2.0)
     try:
         status, body = _get(client, "/api/runs")

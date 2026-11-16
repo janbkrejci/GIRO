@@ -8,9 +8,10 @@ from typing import Any, cast
 import pytest
 
 from aifactory.providers import MERGED, GitProvider, PrStatus, PullRequest
-from aifactory.review import flow, sync
-from aifactory.review.flow import _Ctx, _record_state
+from aifactory.review import sync
 from aifactory.review.sync import SyncResult, _refresh_sync_prs
+from aifactory.run import cleanup
+from aifactory.run.cleanup import RunContext, record_pr_state
 from aifactory.run.store import SyncPrRow, TaskPrRow
 
 MERGED_AT = "2026-09-27T11:00:05.000+00:00"
@@ -45,14 +46,14 @@ class _Provider:
         return self._status
 
 
-def _ctx(store: _Store, status: PrStatus) -> _Ctx:
+def _ctx(store: _Store, status: PrStatus) -> RunContext:
     provider = cast(GitProvider, _Provider(status))
-    return _Ctx(Path("."), cast(Any, None), cast(Any, store), provider)
+    return RunContext(Path("."), cast(Any, None), cast(Any, store), provider)
 
 
 @pytest.fixture(autouse=True)
 def _fixed_now(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(flow, "_now", lambda: NOW)
+    monkeypatch.setattr(cleanup, "_now", lambda: NOW)
     monkeypatch.setattr(sync, "_now", lambda: NOW)
 
 
@@ -60,7 +61,7 @@ def _fixed_now(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_record_state_uses_provider_merge_time(merged_at: str | None, expected: str) -> None:
     store = _Store()
     status = PrStatus(MERGED, merge_sha="m", merged_at=merged_at)
-    _record_state(_ctx(store, status), cast(TaskPrRow, _Row()), status)
+    record_pr_state(_ctx(store, status), cast(TaskPrRow, _Row()), status)
     assert store.updates == [
         {"branch": _Row.branch, "state": MERGED, "merged_at": expected, "merge_sha": "m"}
     ]

@@ -24,9 +24,9 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.review import approve_task, resolve_task
 from aifactory.run import TaskRunResult, TaskRunStore, run_task
 from aifactory.skill import envelope_problems
-from aifactory.web.app import create_app
 from aifactory.web.review import _review_verdict
 from aifactory.workflow import EngineCodeRunner
+from single_repo import RepoClient, repo_app
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workflow"))
@@ -71,7 +71,7 @@ def repo_fixture(tmp_path: Path) -> Path:
 
 @pytest.fixture(name="app")
 def app_fixture(repo: Path, tmp_path: Path, script: Script) -> Iterator[Starlette]:
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=ThreadLauncher())
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=ThreadLauncher())
     try:
         yield app
     finally:
@@ -80,7 +80,7 @@ def app_fixture(repo: Path, tmp_path: Path, script: Script) -> Iterator[Starlett
 
 @pytest.fixture(name="client")
 def client_fixture(app: Starlette) -> TestClient:
-    return TestClient(app, base_url=BASE)
+    return RepoClient(app, base_url=BASE)
 
 
 def wait(app: Starlette) -> None:

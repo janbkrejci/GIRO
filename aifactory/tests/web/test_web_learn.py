@@ -16,9 +16,9 @@ from aifactory.learn.sources import FACTORY_REPO_ENV
 from aifactory.learn.store import ACCEPTED, PROPOSED, REJECTED
 from aifactory.learn.view import lessons as view_lessons
 from aifactory.registry import Registry
-from aifactory.web.app import create_app
 from aifactory.web.learn import LearnManager
 from learn_fixture import fake_learner, make_learn_repo, register_learn_repos
+from single_repo import RepoClient, repo_app
 
 RULE = "Add a test for every new CLI command."
 LESSON = {"rule": RULE, "target": "AGENTS.md", "complaints": ["c1", "c2"]}
@@ -32,8 +32,8 @@ def repo(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(repo: Path) -> Any:
-    app = create_app(repo, static_dir=repo / "absent")
-    with TestClient(app, base_url="http://127.0.0.1:4700") as test_client:
+    app = repo_app(repo, static_dir=repo / "absent")
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as test_client:
         yield test_client
 
 
@@ -194,8 +194,8 @@ def test_scan_all_through_the_api_shows_origin_and_repos(
             {**LESSON, "repo": "app", "complaints": ["c4", "c5"]},
         )
     )
-    app = create_app(repos["haifa"], static_dir=repos["haifa"] / "absent")
-    with TestClient(app, base_url="http://127.0.0.1:4700") as client:
+    app = repo_app(repos["haifa"], static_dir=repos["haifa"] / "absent")
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as client:
         assert client.post("/api/learn/scan", json={"all": True}).status_code == 202
         data = _wait(client)
         assert data["scan"]["state"] == "done", data

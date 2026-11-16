@@ -778,9 +778,9 @@ def _auto_clean(
     protected: frozenset[str] = frozenset(),
 ) -> list[str]:
     try:
-        from aifactory.review.flow import _clean, _Ctx
+        from aifactory.run.cleanup import RunContext, clean
 
-        return _clean(_Ctx(main, rc, store, provider), protected=protected).warnings
+        return clean(RunContext(main, rc, store, provider), protected=protected).warnings
     except Exception as exc:
         return [f"automatic cleanup failed: {exc}"]
 

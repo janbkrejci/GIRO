@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from run_repo import SPEC, T01, T02, Script, commit_all, fake_env, git, make_run_repo, ok, write
-from starlette.testclient import TestClient
 
 from aifactory import failure
 from aifactory.backlog import Task, TaskEditError, load_backlog
@@ -31,7 +30,7 @@ from aifactory.run import unchanged as unchanged_mod
 from aifactory.run.retry import retry_run
 from aifactory.run.store import FAILED, SUCCEEDED
 from aifactory.run.unchanged import finish_nothing_to_do
-from aifactory.web.app import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
@@ -187,7 +186,7 @@ def test_completion_problem_blocks_dashboard_and_stops_chain(
         assert "https://example.test/backlog/1" in result.pr_error
         assert "Waiting for approval" in result.warnings
     assert "status: todo" in git(repo, "show", f"main:{_task(repo).path}")
-    client = TestClient(create_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    client = RepoClient(repo_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
     response = client.get("/api/backlog")
     assert response.status_code == 200
     task = next(t for t in response.json()["data"]["tasks"] if t["id"] == T01)
@@ -367,7 +366,7 @@ def test_dashboard_marks_a_nothing_to_do_run_done(
     repo: Path, script: Script, tmp_path: Path
 ) -> None:
     run_id = _backlog_only_run(repo, script)
-    client = TestClient(create_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    client = RepoClient(repo_app(repo, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
     response = client.post(f"/api/runs/{run_id}/done", json={})
     body = response.json()
