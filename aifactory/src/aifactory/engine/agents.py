@@ -50,18 +50,6 @@ class GateFailure(InvalidOutput):  # aifactory 3.4: was RuntimeError, now invali
 
 # ── config ───────────────────────────────────────────────────────────────────
 
-def load_config(path: str = "adws/adw_sssf_config/sssf.config.yaml") -> SSSFConfig:
-    raw = yamlload.safe_load(Path(path).read_text()) or {}  # aifactory 3.1: libyaml
-    defaults = raw.get("defaults", {}) or {}
-    for agent in raw.get("agents", []) or []:
-        for key in ("coding_agent", "model", "thinking", "color", "tools", "writes",
-                    "disallowed_commands"):
-            if key in defaults:
-                agent.setdefault(key, defaults[key])
-        agent.setdefault("harness_engineering", defaults.get("harness_engineering", []))
-    return SSSFConfig(**raw)
-
-
 def resolve(cfg: SSSFConfig, name: str) -> AgentConfig:
     for agent in cfg.agents:
         if agent.name == name:

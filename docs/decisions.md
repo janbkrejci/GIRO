@@ -138,7 +138,7 @@ jsou automatizace vypnuté; harness dědí místní výchozí hodnotu počítač
 hodnoty jsou metadata a žádné runtime rozhodnutí automatizací z nich nevychází.
 `effective_sources`, `effective` a `harness_values` zůstávají pro čtení metadat a náhled,
 nikoli jako fallback místní politiky. Guide ověřuje kontext tasku, ale jeho volbu harnessu
-určuje místní služba; `task_harness_values` je kompatibilní čtečka metadat.
+určuje místní služba.
 
 CLI `config local legacy` a Přehled zobrazí effective hodnoty i původ pro všechny úrovně.
 `config local import` a odpovídající API přijmou shodné hodnoty, při rozporech vyžadují

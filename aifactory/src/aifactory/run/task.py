@@ -43,7 +43,7 @@ from aifactory.backlog import (
     load_backlog,
     unmet,
 )
-from aifactory.backlog.derived import ancestors, harness_values
+from aifactory.backlog.derived import ancestors
 from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import (
     ConfigError,
@@ -467,11 +467,6 @@ def override_note(note: str | None, override: dict[str, str] | None) -> str | No
         return note
     tag = f"[přepis rosteru: {', '.join(values)}]"
     return f"{note} {tag}" if note else tag
-
-
-def task_harness_values(task: Task) -> dict[str, object]:
-    """Legacy import metadata; runtime selection comes from local harness settings."""
-    return harness_values(task)
 
 
 def run_task(

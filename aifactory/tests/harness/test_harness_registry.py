@@ -62,16 +62,12 @@ def test_harness_check_interface_reports_missing() -> None:
 
 
 def test_harness_never_imports_model_inference() -> None:
-    """engine.models/chain/cli derive the harness from the model name (D13 forbids it)."""
+    """engine.models derives the harness from the model name (D13 forbids it)."""
     package = Path(aifactory.harness.__file__).parent
     for source in package.glob("*.py"):
         text = source.read_text()
         for forbidden in (
             "engine.models",
-            "engine.chain",
-            "engine.cli",
             "from aifactory.engine import models",
-            "from aifactory.engine import chain",
-            "from aifactory.engine import cli",
         ):
             assert forbidden not in text, f"{source.name} mentions {forbidden}"

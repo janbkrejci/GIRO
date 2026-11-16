@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
 import repo_templates
 from aifactory.engine import agent_cc, agent_pi, agents, session
@@ -243,7 +242,12 @@ def engine_env_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     }
     roster: list[dict[str, Any]] = []
     for name, writes in agent_writes.items():
-        entry: dict[str, Any] = {"name": name, "model": "sonnet", "prompt_engineering": engineering}
+        entry: dict[str, Any] = {
+            "name": name,
+            "coding_agent": "claude_code",
+            "model": "sonnet",
+            "prompt_engineering": engineering,
+        }
         if writes is not None:
             entry["writes"] = writes
         roster.append(entry)
@@ -256,9 +260,7 @@ def engine_env_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
         "observability": {"db": str(db_path)},
         "agents": roster,
     }
-    config_path = tmp_path / "sssf.config.yaml"
-    config_path.write_text(yaml.safe_dump(config), encoding="utf-8", newline="\n")
-    cfg = agents.load_config(str(config_path))
+    cfg = SSSFConfig.model_validate(config)
 
     script = Script()
     fake = FakeHarness(script)
