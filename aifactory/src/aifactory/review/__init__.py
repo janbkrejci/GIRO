@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING
 from aifactory.lazyexports import lazy_exports
 
 if TYPE_CHECKING:
+    from aifactory.review.approve import ApproveResult, approve_task
     from aifactory.review.automerge import (
         AutoMergeResult,
         auto_merge_enabled,
@@ -48,19 +49,13 @@ if TYPE_CHECKING:
         try_auto_merge,
         workflow_has_review,
     )
+    from aifactory.review.context import clean_worktrees
     from aifactory.review.errors import ReviewError
-    from aifactory.review.flow import (
-        ApproveResult,
-        CleanResult,
-        approve_task,
-        clean_worktrees,
-        publish_task,
-        resolve_task,
-        return_task,
-    )
     from aifactory.review.prbody import pr_body, pr_title
     from aifactory.review.publish import PublishResult
+    from aifactory.review.rework import publish_task, resolve_task, return_task
     from aifactory.review.sync import SyncResult, refresh_prs, sync_backlog
+    from aifactory.run.cleanup import CleanResult
 
 __getattr__, __dir__ = lazy_exports(
     __name__,
@@ -75,25 +70,20 @@ __getattr__, __dir__ = lazy_exports(
             "workflow_has_review",
         ),
         "aifactory.review.errors": ("ReviewError",),
-        "aifactory.review.flow": (
-            "ApproveResult",
-            "CleanResult",
-            "approve_task",
-            "clean_worktrees",
-            "publish_task",
-            "resolve_task",
-            "return_task",
-        ),
+        "aifactory.review.approve": ("ApproveResult", "approve_task"),
+        "aifactory.review.context": ("clean_worktrees",),
         "aifactory.review.prbody": (
             "pr_body",
             "pr_title",
         ),
         "aifactory.review.publish": ("PublishResult",),
+        "aifactory.review.rework": ("publish_task", "resolve_task", "return_task"),
         "aifactory.review.sync": (
             "SyncResult",
             "refresh_prs",
             "sync_backlog",
         ),
+        "aifactory.run.cleanup": ("CleanResult",),
     },
 )
 

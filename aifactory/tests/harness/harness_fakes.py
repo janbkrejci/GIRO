@@ -26,6 +26,7 @@ from aifactory.engine.data_types import AgentCall, EnvelopeBase, GenericOutput, 
 from aifactory.engine.runner import Run
 from aifactory.harness import codex
 from aifactory.harness.config import SSSFConfig, load_config
+from gitutil import git as git
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PID = 4242
@@ -341,20 +342,16 @@ def envelope_text(**fields: Any) -> str:
 # ── engine environment ──────────────────────────────────────────────────────
 
 
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-
-
 def build_repo(repo: Path) -> None:
     """A git repo with one commit: ``README.md`` and ``protected.md``."""
     repo.mkdir(parents=True, exist_ok=True)
-    _git(repo, "init", "-q")
-    _git(repo, "config", "user.email", "tester@example.com")
-    _git(repo, "config", "user.name", "tester")
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "tester@example.com")
+    git(repo, "config", "user.name", "tester")
     (repo / "README.md").write_text("readme\n", encoding="utf-8", newline="\n")
     (repo / "protected.md").write_text("protected\n", encoding="utf-8", newline="\n")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "init")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "init")
 
 
 def rows(db: Path, sql: str, *args: object) -> list[tuple[Any, ...]]:

@@ -19,13 +19,13 @@ from aifactory import oscompat
 from aifactory.run.stop import StopResult
 from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web.app import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _get(client: TestClient, url: str, status: int = 200) -> Any:
@@ -491,8 +491,8 @@ class _RetryLauncher:
 
 def test_retry_starts_a_failed_run_and_refuses_others(repo: Path, tmp_path: Path) -> None:
     launcher = _RetryLauncher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
 
     response = client.post("/api/runs/r-fail/retry", json={"note": " go on ", "from": "test"})
     body = response.json()
@@ -563,7 +563,7 @@ def test_publish_auto_merge_uses_launcher(
             if error:
                 raise TaskRunError(error, "cannot publish")
 
-    client = TestClient(create_app(root, launcher=Launcher()), base_url=BASE)
+    client = RepoClient(repo_app(root, launcher=Launcher()), base_url=BASE)
     response = client.post("/api/runs/publish-me/publish")
     assert called == [T01]
     assert response.status_code == (409 if error in ("pr_exists", "no_succeeded_run") else 200)
@@ -595,8 +595,8 @@ def test_allow_writes_does_not_launch_when_writes_are_not_committed(
 
     monkeypatch.setattr(module, "allow_writes", uncommitted)
     launcher = _RetryLauncher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
     response = client.post("/api/runs/r-fail/allow-writes", json={})
     body = response.json()
     assert response.status_code == 409, body

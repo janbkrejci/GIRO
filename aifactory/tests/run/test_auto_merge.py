@@ -959,15 +959,15 @@ def _member(
     import contextlib
 
     import aifactory.run as run_pkg
-    from aifactory.cli import _member_run
-    from aifactory.review import flow as review_flow
+    from aifactory.cli.task import _member_run
+    from aifactory.review import rework as review_rework
 
     result = _conflicting_run(repo, script)
     _resolver(script)
     review(script, approved=approve)
     monkeypatch.setattr(run_pkg, "run_task", lambda *a, **k: result)
     real_lock = TaskRunStore.merge_lock
-    real_resolve = review_flow.resolve_task
+    real_resolve = review_rework.resolve_task
 
     @contextlib.contextmanager
     def merge_lock(self: TaskRunStore, timeout: float = 600.0) -> Iterator[None]:
@@ -981,7 +981,7 @@ def _member(
         return real_resolve(*args, **kwargs)
 
     monkeypatch.setattr(TaskRunStore, "merge_lock", merge_lock)
-    monkeypatch.setattr(review_flow, "resolve_task", resolve_task)
+    monkeypatch.setattr(review_rework, "resolve_task", resolve_task)
     return _member_run(repo, T01, None, False, code=ResolveCode([True]))
 
 

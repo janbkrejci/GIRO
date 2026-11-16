@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 import yaml
 
+import aifactory
 from aifactory import cli, environment
 from aifactory.engine.utils import agent_environment, operator_env
 from aifactory.environment import (
@@ -173,7 +174,7 @@ def test_invalid_library_url_is_refused() -> None:
 
 
 def test_legacy_names_are_spelled_only_in_environment() -> None:
-    src = Path(cli.__file__).parent
+    src = Path(aifactory.__file__).parent
     offenders = [
         str(path.relative_to(src))
         for path in src.rglob("*.py")

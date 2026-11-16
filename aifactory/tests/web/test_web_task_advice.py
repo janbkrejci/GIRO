@@ -6,15 +6,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from starlette.testclient import TestClient
 
 from advice_fixture import make_repo
 from aifactory import backlog as core
 from aifactory.errors import UsageError
-from aifactory.web.app import create_app
 from aifactory.web.workflow_advice import AdviceManager
 from aifactory.workflow.adaptive import context
 from aifactory.workflow.task_advice import TaskRecommendationOutput, validate_task
+from single_repo import RepoClient, repo_app
 
 
 def proposal(**overrides: Any) -> dict[str, Any]:
@@ -58,7 +57,7 @@ def machine_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_repeat_select_cost_and_save(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     machine_settings(monkeypatch)
     repo = make_repo(tmp_path / "repo")
-    app = create_app(repo, static_dir=repo / "absent")
+    app = repo_app(repo, static_dir=repo / "absent")
     app.state.task_advice.close()
     seen = []
 
@@ -71,8 +70,8 @@ def test_repeat_select_cost_and_save(tmp_path: Path, monkeypatch: pytest.MonkeyP
     app.state.task_advice = AdviceManager(runner, task_parameters=True)
     task_path = repo / "backlog/P01/S01/P01-S01-T01-first.md"
     original = task_path.read_text()
-    with TestClient(app, base_url="http://127.0.0.1:4700") as client:
-        options = client.get("/api/backlog/task-advice/options").json()["data"]
+    options = app.state.task_advice.options(repo)  # what the start validates against
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as client:
         assert options["default"] == {"harness": "claude", "model": "sonnet"}
         assert [h["name"] for h in options["harnesses"]] == ["claude", "codex"]
         assert "gpt-5.5" in options["harnesses"][1]["models"]
@@ -286,7 +285,7 @@ def test_advisor_uses_local_settings_and_ignores_legacy_metadata(
         seen.append(ctx)
         return proposal()
 
-    app = create_app(repo, static_dir=repo / "absent")
+    app = repo_app(repo, static_dir=repo / "absent")
     app.state.task_advice.close()
     app.state.task_advice = AdviceManager(runner, task_parameters=True)
     expected = (
@@ -299,7 +298,7 @@ def test_advisor_uses_local_settings_and_ignores_legacy_metadata(
         else {"harness": "codex", "model": "gpt-5.5", "thinking": "medium"}
     )
     draft = {"body": "Live body"} if task_id else {"step": "P01-S01", "title": "Draft"}
-    with TestClient(app, base_url="http://127.0.0.1:4700") as client:
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as client:
         response = client.post(
             "/api/backlog/task-advice", json={"task_id": task_id, "draft": draft, **explicit}
         )

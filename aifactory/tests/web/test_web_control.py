@@ -25,7 +25,7 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.runstore.rows import TaskChainRow, TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web.app import create_app, create_multi_app
+from aifactory.web.app import create_multi_app
 from aifactory.web.control import KEEP_SECONDS, FactoryControl
 
 STEP = "backlog/M01-core/S01-model"
@@ -323,12 +323,3 @@ def test_stop_with_nothing_running_is_finished_at_once(repo: Path, tmp_path: Pat
     client = _app(tmp_path, repo, FakeLauncher())
     data = _post(client, "stop", 202)["data"]
     assert (data["run_ids"], data["pending"]) == ([], [])
-
-
-def test_single_repo_app_serves_the_controls(repo: Path, tmp_path: Path) -> None:
-    launcher = FakeLauncher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
-    client = TestClient(app, base_url=BASE)
-    response = client.post("/api/control/start")
-    assert response.status_code == 200, response.json()
-    assert [s["task_id"] for s in response.json()["data"]["started"]] == [T1, T2]

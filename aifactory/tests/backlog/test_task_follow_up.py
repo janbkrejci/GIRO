@@ -10,7 +10,7 @@ import pytest
 from backlog_repo import M01_S01, T01, rewrite, sample_repo, task_md, write
 
 import aifactory.backlog
-import aifactory.cli
+import aifactory.cli.task
 import aifactory.run
 from aifactory.backlog import check_backlog, load_backlog
 from aifactory.cli import main
@@ -97,7 +97,7 @@ def test_follow_up_run_commits_and_runs(
 
     monkeypatch.setattr(aifactory.backlog, "commit_backlog", commit)
     monkeypatch.setattr(aifactory.run, "run_chain", run_chain)
-    monkeypatch.setattr(aifactory.cli, "_chain_output", chain_output)
+    monkeypatch.setattr(aifactory.cli.task, "_chain_output", chain_output)
     args = ["task", "follow-up", "M01-S01-T01", "--body", "Dál.", "--run", *_repo(root)]
     assert main(args) == 0
     assert calls == [

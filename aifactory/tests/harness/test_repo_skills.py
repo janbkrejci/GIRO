@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import stat
-import subprocess
 import sys
 from pathlib import Path
 
@@ -18,6 +17,9 @@ from aifactory.harness.repo_skills import (
     sync,
     worktree_snapshot,
 )
+from gitutil import git_raw
+
+git = git_raw
 
 
 def _write(path: Path, text: str, *, executable: bool = False) -> None:
@@ -96,22 +98,16 @@ def test_diff_snapshots() -> None:
     assert diff_snapshots(source, source).clean
 
 
-def _git(root: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True, encoding="utf-8"
-    ).stdout
-
-
 def test_commit_snapshot_matches_the_worktree_answer(tmp_path: Path) -> None:
-    _git(tmp_path, "init", "-q")
-    _git(tmp_path, "config", "user.email", "t@example.com")
-    _git(tmp_path, "config", "user.name", "t")
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "config", "user.email", "t@example.com")
+    git(tmp_path, "config", "user.name", "t")
     _layout(tmp_path)
-    _git(tmp_path, "add", "-A")
+    git(tmp_path, "add", "-A")
     if sys.platform == "win32":  # no exec bit in a Windows worktree: set it in the index
-        _git(tmp_path, "update-index", "--chmod=+x", f"{SOURCE}/b/run.sh")
-    _git(tmp_path, "commit", "-q", "-m", "skills")
-    commit = _git(tmp_path, "rev-parse", "HEAD").strip()
+        git(tmp_path, "update-index", "--chmod=+x", f"{SOURCE}/b/run.sh")
+    git(tmp_path, "commit", "-q", "-m", "skills")
+    commit = git(tmp_path, "rev-parse", "HEAD").strip()
 
     source = commit_snapshot(tmp_path, commit, SOURCE)
     mirror = commit_snapshot(tmp_path, commit, MIRROR)

@@ -10,7 +10,6 @@ from typing import Any, cast
 import pytest
 from backlog_fixture import A1, A2, A3, B2, B3, git, make_backlog_repo
 from starlette.applications import Starlette
-from starlette.testclient import TestClient
 from test_web_backlog_follow_up import RecordingLauncher
 from test_web_workflow_advice import client_for, wait
 from trace_fixture import _run
@@ -18,8 +17,8 @@ from trace_fixture import _run
 from advice_fixture import make_repo, output
 from aifactory.errors import TaskRunError
 from aifactory.runstore.store import TaskRunStore
-from aifactory.web.app import create_app
 from aifactory.web.workflow_advice import AdviceManager
+from single_repo import RepoClient, repo_app
 
 
 @pytest.mark.parametrize(
@@ -43,7 +42,7 @@ def test_running_task_cannot_be_written(
     repo = make_backlog_repo(tmp_path / "repo", with_trace=True)
     path = next((repo / "backlog").rglob(f"{B2}-*.md"))
     before = path.read_bytes()
-    with TestClient(create_app(repo), base_url="http://127.0.0.1:4700") as client:
+    with RepoClient(repo_app(repo), base_url="http://127.0.0.1:4700") as client:
         response = client.post(f"/api/backlog/tasks/{B2}/{action}", json=payload)
     assert response.status_code == 409, response.text
     assert response.json()["error"]["code"] == "task_running"
@@ -57,8 +56,8 @@ def test_running_task_cannot_start_advice(tmp_path: Path, endpoint: str) -> None
     repo = make_backlog_repo(tmp_path / "repo", with_trace=True)
     path = next((repo / "backlog").rglob(f"{B2}-*.md"))
     before = path.read_bytes()
-    app = create_app(repo)
-    with TestClient(app, base_url="http://127.0.0.1:4700") as client:
+    app = repo_app(repo)
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as client:
         response = client.post(
             f"/api/backlog/{endpoint}", json={"task_id": B2, "draft": {"title": "Changed"}}
         )
@@ -150,8 +149,8 @@ def test_running_blocked_task_run_keeps_already_running(tmp_path: Path, force: b
             raise TaskRunError("already_running", f"Task {task_id} already has a running run")
 
     launcher = DuplicateRunLauncher()
-    app = create_app(repo, launcher=launcher)  # type: ignore[arg-type]
-    with TestClient(app, base_url="http://127.0.0.1:4700") as client:
+    app = repo_app(repo, launcher=launcher)
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as client:
         check = client.get(f"/api/backlog/tasks/{A3}/run-check").json()["data"]
         assert check["unmet"]
         assert check["stack"] is None
@@ -171,7 +170,7 @@ def test_running_blocked_task_run_keeps_already_running(tmp_path: Path, force: b
 @pytest.mark.parametrize("task_id", [A2, B3])
 def test_idle_and_review_tasks_still_allow_writes(tmp_path: Path, task_id: str) -> None:
     repo = make_backlog_repo(tmp_path / "repo", with_trace=True)
-    with TestClient(create_app(repo), base_url="http://127.0.0.1:4700") as client:
+    with RepoClient(repo_app(repo), base_url="http://127.0.0.1:4700") as client:
         response = client.post(f"/api/backlog/tasks/{task_id}/edit", json={"body": "Changed"})
         assert response.status_code == 200, response.text
         response = client.post(f"/api/backlog/tasks/{task_id}/link", json={"related": [A1]})
@@ -189,8 +188,8 @@ def test_blocked_run_never_reaches_launcher(
         path = next((repo / "backlog").rglob(f"{A3}-*.md"))
         path.write_text(path.read_text().replace(f"depends_on: [{A2}]", "depends_on: []"))
     launcher = RecordingLauncher()
-    app = create_app(repo, launcher=launcher)  # type: ignore[arg-type]
-    with TestClient(app, base_url="http://127.0.0.1:4700") as client:
+    app = repo_app(repo, launcher=launcher)
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as client:
         response = client.post(f"/api/backlog/tasks/{A3}/run", json={"force": force})
         assert response.status_code == 409, response.text
         assert response.json()["error"]["code"] == "unmet_dependencies"
@@ -217,8 +216,8 @@ def test_stacked_run_still_starts_without_force(tmp_path: Path) -> None:
     finally:
         store.close()
     launcher = RecordingLauncher()
-    app = create_app(repo, launcher=launcher)  # type: ignore[arg-type]
-    with TestClient(app, base_url="http://127.0.0.1:4700") as client:
+    app = repo_app(repo, launcher=launcher)
+    with RepoClient(app, base_url="http://127.0.0.1:4700") as client:
         check = client.get(f"/api/backlog/tasks/{A3}/run-check").json()["data"]
         assert check["unmet"]
         assert check["stack"]["prs"][0]["task_id"] == A2

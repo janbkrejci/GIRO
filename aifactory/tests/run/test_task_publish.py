@@ -362,14 +362,13 @@ def test_dashboard_shows_pr_error_and_publishes(
     monkeypatch: pytest.MonkeyPatch,
     sleeps: list[float],
 ) -> None:
-    from starlette.testclient import TestClient
 
     from aifactory.skill import envelope_problems
-    from aifactory.web.app import create_app
+    from single_repo import RepoClient, repo_app
 
     _, log, _ = failed_publish_run(repo, script, tmp_path, monkeypatch)
-    client = TestClient(
-        create_app(repo, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
+    client = RepoClient(
+        repo_app(repo, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
     )
     listed = client.get("/api/runs").json()
     run = listed["data"]["runs"][0]
@@ -536,13 +535,12 @@ def test_dashboard_publish_merges_after_response(
 ) -> None:
     import threading
 
-    from starlette.testclient import TestClient
     from test_auto_merge import build, review, setup
 
     from aifactory.providers import ProviderError
     from aifactory.providers.local import LocalProvider
     from aifactory.review import automerge
-    from aifactory.web.app import create_app
+    from single_repo import RepoClient, repo_app
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
     from thread_launcher import ThreadLauncher
@@ -573,7 +571,7 @@ def test_dashboard_publish_merges_after_response(
             super().start_publish(repo, task_id, timeout=0.05)
 
     launcher = Launcher()
-    client = TestClient(create_app(repo, launcher=launcher), base_url="http://127.0.0.1:4700")
+    client = RepoClient(repo_app(repo, launcher=launcher), base_url="http://127.0.0.1:4700")
     try:
         response = client.post(f"/api/runs/{first.run.run_id}/publish")
         assert response.status_code == 200, response.json()
@@ -687,11 +685,9 @@ def test_publish_without_auto_merge_does_not_continue(
     calls_before = len(script.calls)
 
     if dashboard:
-        from starlette.testclient import TestClient
+        from single_repo import RepoClient, repo_app
 
-        from aifactory.web.app import create_app
-
-        client = TestClient(create_app(repo), base_url="http://127.0.0.1:4700")
+        client = RepoClient(repo_app(repo), base_url="http://127.0.0.1:4700")
         response = client.post(f"/api/runs/{first.run.run_id}/publish")
         assert response.status_code == 200, response.json()
         data = response.json()["data"]

@@ -31,8 +31,8 @@ from aifactory.runstore.rows import TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
 from aifactory.web import launcher as launcher_module
-from aifactory.web.app import create_app
 from aifactory.web.launcher import DEFAULT_COMMAND, LaunchedRun, RunLauncher
+from single_repo import RepoClient, repo_app
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 
@@ -86,8 +86,8 @@ def make_app_fixture(tmp_path: Path, stub: Stub) -> Iterator[Apps]:
     def make(repo: Path) -> tuple[Starlette, TestClient, RunLauncher]:
         launcher = RunLauncher(command=STUB_COMMAND)
         launchers.append(launcher)
-        app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
-        return app, TestClient(app, base_url=BASE), launcher
+        app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+        return app, RepoClient(app, base_url=BASE), launcher
 
     try:
         yield make

@@ -10,6 +10,7 @@ from test_factory_start import FakeStart
 from test_parallel_chain import T01, T02, T03, FakeRunner, no_files, setup_tasks, started
 
 from aifactory import cli
+from aifactory.cli import task as cli_task
 from aifactory.errors import TaskRunError
 from aifactory.run import STOP_FAILED, run_chain, start_factory
 from aifactory.runstore.rows import TaskRunRow
@@ -71,7 +72,7 @@ def test_parallel_chain_waits_for_same_candidate_and_drains_active_runs(
         envelope = json.loads(capsys.readouterr().out)
         assert not envelope["ok"] and envelope["error"]["code"] == "trace_db_locked"
         assert envelope["data"]["chain"]["stop"] == "failed"
-        cli._print_chain(result)
+        cli_task._print_chain(result)
         assert "trace_db_locked" in capsys.readouterr().out
     else:
         assert attempts == [T01, T02, T02, T03]

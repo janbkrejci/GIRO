@@ -29,17 +29,16 @@ from aifactory.backlog.taskfile import has_entry, mark_done
 from aifactory.config import ConfigError
 from aifactory.providers import CLOSED, MERGED, OPEN, GitProvider, ProviderError, PrStatus
 from aifactory.providers import git as pgit
-from aifactory.review.errors import ReviewError
-from aifactory.review.flow import (
+from aifactory.review.context import (
     _branch_worktree,
     _catch_up_base,
     _context,
-    _Ctx,
     _done_entry,
-    _record_state,
     _remove,
     _worktrees_dir,
 )
+from aifactory.review.errors import ReviewError
+from aifactory.run.cleanup import RunContext, record_pr_state
 from aifactory.runstore.base import _now
 from aifactory.runstore.rows import SyncPrRow, TaskPrRow
 
@@ -127,7 +126,7 @@ def refresh_prs(repo: Path, *, provider: GitProvider | None = None) -> SyncResul
         ctx.store.close()
 
 
-def _refresh_all(ctx: _Ctx, result: SyncResult) -> None:
+def _refresh_all(ctx: RunContext, result: SyncResult) -> None:
     """Refresh open task PRs and open sync PRs with one ``statuses`` query for all."""
     task_rows = ctx.store.open_prs()
     sync_rows = ctx.store.open_sync_prs()
@@ -139,7 +138,7 @@ def _refresh_all(ctx: _Ctx, result: SyncResult) -> None:
 
 
 def _refresh_task_prs(
-    ctx: _Ctx,
+    ctx: RunContext,
     result: SyncResult,
     rows: list[TaskPrRow],
     found: Mapping[str, PrStatus | ProviderError],
@@ -149,7 +148,7 @@ def _refresh_task_prs(
         if isinstance(status, ProviderError):
             result.warnings.append(f"PR {row.url}: {status.code}: {status.message}")
             continue
-        _record_state(ctx, row, status)
+        record_pr_state(ctx, row, status)
         if status.state in (CLOSED, MERGED):
             result.states.append(
                 {
@@ -162,7 +161,7 @@ def _refresh_task_prs(
 
 
 def _refresh_sync_prs(
-    ctx: _Ctx,
+    ctx: RunContext,
     result: SyncResult,
     rows: list[SyncPrRow],
     found: Mapping[str, PrStatus | ProviderError],
@@ -183,7 +182,7 @@ def _refresh_sync_prs(
             )
 
 
-def _start_ref(ctx: _Ctx) -> str:
+def _start_ref(ctx: RunContext) -> str:
     settings = ctx.rc.config.settings
     base, remote = settings.base, settings.remote
     if pgit.has_remote(ctx.main, remote):
@@ -196,7 +195,9 @@ def _start_ref(ctx: _Ctx) -> str:
     return local_ref
 
 
-def _candidates(ctx: _Ctx, checkout: Path, result: SyncResult) -> list[tuple[Task, TaskPrRow]]:
+def _candidates(
+    ctx: RunContext, checkout: Path, result: SyncResult
+) -> list[tuple[Task, TaskPrRow]]:
     backlog = load_backlog(checkout, ctx.rc.config.settings)
     found: list[tuple[Task, TaskPrRow]] = []
     for task_id in ctx.store.merged_task_ids():
@@ -223,7 +224,7 @@ def _candidates(ctx: _Ctx, checkout: Path, result: SyncResult) -> list[tuple[Tas
     return found
 
 
-def _next_sync_branch(ctx: _Ctx, warnings: list[str]) -> str:
+def _next_sync_branch(ctx: RunContext, warnings: list[str]) -> str:
     """The first free ``factory-sync/<n>``: unknown locally, to the DB and on the remote."""
     remote = ctx.rc.config.settings.remote
     local = gitops.git(
@@ -274,7 +275,7 @@ def _sync_body(branch: str, task_lines: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _guard_branch(ctx: _Ctx, worktree: Path) -> str:
+def _guard_branch(ctx: RunContext, worktree: Path) -> str:
     """The branch checked out in `worktree`; refuse anything but a sync branch."""
     head = pgit.git(worktree, "symbolic-ref", "--quiet", "--short", "HEAD")
     if not head.startswith(SYNC_PREFIX) or head == ctx.rc.config.settings.base:
@@ -282,7 +283,7 @@ def _guard_branch(ctx: _Ctx, worktree: Path) -> str:
     return head
 
 
-def _sync(ctx: _Ctx) -> SyncResult:
+def _sync(ctx: RunContext) -> SyncResult:
     result = SyncResult(pr=None, created=False, updated=False)
     _refresh_all(ctx, result)
     result.warnings += _catch_up_base(ctx)

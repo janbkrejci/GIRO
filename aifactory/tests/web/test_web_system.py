@@ -19,7 +19,7 @@ from starlette.testclient import TestClient
 
 from aifactory import review
 from aifactory.registry import Registry, RegistryState, RepoEntry
-from aifactory.review.flow import CleanResult
+from aifactory.run.cleanup import CleanResult
 from aifactory.web import system
 from aifactory.web.app import create_multi_app
 from aifactory.workflow import adaptive

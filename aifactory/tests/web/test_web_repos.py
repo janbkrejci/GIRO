@@ -18,7 +18,6 @@ import uvicorn
 import yaml
 from backlog_fixture import make_backlog_repo
 from multi_repo import (
-    BASE,
     SSSF_ROSTER,
     commit_all,
     git,
@@ -826,15 +825,6 @@ def test_code_and_restart_need_no_repository(tmp_path: Path, home: Path) -> None
     assert _get(client, "/api/code")["data"]["stale"] is True
     assert _post(client, "/api/restart", None)["data"] == {"restarting": True}
     assert restarts == ["restart"]
-
-
-def test_single_repo_app_has_no_registry_endpoints(tmp_path: Path) -> None:
-    from aifactory.web.app import create_app
-
-    root = init_repo(tmp_path / "proj")
-    client = TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
-    assert _get(client, "/api/health")["data"]["repo"] == str(root)
-    assert _get(client, "/api/repos", 404)["error"]["code"] == "not_found"
 
 
 def test_live_hub_closes_twice(tmp_path: Path) -> None:

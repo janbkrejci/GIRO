@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from multi_repo import multi_client
 from starlette.testclient import TestClient
-from web_repo import git_repo
 
 from aifactory import guide
 from aifactory.skill import envelope_problems
-from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 
@@ -27,14 +24,6 @@ def _check(body: dict[str, object]) -> list[dict[str, str]]:
     return chapters
 
 
-def test_guide_on_the_repo_dashboard(tmp_path: Path) -> None:
-    root = git_repo(tmp_path / "repo")
-    client = TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
-    response = client.get("/api/guide")
-    assert response.status_code == 200
-    assert _check(response.json())[0]["id"] == guide.chapters()[0].id
-
-
 def test_guide_on_the_multi_repo_dashboard(tmp_path: Path) -> None:
     client = multi_client(tmp_path / "home", tmp_path)
     response = client.get("/api/guide")
@@ -43,13 +32,8 @@ def test_guide_on_the_multi_repo_dashboard(tmp_path: Path) -> None:
     assert guide.INSTALL_CHAPTER in ids
 
 
-@pytest.mark.parametrize("multi", [False, True])
-def test_guide_locale_is_per_request_and_keeps_legacy_default(tmp_path: Path, multi: bool) -> None:
-    app = (
-        multi_client(tmp_path / "home", tmp_path).app
-        if multi
-        else create_app(git_repo(tmp_path / "repo"), static_dir=tmp_path / "nostatic")
-    )
+def test_guide_locale_is_per_request_and_keeps_legacy_default(tmp_path: Path) -> None:
+    app = multi_client(tmp_path / "home", tmp_path).app
     english_browser = TestClient(app, base_url=BASE)
     czech_browser = TestClient(app, base_url=BASE)
     for client, locale in [

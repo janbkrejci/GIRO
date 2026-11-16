@@ -12,7 +12,7 @@ import pytest
 from starlette.testclient import TestClient
 from web_repo import git_repo
 
-from aifactory.web.app import create_app, create_multi_app
+from aifactory.web.app import create_multi_app
 from aifactory.web.limits import (
     LimitsSource,
     _last_claude_windows,
@@ -22,6 +22,7 @@ from aifactory.web.limits import (
     codex_limits,
     used_harnesses,
 )
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 NOW = 1_800_000_000.0
@@ -307,12 +308,12 @@ def test_available_harnesses(tmp_path: Path) -> None:
 def test_limits_endpoint(tmp_path: Path) -> None:
     root = git_repo(tmp_path / "repo")
     _agents(root, "defaults:\n  harness: claude\nagents:\n  - name: a\n")
-    app = create_app(
+    app = repo_app(
         root,
         static_dir=tmp_path / "nostatic",
         limits_source=LimitsSource({"claude": lambda _: _entry("claude")}),
     )
-    body = TestClient(app, base_url=BASE).get("/api/limits").json()
+    body = RepoClient(app, base_url=BASE).get("/api/limits").json()
     assert body["ok"] is True
     assert body["data"]["providers"] == [_entry("claude")]
 

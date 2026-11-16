@@ -548,7 +548,7 @@ def test_recovery_refuses_directories_outside_configured_worktrees(
     from unittest.mock import Mock
 
     from aifactory.providers import git as pgit
-    from aifactory.review import flow
+    from aifactory.review import context
 
     outside = tmp_path / "personal"
     outside.mkdir()
@@ -558,7 +558,7 @@ def test_recovery_refuses_directories_outside_configured_worktrees(
     ctx.store.runs_on_branch.return_value = [Mock(worktree=str(outside))]
     monkeypatch.setattr(pgit, "checked_out_in", lambda *_: None)
     with pytest.raises(ReviewError, match="unsafe incomplete worktree"):
-        flow._free_branch(ctx, Mock(branch=BRANCH2))
+        context._free_branch(ctx, Mock(branch=BRANCH2))
     assert (outside / "evidence").read_bytes() == b"keep"
     assert not (repo / ".factory/recovered-worktrees").exists()
 

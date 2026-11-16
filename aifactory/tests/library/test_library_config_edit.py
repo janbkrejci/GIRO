@@ -6,12 +6,12 @@ import difflib
 import os
 import shutil
 import stat
-import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
+from test_library_install_commit import make_repo
 
 from aifactory.config.loader import load_config
 from aifactory.config.source import WorktreeSource
@@ -19,6 +19,7 @@ from aifactory.config.yamledit import edit_yaml, roster_set
 from aifactory.library import store
 from cli_json import run_json
 from fake_exe import make_executable
+from gitutil import git
 
 Capsys = pytest.CaptureFixture[str]
 AGENTS = ".factory/agents.yaml"
@@ -31,13 +32,6 @@ SOLO = (
     "  - review\n"
 )
 SKILL_MD = "---\nname: lint\ndescription: Lint the code.\n---\nRun the linter.\n"
-
-
-def git(cwd: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
 
 
 @pytest.fixture(autouse=True)
@@ -60,22 +54,6 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("CODEX_PATH", "codex-not-installed-anywhere")
     monkeypatch.setenv("PI_PATH", "pi-not-installed-anywhere")
     return path
-
-
-def make_repo(tmp_path: Path) -> Path:
-    path = tmp_path / "repo"
-    path.mkdir()
-    git(path, "init", "-q", "-b", "main")
-    (path / "README.md").write_text("readme\n", encoding="utf-8", newline="\n")
-    (path / "justfile").write_text("test:\n    echo ok\n", encoding="utf-8", newline="\n")
-    git(path, "add", "-A")
-    git(path, "commit", "-q", "-m", "init")
-    bare = tmp_path / "origin.git"
-    git(tmp_path, "init", "-q", "--bare", "-b", "main", str(bare))
-    git(path, "remote", "add", "origin", str(bare))
-    git(path, "push", "-q", "-u", "origin", "main")
-    git(path, "remote", "set-head", "origin", "main")
-    return path.resolve()
 
 
 def put(base: Path, rel: str, text: str) -> None:
@@ -292,7 +270,8 @@ def test_remove_in_use_without_the_library(
     assert error["data"]["used_by"] == ["backlog task M01-S01-T01"]
     fail(capsys, repo, "unknown_item", "remove", "workflow", "solo")
 
-    from aifactory.library.config_edit import _base_tasks, read_state
+    from aifactory.library.config_edit.plan import _base_tasks
+    from aifactory.library.config_edit.state import read_state
 
     state = read_state(repo, "base")
     task = repo / "factory/backlog/M01-core/S01-a/M01-S01-T01-x.md"

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -10,6 +9,7 @@ from typing import Any
 import pytest
 import yaml
 
+import repo_templates
 from aifactory.library.install import GITIGNORE_LINES
 from cli_json import run_json
 
@@ -20,16 +20,10 @@ from factory_check_repo import FakeMachine  # noqa: E402
 from gh_fake import install_fake_gh, prepare_shared_gh, reply  # noqa: E402
 
 from fake_exe import make_executable
+from gitutil import git, write
 
 Capsys = pytest.CaptureFixture[str]
 JUSTFILE = "test:\n    echo ok\n"
-
-
-def git(cwd: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
 
 
 @pytest.fixture(autouse=True)
@@ -54,20 +48,31 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return path
 
 
-def make_repo(tmp_path: Path, *, remote: bool = True) -> Path:
-    path = tmp_path / "repo"
-    path.mkdir()
+def _build_repo(root: Path, *, remote: bool) -> None:
+    path = root / "repo"
+    path.mkdir(parents=True)
     git(path, "init", "-q", "-b", "main")
-    (path / "README.md").write_text("readme\n", encoding="utf-8", newline="\n")
-    (path / "justfile").write_text(JUSTFILE, encoding="utf-8", newline="\n")
+    write(path, "README.md", "readme\n")
+    write(path, "justfile", JUSTFILE)
     git(path, "add", "-A")
     git(path, "commit", "-q", "-m", "init")
     if remote:
-        bare = tmp_path / "origin.git"
-        git(tmp_path, "init", "-q", "--bare", "-b", "main", str(bare))
+        bare = root / "origin.git"
+        git(root, "init", "-q", "--bare", "-b", "main", str(bare))
         git(path, "remote", "add", "origin", str(bare))
         git(path, "push", "-q", "-u", "origin", "main")
         git(path, "remote", "set-head", "origin", "main")
+
+
+def make_repo(tmp_path: Path, *, remote: bool = True) -> Path:
+    """``tmp_path/repo`` with README and justfile on ``main``, pushed to ``tmp_path/origin.git``
+    unless ``remote`` is False."""
+    repo_templates.build(
+        tmp_path, f"library-repo-{remote}", lambda root: _build_repo(root, remote=remote)
+    )
+    path = tmp_path / "repo"
+    if remote:
+        git(path, "remote", "set-url", "origin", str(tmp_path / "origin.git"))
     return path.resolve()
 
 

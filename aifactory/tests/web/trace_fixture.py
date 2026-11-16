@@ -12,9 +12,11 @@ from pathlib import Path
 
 from web_repo import git_repo
 
+import repo_templates
 from aifactory.engine.tracer import SCHEMA
 from aifactory.runstore.rows import TaskPrRow, TaskRunRow
 from aifactory.runstore.store import TaskRunStore
+from gitutil import write
 
 T1 = "M01-S01-T01"
 T2 = "M01-S01-T02"
@@ -65,12 +67,14 @@ def _run(run_id: str, task_id: str, n: int, state: str, day: int, **extra: objec
 
 def make_repo(path: Path) -> Path:
     """A git repo with ``.factory/config.yaml`` and a two-task backlog (no trace DB)."""
+    repo_templates.build(path, "trace", _build_repo)
+    return path.resolve()
+
+
+def _build_repo(path: Path) -> None:
     root = git_repo(path)
     for rel, text in _FILES.items():
-        target = root / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8", newline="\n")
-    return root
+        write(root, rel, text)
 
 
 def make_trace_db(path: Path, running_pid: int) -> Path:

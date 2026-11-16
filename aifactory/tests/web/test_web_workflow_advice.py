@@ -11,8 +11,8 @@ from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 from advice_fixture import make_repo, output
-from aifactory.web.app import create_app
 from aifactory.web.workflow_advice import AdviceManager
+from single_repo import RepoClient, repo_app
 
 
 def wait(client: TestClient, identifier: str) -> dict[str, Any]:
@@ -25,10 +25,10 @@ def wait(client: TestClient, identifier: str) -> dict[str, Any]:
 
 
 def client_for(repo: Path, runner: Any) -> TestClient:
-    app = create_app(repo, static_dir=repo / "absent")
+    app = repo_app(repo, static_dir=repo / "absent")
     app.state.workflow_advice.close()
     app.state.workflow_advice = AdviceManager(runner)
-    return TestClient(app, base_url="http://127.0.0.1:4700")
+    return RepoClient(app, base_url="http://127.0.0.1:4700")
 
 
 def test_async_duplicate_poll_scope_and_expiry(tmp_path: Path) -> None:

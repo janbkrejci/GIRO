@@ -18,9 +18,9 @@ from aifactory.config import load_run_config
 from aifactory.providers import git as pgit
 from aifactory.providers.github import GitHubProvider
 from aifactory.repo_settings import RepositorySettings
-from aifactory.review import approve_task, clean_worktrees, flow
+from aifactory.review import approve, approve_task, clean_worktrees, context, rework
 from aifactory.review.automerge import _hosting_and_merge
-from aifactory.run import run_task
+from aifactory.run import cleanup, run_task
 from aifactory.runstore.base import _now
 from aifactory.runstore.rows import RUNNING, TaskPrRow
 from aifactory.runstore.store import TaskRunStore
@@ -157,7 +157,7 @@ def test_clean_historical_merge_and_idempotence(
     build(script, "src/app/a.py")
     run = run_task(repo, T01)
     with monkeypatch.context() as patch:
-        patch.setattr(flow, "_delete_merged_branch", lambda *args: None)
+        patch.setattr(approve, "_delete_merged_branch", lambda *args: None)
         approve_task(repo, T01)
     cleaned = clean_worktrees(repo)
     assert cleaned.deleted_branches == [run.run.branch, f"origin/{run.run.branch}"]
@@ -243,7 +243,7 @@ def test_clean_preserves_checkout_and_running_branch(
     build(script, "src/app/a.py")
     run = run_task(repo, T01)
     with monkeypatch.context() as patch:
-        patch.setattr(flow, "_delete_merged_branch", lambda *args: None)
+        patch.setattr(approve, "_delete_merged_branch", lambda *args: None)
         approve_task(repo, T01)
     branch = run.run.branch
     if checkout == "main":
@@ -284,7 +284,7 @@ def test_clean_keeps_unregistered_checkout(
     build(script, "src/app/a.py")
     run = run_task(repo, T01)
     with monkeypatch.context() as patch:
-        patch.setattr(flow, "_delete_merged_branch", lambda *args: None)
+        patch.setattr(approve, "_delete_merged_branch", lambda *args: None)
         approve_task(repo, T01)
     git(repo, "worktree", "add", str(tmp_path / "operator"), run.run.branch)
     assert clean_worktrees(repo).deleted_branches == []
@@ -302,7 +302,7 @@ def test_cleanup_remote_states(
     build(script, "src/app/a.py")
     run = run_task(repo, T01)
     with monkeypatch.context() as patch:
-        patch.setattr(flow, "_delete_merged_branch", lambda *args: None)
+        patch.setattr(approve, "_delete_merged_branch", lambda *args: None)
         approve_task(repo, T01)
     if remote == "absent":
         git(repo, "remote", "remove", "origin")
@@ -322,7 +322,7 @@ def test_cleanup_queries_remote_once_without_blocking_claims(
     build(script, "src/app/a.py")
     run = run_task(repo, T01)
     with monkeypatch.context() as patch:
-        patch.setattr(flow, "_delete_merged_branch", lambda *args: None)
+        patch.setattr(approve, "_delete_merged_branch", lambda *args: None)
         approve_task(repo, T01)
     original = pgit.remote_branches
     calls = []
@@ -379,7 +379,7 @@ def test_failed_restack_preserves_parent(
     def cannot_resolve(*args: object, **kwargs: object) -> None:
         raise ReviewError("worktree_failed", "restack refused")
 
-    monkeypatch.setattr(flow, "resolve_task", cannot_resolve)
+    monkeypatch.setattr(rework, "resolve_task", cannot_resolve)
     # The real restacker records the failure and keeps the dependent PR open.
     result = approve_task(repo, T01)
     assert result.pr.state == "merged"
@@ -399,9 +399,11 @@ def test_approve_and_clean_preserve_shared_active_worktree(
     completed = run_task(repo, T01)
     assert completed.ok and completed.run.state == "succeeded"
     path = Path(completed.run.worktree)
-    original_remove = flow._remove_run_worktrees
+    original_remove = context._remove_run_worktrees
 
-    def start_live_run_before_cleanup(ctx: flow._Ctx, branch: str) -> tuple[list[str], list[str]]:
+    def start_live_run_before_cleanup(
+        ctx: cleanup.RunContext, branch: str
+    ) -> tuple[list[str], list[str]]:
         # Approval already passed its busy check; another run now shares the path.
         ctx.store.claim(
             replace(
@@ -419,7 +421,7 @@ def test_approve_and_clean_preserve_shared_active_worktree(
         assert {Path(row.worktree) for row in rows} == {path}
         return original_remove(ctx, branch)
 
-    monkeypatch.setattr(flow, "_remove_run_worktrees", start_live_run_before_cleanup)
+    monkeypatch.setattr(approve, "_remove_run_worktrees", start_live_run_before_cleanup)
     approved = approve_task(repo, T01)
     assert approved.pr.state == "merged"
     assert str(path) not in approved.removed_worktrees
@@ -501,7 +503,7 @@ def test_cli_reports_deletions_and_nonfatal_warnings(
         updated_at=_now(),
         merge_sha="b" * 40,
     )
-    approved = flow.ApproveResult(
+    approved = approve.ApproveResult(
         task_id=T01,
         pr=pr,
         merge_sha=pr.merge_sha,
@@ -511,7 +513,7 @@ def test_cli_reports_deletions_and_nonfatal_warnings(
         deleted_branches=deleted,
         warnings=warnings,
     )
-    cleaned = flow.CleanResult(deleted_branches=deleted, warnings=warnings)
+    cleaned = cleanup.CleanResult(deleted_branches=deleted, warnings=warnings)
     monkeypatch.setattr(review, "approve_task", lambda *args, **kwargs: approved)
     monkeypatch.setattr(review, "clean_worktrees", lambda *args, **kwargs: cleaned)
     argv = ["task", command, *([T01] if command == "approve" else []), "--repo", str(repo)]

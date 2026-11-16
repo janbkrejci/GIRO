@@ -13,7 +13,7 @@ from trace_fixture import T1, make_trace_db
 
 from aifactory.home import giro_home
 from aifactory.skill import envelope_problems
-from aifactory.web.app import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1"
 
@@ -71,8 +71,8 @@ def repo_fixture(tmp_path: Path) -> Path:
 
 
 def _client(repo: Path, tmp_path: Path, launcher: _Launcher) -> TestClient:
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    return TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    return RepoClient(app, base_url=BASE)
 
 
 def test_choices_are_enabled_tested_and_not_exhausted(repo: Path, tmp_path: Path) -> None:

@@ -2,20 +2,13 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
 from aifactory.library.detect import RemoteInfo, detect, parse_remote_url
 from fake_exe import make_executable
-
-
-def _git(cwd: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
+from gitutil import git
 
 
 def _gh(owner: str, repo: str) -> RemoteInfo:
@@ -82,8 +75,8 @@ def test_parse_remote_url(url: str | None, expected: RemoteInfo) -> None:
 def repo(tmp_path: Path) -> Path:
     path = tmp_path / "repo"
     path.mkdir()
-    _git(path, "init", "-q", "-b", "trunk")
-    _git(
+    git(path, "init", "-q", "-b", "trunk")
+    git(
         path,
         "-c",
         "user.name=T",
@@ -107,11 +100,11 @@ def test_detect_without_remote(repo: Path) -> None:
 
 def test_detect_base_from_remote_head(repo: Path, tmp_path: Path) -> None:
     bare = tmp_path / "origin.git"
-    _git(tmp_path, "init", "-q", "--bare", "-b", "main", str(bare))
-    _git(repo, "remote", "add", "origin", str(bare))
-    _git(repo, "push", "-q", "origin", "trunk:main", "trunk:dev")
-    _git(repo, "fetch", "-q", "origin")
-    _git(repo, "remote", "set-head", "origin", "dev")
+    git(tmp_path, "init", "-q", "--bare", "-b", "main", str(bare))
+    git(repo, "remote", "add", "origin", str(bare))
+    git(repo, "push", "-q", "origin", "trunk:main", "trunk:dev")
+    git(repo, "fetch", "-q", "origin")
+    git(repo, "remote", "set-head", "origin", "dev")
 
     found = detect(repo)
 
@@ -120,7 +113,7 @@ def test_detect_base_from_remote_head(repo: Path, tmp_path: Path) -> None:
 
 
 def test_detect_other_remote_and_redacted_url(repo: Path) -> None:
-    _git(repo, "remote", "add", "upstream", "https://u:secret@dev.azure.com/c/P/_git/r")
+    git(repo, "remote", "add", "upstream", "https://u:secret@dev.azure.com/c/P/_git/r")
     found = detect(repo).to_json()
     assert found["remote"] == "upstream"
     assert found["remote_url"] == "https://dev.azure.com/c/P/_git/r"
