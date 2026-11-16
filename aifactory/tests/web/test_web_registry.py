@@ -64,7 +64,7 @@ def test_concurrent_writes_of_two_processes(tmp_path: Path) -> None:
     procs = [
         subprocess.Popen(
             [sys.executable, "-c", _ADD_SCRIPT, str(home), str(repos), prefix],
-            env={**os.environ, "HAIFA_HOME": str(home)},
+            env={**os.environ, "GIRO_HOME": str(home)},
         )
         for prefix in ("a", "b")
     ]

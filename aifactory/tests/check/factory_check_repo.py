@@ -157,7 +157,7 @@ class FakeMachine:
         return self.platform_name
 
     def environment(self) -> Mapping[str, str]:
-        return {"HAIFA_HOME": os.environ["HAIFA_HOME"], **self.environ}
+        return {"GIRO_HOME": os.environ["GIRO_HOME"], **self.environ}
 
     def file_mode(self, path: Path) -> int | None:
         if path in self.modes:

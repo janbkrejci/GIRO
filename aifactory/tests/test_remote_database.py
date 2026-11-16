@@ -28,7 +28,7 @@ TASK = "backlog/P/S/P-S-T.md"
 
 @pytest.fixture
 def service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     monkeypatch.delenv("HAIFA_DATABASE_URL", raising=False)
     with DatabaseServer(("127.0.0.1", 0), tmp_path / "server") as server:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -98,7 +98,7 @@ def test_missing_remote_fails_closed(
 
 
 def test_native_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     monkeypatch.delenv("HAIFA_DATABASE_URL", raising=False)
     path = LocalSettings().trace_db_path(tmp_path)
     path.parent.mkdir(parents=True)

@@ -36,7 +36,7 @@ def git(cwd: Path, *args: str) -> str:
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """``$HAIFA_HOME`` without a library, a git identity, and only claude on this machine."""
     path = tmp_path / "haifa-home"
-    monkeypatch.setenv("HAIFA_HOME", str(path))
+    monkeypatch.setenv("GIRO_HOME", str(path))
     monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")

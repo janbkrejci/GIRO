@@ -388,7 +388,7 @@ def test_handoff_keeps_the_bundle_and_starts_the_script(tmp_path: Path, uv_log: 
         environ={
             "PSModulePath": "C:/pwsh/Modules",
             "HAIFA_OBS_RESTART": "1",
-            "HAIFA_HOME": os.environ["HAIFA_HOME"],
+            "GIRO_HOME": os.environ["GIRO_HOME"],
         },
         spawn=_record(calls),
     )

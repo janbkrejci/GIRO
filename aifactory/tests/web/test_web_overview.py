@@ -1099,7 +1099,7 @@ def test_open_pr_with_auto_merge_waits_for_automerge(
     repo_a: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     entry = register(home, repo_a).snapshot()[0].repos[0]
     client = _client(home, tmp_path)
     url = f"/api/repos/{entry.id}/settings/local"
@@ -1127,7 +1127,7 @@ def test_open_pr_with_auto_merge_waits_for_automerge(
 def test_failed_auto_merge_waits_for_review_again(
     repo_a: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     _auto_merge_step(repo_a)
     _set_auto_merge_error(repo_a, f"factory/{T_REV}-r-rev", "checks_failing: ci")
     a = _repo_item(repo_a, tmp_path)
@@ -1139,7 +1139,7 @@ def test_failed_auto_merge_waits_for_review_again(
 def test_trace_db_without_the_auto_merge_error_column(
     repo_a: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     _auto_merge_step(repo_a)
     conn = sqlite3.connect(str(_db(repo_a)), isolation_level=None)
     try:
@@ -1445,7 +1445,7 @@ def test_local_settings_patch_is_immediate_persistent_and_repo_scoped(
     from concurrent.futures import ThreadPoolExecutor
 
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     first = make_installed_repo(tmp_path / "first")
     second = make_installed_repo(tmp_path / "second")
     registry = register(home, first, second)
@@ -1485,7 +1485,7 @@ def test_local_settings_errors_do_not_acknowledge_off(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     root = make_installed_repo(tmp_path / "repo")
     entry = register(home, root).snapshot()[0].repos[0]
     service = RepositorySettings(root, home)

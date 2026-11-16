@@ -35,7 +35,7 @@ class Env:
         home = tmp / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
-        monkeypatch.setenv("HAIFA_HOME", str(home / ".config" / "haifa"))
+        monkeypatch.setenv("GIRO_HOME", str(home / ".config" / "haifa"))
         monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
         for kind in ("AUTHOR", "COMMITTER"):
             monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")

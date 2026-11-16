@@ -81,7 +81,7 @@ def test_probe_uses_selected_thinking(
 def test_failed_model_cannot_be_default_or_shown_and_retest_recovers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     settings.write(choices(), tmp_path)
     monkeypatch.setattr(probe, "run_probe", lambda *_: {"ok": False, "error": "Login failed"})
     app = create_multi_app(home=tmp_path)
@@ -109,7 +109,7 @@ def test_failed_model_cannot_be_default_or_shown_and_retest_recovers(
 def test_failed_models_never_fall_back_to_repository_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
     monkeypatch.setattr(probe, "run_probe", lambda *_: {"ok": False, "error": "Failed"})
     probe.test_and_record("codex", "gpt-5.5", tmp_path)
     value = choices()

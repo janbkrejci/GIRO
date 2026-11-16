@@ -104,9 +104,7 @@ def test_machine_home_in_repo_and_override(
     assert str(override) in finding["message"]
     assert not state(client).home.exists()
     adapter = machine.HomeMachine(fake, state(client).home)
-    assert (
-        adapter.env("HAIFA_HOME") == adapter.environment()["HAIFA_HOME"] == str(state(client).home)
-    )
+    assert adapter.env("GIRO_HOME") == adapter.environment()["GIRO_HOME"] == str(state(client).home)
 
 
 def test_machine_fake_executables(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

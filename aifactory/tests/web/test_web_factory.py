@@ -47,7 +47,7 @@ def git(cwd: Path, *args: str) -> str:
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """``$HAIFA_HOME`` without a library, a git identity, and only claude on this machine."""
     path = tmp_path / "haifa-home"
-    monkeypatch.setenv("HAIFA_HOME", str(path))
+    monkeypatch.setenv("GIRO_HOME", str(path))
     monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
@@ -153,7 +153,7 @@ def check_body(resp: Any, status: int) -> dict[str, Any]:
 
 @pytest.fixture
 def api(tmp_path: Path) -> Api:
-    client = multi_client(Path(os.environ["HAIFA_HOME"]), tmp_path)
+    client = multi_client(Path(os.environ["GIRO_HOME"]), tmp_path)
     client.app.state.check_machine = FakeMachine()  # type: ignore[attr-defined]
     ids: dict[str, str] = {}
     for name in ("a", "b"):
