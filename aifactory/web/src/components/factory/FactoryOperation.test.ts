@@ -6,14 +6,27 @@ afterLocaleTest(() => setLocale('en'))
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { ApiError, applyBasePull, fetchBasePullPlan, applyFactoryPlan, fetchFactoryPlan, fetchOverview, type FactoryPlan, type FactoryInitPlan, type FactoryPullPlan } from '@/lib/api'
+import { ApiError, applyBasePull, fetchBasePullPlan, applyFactoryPlan, fetchFactoryPlan, fetchOverview, fetchRepoOverview, type FactoryPlan, type FactoryInitPlan, type FactoryPullPlan } from '@/lib/api'
 import { useLive, type LiveHandlers } from '@/lib/live'
 import FactoryOperation from './FactoryOperation.vue'
 import { answerDialog, openDialog } from '@/test/modal'
 import { chooseOption } from '@/test/select'
 import { deferred } from '@/test/deferred'
 import { installPlan } from '@/test/factoryFixtures'
-vi.mock('@/lib/api', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/api')>(), fetchFactoryPlan: vi.fn(), applyFactoryPlan: vi.fn(), fetchOverview: vi.fn(), fetchBasePullPlan: vi.fn(), applyBasePull: vi.fn() }))
+const { repoOverviewMocks } = vi.hoisted(() => ({
+  // The component reads one repo (fetchRepoOverview); the tests describe the whole overview.
+  repoOverviewMocks: () => {
+    const fetchOverview = vi.fn()
+    const fetchRepoOverview = vi.fn(async (id: string) => {
+      const data = await fetchOverview() as { repos: { id: string }[] }
+      const repo = data.repos.find((r) => r.id === id)
+      if (!repo) throw new Error(`unknown repo ${id}`)
+      return repo
+    })
+    return { fetchOverview, fetchRepoOverview }
+  },
+}))
+vi.mock('@/lib/api', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/api')>(), fetchFactoryPlan: vi.fn(), applyFactoryPlan: vi.fn(), ...repoOverviewMocks(), fetchBasePullPlan: vi.fn(), applyBasePull: vi.fn() }))
 vi.mock('@/lib/live', () => ({ useLive: vi.fn() }))
 enableAutoUnmount(afterEach)
 function preview(extra: Partial<FactoryPullPlan> & { action: 'pull' }): FactoryPullPlan
@@ -109,6 +122,7 @@ describe('Factory operations', () => {
     vi.mocked(fetchOverview).mockResolvedValue({ repos: [{ id: 'a', state: 'ok', running: [{ run_id: 'incoming', process: 'ended' }] }] as never, totals: {} })
     handlers.resync!(); await flushPromises()
     expect(w.get('[data-test="factory-perform"]').attributes('disabled')).toBeUndefined()
+    expect(vi.mocked(fetchRepoOverview).mock.calls.every(([id]) => id === 'a')).toBe(true)
     expect(applyFactoryPlan).not.toHaveBeenCalled()
     expect(applyBasePull).not.toHaveBeenCalled()
   })

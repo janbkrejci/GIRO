@@ -25,7 +25,10 @@ runs), its runs stay.
 
 Live updates: ``GET /api/live`` is a Server-Sent Events stream (``live.py``). ``files``
 events name changed paths under ``backlog/`` and ``.factory/``, ``trace`` events the runs
-and tasks with new trace rows; ``resync`` asks the client to reload its screen.
+and tasks with new trace rows; ``resync`` asks the client to reload its screen. The
+multi-repository dashboard serves each repository's stream at ``/api/repos/{id}/live`` and
+all of them at ``/api/live`` (``live_all``, every event with its ``repo``), which drives the
+overview; ``GET /api/repos/{id}/overview`` is one repository item of ``GET /api/overview``.
 
 Backlog: ``GET /api/backlog?status=`` (tree, kanban tasks, workflows, steps),
 ``GET /api/backlog/names`` (``{levels, names: {id: {title, level}}}`` for every project,
@@ -308,7 +311,6 @@ from aifactory.skill.envelope import envelope_fail, envelope_ok
 from aifactory.web import backlog, chains, factory, library, machine, review, runs, settings, system
 from aifactory.web import server as web_server
 from aifactory.web.assistant import AssistantError, AssistantManager
-from aifactory.web.config_cache import ConfigCache
 from aifactory.web.control import FactoryControl
 from aifactory.web.fs import FolderPicker, list_dirs
 from aifactory.web.guard import StaleCodeMiddleware, WriteGuardMiddleware, is_api_path
@@ -316,7 +318,8 @@ from aifactory.web.intent import IntentManager
 from aifactory.web.launcher import Launcher, RunLauncher
 from aifactory.web.learn import LearnManager
 from aifactory.web.limits import LimitsSource
-from aifactory.web.live import LiveHub
+from aifactory.web.live import QUEUE_SIZE as LIVE_QUEUE_SIZE
+from aifactory.web.live import LiveEvent, LiveHub
 from aifactory.web.overview import Overview
 from aifactory.web.pr_refresh import PR_REFRESH_INTERVAL, refresh_registered
 from aifactory.web.repos import (
@@ -856,6 +859,86 @@ async def live(request: Request) -> StreamingResponse:
                 yield _sse(event.kind, event.data)
         finally:
             hub.unsubscribe(queue)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+async def live_all(request: Request) -> StreamingResponse:
+    """Server-Sent Events of every registered repository (the overview's live channel).
+
+    ``hello``, then each repository hub's ``files`` and ``trace`` events with ``repo`` (the
+    registry id) added, and ``resync`` when events may have been missed (a full queue, a
+    closed hub, a repository added or removed). The registry is checked again with every
+    ping; a missing folder has no hub and is left out until it appears.
+    """
+    contexts: RepoContexts = request.app.state.repos
+    registry = _registry(request)
+
+    async def stream() -> AsyncIterator[str]:
+        merged: asyncio.Queue[tuple[str, LiveEvent]] = asyncio.Queue(maxsize=LIVE_QUEUE_SIZE)
+        subs: dict[str, tuple[LiveHub, asyncio.Queue[LiveEvent | None], asyncio.Task[None]]] = {}
+
+        def put(repo_id: str, event: LiveEvent) -> None:
+            try:
+                merged.put_nowait((repo_id, event))
+            except asyncio.QueueFull:
+                while not merged.empty():
+                    merged.get_nowait()
+                merged.put_nowait((repo_id, LiveEvent("resync")))
+
+        async def forward(repo_id: str, queue: asyncio.Queue[LiveEvent | None]) -> None:
+            while True:
+                event = await queue.get()
+                if event is None:  # the hub closed (repository removed or moved)
+                    subs.pop(repo_id, None)
+                    put(repo_id, LiveEvent("resync"))
+                    return
+                put(repo_id, event)
+
+        def drop(repo_id: str) -> None:
+            hub, queue, task = subs.pop(repo_id)
+            task.cancel()
+            hub.unsubscribe(queue)
+
+        async def sync() -> bool:
+            """Follow the registry; True when the set of watched repositories changed."""
+            state, _warnings = await run_in_threadpool(registry.snapshot)
+            ids = {entry.id for entry in state.repos}
+            changed = False
+            for repo_id in [r for r in subs if r not in ids]:
+                drop(repo_id)
+                changed = True
+            for repo_id in sorted(ids - set(subs)):
+                try:
+                    ctx = await contexts.resolve(repo_id)
+                except RepoError:
+                    continue
+                queue = await ctx.live.subscribe()
+                task = asyncio.create_task(forward(repo_id, queue))
+                subs[repo_id] = (ctx.live, queue, task)
+                changed = True
+            return changed
+
+        try:
+            await sync()
+            yield "retry: 2000\n\n"
+            yield _sse("hello", {"repos": sorted(subs)})
+            while True:
+                try:
+                    repo_id, event = await asyncio.wait_for(merged.get(), timeout=_PING_S)
+                except TimeoutError:
+                    yield ": ping\n\n"
+                    if await sync():
+                        yield _sse("resync", {"repos": sorted(subs)})
+                    continue
+                yield _sse(event.kind, {**event.data, "repo": repo_id})
+        finally:
+            for repo_id in list(subs):
+                drop(repo_id)
 
     return StreamingResponse(
         stream(),
@@ -2240,13 +2323,9 @@ async def repos_list(request: Request) -> JSONResponse:
 
     def build() -> tuple[list[dict[str, Any]], list[str]]:
         state, warnings = registry.snapshot()
-        cache: ConfigCache = request.app.state.repo_status_cache
-        cache.prune({(entry.id, entry.path) for entry in state.repos})
         return [
             {
-                **cache.get(
-                    (entry.id, entry.path), Path(entry.path), functools.partial(repo_status, entry)
-                ),
+                **repo_status(entry),
                 **entry.to_json(),
                 "demo": is_demo(entry.path, request.app.state.home),
             }
@@ -2513,6 +2592,17 @@ async def overview_get(request: Request) -> JSONResponse:
     ov: Overview = request.app.state.overview
     data, warnings = await ov.collect()
     return JSONResponse(envelope_ok(data, warnings))
+
+
+async def repo_overview_get(request: Request) -> JSONResponse:
+    """One repository item of ``GET /api/overview`` (same timeout and ``stale`` rules)."""
+    ov: Overview = request.app.state.overview
+    repo_id: str = request.path_params["repo_id"]
+    state, _warnings = await run_in_threadpool(_registry(request).snapshot)
+    entry = state.by_id(repo_id)
+    if entry is None:
+        return _repo_error(RepoError("unknown_repo", f"no registered repository {repo_id!r}"))
+    return JSONResponse(envelope_ok(await ov.item(entry)))
 
 
 async def machine_system(request: Request) -> JSONResponse:
@@ -2931,6 +3021,8 @@ def create_multi_app(
             Route("/fs/pick", fs_pick_status, methods=["GET"]),
             Route("/fs/pick", fs_pick, methods=["POST"]),
             Route("/overview", overview_get, methods=["GET"]),
+            Route("/live", live_all, methods=["GET"]),
+            Route("/repos/{repo_id}/overview", repo_overview_get, methods=["GET"]),
             Route("/assistant/harnesses", assistant_harnesses, methods=["GET"]),
             Route("/assistant/threads", assistant_threads, methods=["GET"]),
             Route("/assistant/threads", assistant_create, methods=["POST"]),
@@ -3023,7 +3115,6 @@ def create_multi_app(
         home_dir, lambda: [(e.id, Path(e.path)) for e in registry.snapshot()[0].repos]
     )
     app.state.overview = Overview(registry)
-    app.state.repo_status_cache = ConfigCache()
     app.state.repos = contexts
     app.state.user_home = Path.home() if user_home is None else user_home
     app.state.picker = FolderPicker() if picker is None else picker

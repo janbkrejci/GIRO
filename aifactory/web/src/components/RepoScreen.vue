@@ -3,7 +3,7 @@ import { t } from '@/lib/i18n'
 // Everything of one repo page: the config and backlog statuses (their chips are in the topbar), the live updates and the screen.
 // App.vue keys it by the repo id, so a switch of the repo drops all of it (view data, run
 // cursors, subscriptions, banners) and the new repo starts clean.
-import { computed, onBeforeUnmount, onMounted, provide, watch, type Component } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, type Component } from 'vue'
 import { Activity, Factory, GitPullRequest, ListTodo } from 'lucide-vue-next'
 import { useConfigStatus } from '@/lib/configStatus'
 import { resetBacklogStatus, useBacklogStatus } from '@/lib/backlogStatus'
@@ -44,8 +44,8 @@ const route = useRoute()
 const view = computed(() => VIEWS[route.value])
 
 const configStatus = useConfigStatus(currentRepoId() ?? '')
+// Only live events, focus and an applied factory refresh the statuses, not switching screens.
 const refreshConfig = () => void configStatus.refresh()
-watch(route, refreshConfig)
 const backlogStatus = useBacklogStatus()
 const refreshBacklog = () => void backlogStatus.refresh()
 const refreshStatuses = () => {

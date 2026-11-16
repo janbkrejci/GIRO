@@ -16,11 +16,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from aifactory import gitquery
 from aifactory.config import ConfigError
 from aifactory.config.repo_state import RepoState, repo_state
-from aifactory.gitops import repo_layout
 from aifactory.registry import Registry, RegistryState, RepoEntry, RepoError
 from aifactory.repo_vet import examine, read_git, register_repo, require_git_budget
+from aifactory.web import repostate
 from aifactory.web import settings as web_settings
 from aifactory.web.factory import FactoryState
 from aifactory.web.live import LiveHub
@@ -191,11 +192,15 @@ def repo_status(entry: RepoEntry) -> JsonDict:
         item["status"] = "missing"
         return item
     require_git_budget()
-    layout = repo_layout(root)
-    if layout is None or layout.toplevel is None:
+    try:
+        top = gitquery.toplevel(root)
+    except OSError:
+        top = None
+    if top is None:
         item["status"] = "not_git"
         return item
-    factory = _factory(layout.toplevel)
+    snap = repostate.snapshot(top)  # shared with the overview; no git while unchanged
+    factory = snap.state
     item["factory"] = factory.to_json() if factory is not None else None
     if factory is None:
         item["status"] = "not_git"
@@ -206,7 +211,7 @@ def repo_status(entry: RepoEntry) -> JsonDict:
     elif state == "uncommitted":
         item["status"] = "uncommitted"
     else:
-        data, _warnings = web_settings.config_status(layout.toplevel)
+        data, _warnings = web_settings.config_status(top)
         if data is not None and data.get("clean") is False:
             item["status"] = "uncommitted"
     return item

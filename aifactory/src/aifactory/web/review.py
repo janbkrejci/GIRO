@@ -47,7 +47,7 @@ from aifactory.review.prbody import branch_cost, run_checks, run_cost
 from aifactory.run.stack import open_stack
 from aifactory.run.store import SUCCEEDED, TaskPrRow, TaskRunRow, TaskRunStore
 from aifactory.run.task import existing_store
-from aifactory.web.backlog import UsageError, waits_for_automerge
+from aifactory.web.backlog import UsageError
 from aifactory.web.launcher import Launcher
 
 JsonDict = dict[str, Any]
@@ -76,6 +76,19 @@ class _Ctx:
     provider: GitProvider | None
     backlog: Backlog | None
     warnings: list[str] = field(default_factory=list)
+    # ``run.policy.merge_enabled``, read once per request (see ``_waits_for_automerge``)
+    merge: bool | None = None
+
+
+def _waits_for_automerge(ctx: _Ctx, task: Task | None, auto_merge_error: str | None) -> bool:
+    """``web.backlog.waits_for_automerge`` with the repository setting read once per request."""
+    if task is None or auto_merge_error:
+        return False
+    if ctx.merge is None:
+        from aifactory.run.policy import merge_enabled
+
+        ctx.merge = merge_enabled(ctx.main)
+    return ctx.merge
 
 
 @contextlib.contextmanager
@@ -165,9 +178,7 @@ def _pr_summary(ctx: _Ctx, store: TaskRunStore, row: TaskPrRow) -> JsonDict:
     last = runs[0] if runs else None
     waiting = status.state == OPEN and running is None
     approved = waiting and bool(row.approved_at) and not row.auto_merge_error
-    automerge = (
-        waiting and not approved and waits_for_automerge(ctx.main, task, row.auto_merge_error)
-    )
+    automerge = waiting and not approved and _waits_for_automerge(ctx, task, row.auto_merge_error)
     return {
         "task_id": row.task_id,
         "task_title": None if task is None else task.title,

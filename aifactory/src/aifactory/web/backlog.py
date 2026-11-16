@@ -39,8 +39,7 @@ from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.backlog.taskfile import has_entry
 from aifactory.config import ConfigError, load_local, load_run_config
 from aifactory.config.loader import WORKFLOWS_DIR
-from aifactory.config.run import worktree_base
-from aifactory.config.source import repo_root, resolve_commit
+from aifactory.config.source import repo_root
 from aifactory.errors import TaskRunError
 from aifactory.errors import UsageError as UsageError
 from aifactory.harness import THINKING_LEVELS, canonical
@@ -908,18 +907,20 @@ def status(repo: Path) -> tuple[JsonDict, list[str]]:
     """Backlog changes in the main checkout not committed to base: runs read base (D4).
 
     Cheap on purpose (the dashboard asks after every backlog write): the base, its commit
-    and the backlog roots of the working tree's config.yaml, no run config.
+    and the backlog roots of the working tree's config.yaml, no run config. Read from the
+    repository snapshot shared with the overview (``web.repostate``).
     """
+    from aifactory.web.repostate import snapshot
+
     try:
-        main = repo_root(repo)
-        base = worktree_base(main)
-        sha = resolve_commit(main, base)
-        changes = core.backlog_changes(main, sha, core.load_settings(main))
+        snap = snapshot(repo_root(repo))
+        tree = snap.require_tree()
+        changes = snap.backlog_changes()
     except ConfigError as exc:  # git failures included (GitError)
         raise TaskRunError("invalid_config", str(exc)) from exc
     data: JsonDict = {
-        "base": base,
-        "commit": sha,
+        "base": tree.base,
+        "commit": tree.commit,
         "clean": not changes,
         "changes": [c.to_dict() for c in changes],
     }

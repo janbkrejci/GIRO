@@ -3,11 +3,12 @@ import { t } from '@/lib/i18n'
 // The repo switcher of the topbar: the current repo (or page) and the dashboard version; its menu
 // leads to the overview, every registered repo (same screen, no parameters) and the repo pages.
 // The page Knihovna (#/setup) is not in the menu; it opens from the library chip of the topbar.
-// On opening it reads GET /api/overview for the running, review and failed counts of each repo.
+// Its running, review and failed counts per repo come from the overview this tab read last
+// (sharedOverview); on opening it reads GET /api/overview only when that is over 15 s old.
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { ChevronDown } from 'lucide-vue-next'
-import { fetchOverview, type Health, type RepoItem } from '@/lib/api'
-import { countsById, type RepoCounts } from '@/lib/overview'
+import { type Health, type RepoItem } from '@/lib/api'
+import { countsById, recentOverview, sharedOverview, type RepoCounts } from '@/lib/overview'
 import { REPO_STATUS_TEXT } from '@/lib/repos'
 import { OVERVIEW_HREF, repoHref, usePage, useRepoId, useRoute } from '@/lib/router'
 
@@ -26,15 +27,12 @@ const screen = useRoute()
 const root = ref<HTMLElement | null>(null)
 const open = ref(false)
 
-/** Counts per repo id from the overview, read on every opening. */
-const counts = ref<Record<string, RepoCounts>>({})
-let countsGeneration = 0
+/** Counts per repo id from the newest overview of this tab. */
+const counts = computed<Record<string, RepoCounts>>(() => countsById(sharedOverview.value?.data ?? null))
 
 async function loadCounts() {
-  const mine = ++countsGeneration
   try {
-    const data = await fetchOverview()
-    if (mine === countsGeneration) counts.value = countsById(data)
+    await recentOverview()
   } catch {
     // the menu works without counts
   }

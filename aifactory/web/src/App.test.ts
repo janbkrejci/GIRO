@@ -13,6 +13,8 @@ import { CLEAN_STATUS, DIRTY_STATUS } from './test/settingsFixtures'
 import { runsResponse, summary } from './test/runsFixtures'
 import { FakeEventSource, filesEvent } from './test/fakeEventSource'
 import { LIVE_DEBOUNCE_MS, resetLiveForTests } from './lib/live'
+import { resetSharedOverviewForTests } from './lib/overview'
+import { resetOverviewLiveForTests } from './lib/overviewLive'
 import { nameTip, resetNamesForTests } from './lib/names'
 import { resetBacklogStatusForTests } from './lib/backlogStatus'
 import type { RepoItem } from './lib/api'
@@ -82,6 +84,8 @@ afterEach(() => {
   resetConfigStatusForTests()
   resetBacklogStatusForTests()
   resetLiveForTests()
+  resetOverviewLiveForTests()
+  resetSharedOverviewForTests()
   FakeEventSource.reset()
   resetNamesForTests()
   document.body.innerHTML = ''
@@ -732,6 +736,28 @@ describe('App', () => {
     expect(other.find('[data-test="count-running"]').exists()).toBe(false)
     expect(other.find('[data-test="count-failed"]').exists()).toBe(false)
     expect(other.find('[data-test="count-automerge"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('fills the switcher counts from the overview already read, without another read', async () => {
+    let calls = 0
+    stubApi({
+      repos: [HAIFA, OTHER],
+      handler: (url) => {
+        if (url !== '/api/overview') return undefined
+        calls += 1
+        return envelope(overview([ovRepo('haifa', { running: [running()] }), ovRepo('other')]))
+      },
+    })
+    go('#/overview')
+    const wrapper = mount(App, { attachTo: document.body })
+    await flushPromises()
+    const read = calls
+    expect(read).toBeGreaterThan(0)
+    await wrapper.get('[data-test="switcher-button"]').trigger('click')
+    await flushPromises()
+    expect(calls).toBe(read)
+    expect(wrapper.get('[data-test="switch-repo-haifa"] [data-test="count-running"]').text()).toBe('1')
     wrapper.unmount()
   })
 

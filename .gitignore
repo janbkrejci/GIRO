@@ -10,6 +10,7 @@ __pycache__/
 prototype/.venv/
 aifactory/.venv/
 aifactory/web/node_modules/
+aifactory/node_modules/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
