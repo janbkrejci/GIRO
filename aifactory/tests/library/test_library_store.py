@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 import sys
 import threading
 import time
@@ -19,15 +18,9 @@ from aifactory.library import seed_agent_names, seed_extension_names, seed_workf
 from aifactory.library.history import cache_dir
 from aifactory.library.seed import SKILL_NAME
 from cli_json import run_json
+from gitutil import git
 
 Capsys = pytest.CaptureFixture[str]
-
-
-def _git(cwd: Path, *args: str) -> str:
-    out = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True, encoding="utf-8"
-    )
-    return out.stdout.strip()
 
 
 @pytest.fixture
@@ -66,9 +59,9 @@ def _skill(home: Path, name: str = "lint", script: bytes = b"#!/bin/sh\nruff .\n
 def test_init_creates_library_from_seed(home: Path, capsys: Capsys) -> None:
     data = _init(capsys)
     lib = _lib(home)
-    assert data["committed"] and data["commit"] == _git(lib, "rev-parse", "HEAD")
-    assert _git(lib, "rev-list", "--count", "HEAD") == "1"
-    assert _git(lib, "status", "--porcelain") == ""
+    assert data["committed"] and data["commit"] == git(lib, "rev-parse", "HEAD")
+    assert git(lib, "rev-list", "--count", "HEAD") == "1"
+    assert git(lib, "status", "--porcelain") == ""
     meta = yaml.safe_load((lib / "library.yaml").read_text())
     assert meta["format"] == 1 and meta["name"] == "team"
     assert meta["min_factory_version"] is None
@@ -79,7 +72,7 @@ def test_init_creates_library_from_seed(home: Path, capsys: Capsys) -> None:
     expected.add(f"skill/{SKILL_NAME}")  # generated from factory --skill
     assert set(meta["seed"]) == expected
     assert all(v.startswith("sha256:") for v in meta["seed"].values())
-    message = _git(lib, "log", "-1", "--format=%B")
+    message = git(lib, "log", "-1", "--format=%B")
     assert "agent/builder" in message and "seed" in message
 
     rc, obj = run_json(capsys, ["library", "init", "--json"])
@@ -154,9 +147,9 @@ def test_import_skill_keeps_executable_and_shows_history(home: Path, capsys: Cap
     first = obj["data"]
     assert first["committed"] and first["digest"] == plan["digest"]
     assert os.access(lib / "skills/lint/bin/run.sh", os.X_OK)
-    assert "100755" in _git(lib, "ls-tree", "HEAD", "skills/lint/bin/run.sh")
-    assert _git(lib, "status", "--porcelain") == ""
-    message = _git(lib, "log", "-1", "--format=%B")
+    assert "100755" in git(lib, "ls-tree", "HEAD", "skills/lint/bin/run.sh")
+    assert git(lib, "status", "--porcelain") == ""
+    message = git(lib, "log", "-1", "--format=%B")
     assert "skill/lint" in message and str(folder) in message
 
     rc, obj = run_json(capsys, ["library", "import", str(folder), "--type", "skill", "--json"])
@@ -263,7 +256,7 @@ def test_import_refuses_dirty_library(home: Path, capsys: Capsys) -> None:
     rc, obj = run_json(capsys, ["library", "import", str(folder), "--type", "skill", "--json"])
     assert rc == 2 and obj["error"]["code"] == "library_dirty"
     assert (lib / "library.yaml").read_text() == "format: 1\nname: changed by hand\n"
-    assert _git(lib, "rev-list", "--count", "HEAD") == "1"
+    assert git(lib, "rev-list", "--count", "HEAD") == "1"
 
 
 def test_concurrent_writes_are_serialized(home: Path, capsys: Capsys) -> None:
@@ -288,10 +281,10 @@ def test_concurrent_writes_are_serialized(home: Path, capsys: Capsys) -> None:
     for thread in threads:
         thread.join(timeout=60)
     assert errors == [] and len(results) == 2 and all(r.committed for r in results)
-    assert _git(lib, "rev-list", "--count", "HEAD") == "3"
+    assert git(lib, "rev-list", "--count", "HEAD") == "3"
     assert {r.plan.head for r in results} == {
-        _git(lib, "rev-parse", "HEAD~2"),
-        _git(lib, "rev-parse", "HEAD~1"),
+        git(lib, "rev-parse", "HEAD~2"),
+        git(lib, "rev-parse", "HEAD~1"),
     }
     assert (lib / "skills/one/SKILL.md").is_file() and (lib / "skills/two/SKILL.md").is_file()
-    assert _git(lib, "status", "--porcelain") == ""
+    assert git(lib, "status", "--porcelain") == ""
