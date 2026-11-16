@@ -12,20 +12,23 @@ The state is decided by the first matching row, read from the tree of ``base``:
 GIRO does not convert or run sssf. Agents and workflows the repo lacks are inherited
 from the library (``aifactory.library.inherit``), so ``config.yaml`` is all a repo needs.
 
-Reading only: ``git rev-parse``, ``git ls-tree`` and ``git cat-file`` with
+Reading only: ``git rev-parse`` (``gitquery.resolve``, cached while the ref files are
+unchanged), ``git ls-tree`` (cached per commit) and ``git cat-file`` with
 ``GIT_OPTIONAL_LOCKS=0`` (``aifactory.config.source.git``); no fetch, no index refresh
 and no command that runs hooks. The working tree is looked at on the file system only.
 """
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from aifactory import gitquery
 from aifactory.config.run import worktree_base
 from aifactory.config.settings import CONFIG_FILE
-from aifactory.config.source import git, git_try
+from aifactory.config.source import git
 
 RepoStateName = Literal["installed", "unsupported", "uncommitted", "none"]
 RepoAction = Literal["init", "config_commit"]
@@ -69,10 +72,22 @@ class RepoState:
         }
 
 
+_BASE_PATHS: dict[tuple[str, str], list[str]] = {}
+_CACHE_LIMIT = 64
+
+
 def _base_paths(root: Path, sha: str) -> list[str]:
-    """Entries directly under ``.factory/`` and ``adws/``."""
+    """Entries directly under ``.factory/`` and ``adws/`` (kept per commit: it never changes)."""
+    key = (str(root), sha)
+    cached = _BASE_PATHS.get(key)
+    if cached is not None:
+        return cached
     out = git(root, "ls-tree", "-z", "--name-only", sha, "--", f"{FACTORY_DIR}/", f"{SSSF_DIR}/")
-    return [p for p in out.split("\0") if p]
+    paths = [p for p in out.split("\0") if p]
+    if len(_BASE_PATHS) >= _CACHE_LIMIT:
+        _BASE_PATHS.pop(next(iter(_BASE_PATHS)))
+    _BASE_PATHS[key] = paths
+    return paths
 
 
 def _working_tree_config(root: Path) -> bool:
@@ -80,9 +95,11 @@ def _working_tree_config(root: Path) -> bool:
 
 
 def resolve_base(root: Path, base: str) -> str | None:
-    """The sha of the commit ``base`` names, or None when it names none."""
-    out = git_try(root, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
-    return (out or "").strip() or None
+    """The sha of the commit ``base`` names, or None when it names none (``gitquery.resolve``)."""
+    try:
+        return gitquery.resolve(root, base)
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 def repo_state(root: Path, base: str | None = None) -> RepoState:

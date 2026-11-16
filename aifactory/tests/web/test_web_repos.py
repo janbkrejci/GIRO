@@ -431,42 +431,31 @@ def test_list_statuses(client: TestClient, tmp_path: Path) -> None:
 def test_list_cache_and_configuration_invalidation(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from aifactory.web import app as web_app
-    from aifactory.web.config_cache import CONFIG_TTL, ConfigCache
+    from gitcount import count_git
 
     root = init_repo(tmp_path / "cached")
     install(root)
     register(client, root)
-    now = [100.0]
-    client.app.state.repo_status_cache = ConfigCache(clock=lambda: now[0])  # type: ignore[attr-defined]
-    real = getattr(web_app, "repo_status")  # noqa: B009
-    calls = []
-
-    def counted(entry: Any) -> Any:
-        calls.append(entry.id)
-        return real(entry)
-
-    monkeypatch.setattr(web_app, "repo_status", counted)
+    trace = tmp_path / "git-trace.json"
 
     def status() -> str:
         result: str = _get(client, "/api/repos")["data"]["repos"][0]["status"]
         return result
 
     assert status() == "ok"
-    for _ in range(5):
+    with count_git(monkeypatch, trace) as count:
+        for _ in range(5):
+            assert status() == "ok"
+        # Runtime changes do not invalidate configuration or cause Git on navigation.
+        write(root, ".factory/worktrees/run/log", "runtime\n")
+        write(root, ".factory/trace.db", "runtime\n")
         assert status() == "ok"
-    assert calls == ["cached"]
-    # Runtime changes do not invalidate configuration or cause Git on navigation.
-    write(root, ".factory/worktrees/run/log", "runtime\n")
-    write(root, ".factory/trace.db", "runtime\n")
-    assert status() == "ok" and len(calls) == 1
-    (root / ".factory/trace.db").unlink()
-    now[0] += CONFIG_TTL + 1
-    assert status() == "ok" and len(calls) == 2
+        (root / ".factory/trace.db").unlink()
+    assert count.total == 0, count.commands
     _post(client, "/api/repos/cached/settings", {"shared": {"merge_strategy": "merge"}})
-    assert status() == "uncommitted" and len(calls) == 3
+    assert status() == "uncommitted"
     commit_all(root)  # external commit must immediately restore the clean state
-    assert status() == "ok" and len(calls) == 4
+    assert status() == "ok"
     # The CLI edits from another process, without an HTTP invalidation hook.
     result = subprocess.run(
         [
@@ -488,13 +477,13 @@ def test_list_cache_and_configuration_invalidation(
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert status() == "uncommitted" and len(calls) == 5
+    assert status() == "uncommitted"
     commit_all(root)
-    assert status() == "ok" and len(calls) == 6
+    assert status() == "ok"
     write(root, ".agents/skills/new/nested.md", "new skill\n")
-    assert status() == "uncommitted" and len(calls) == 7
+    assert status() == "uncommitted"
     (root / ".agents/skills/new/nested.md").unlink()
-    assert status() == "ok" and len(calls) == 8
+    assert status() == "ok"
 
 
 def _delete(client: TestClient, repo_id: str, payload: Any, status: int = 200) -> Any:

@@ -31,10 +31,6 @@ from aifactory.config import (
     ConfigIssue,
     LocalSettings,
     ProjectSettings,
-    change_warnings,
-    config_changes,
-    resolve_commit,
-    worktree_base,
 )
 from aifactory.config.settings import (
     CONFIG_FILE,
@@ -92,20 +88,18 @@ class SettingsError(Exception):
 
 
 def config_status(root: Path) -> tuple[JsonDict | None, list[str]]:
-    """``factory config status`` (D4): shared config not committed to base."""
+    """``factory config status`` (D4): shared config not committed to base.
+
+    ``config.status.config_status`` (the CLI's implementation) on the repository snapshot
+    shared with the overview (``web.repostate``).
+    """
+    from aifactory.web.repostate import snapshot
+
     try:
-        base = worktree_base(root)
-        sha = resolve_commit(root, base)
-        changes = config_changes(root, sha)
+        status = snapshot(root).config_status()
     except ConfigError as exc:
         return None, [f"config status: {exc}"]
-    data: JsonDict = {
-        "base": base,
-        "commit": sha,
-        "clean": not changes,
-        "changes": [c.to_dict() for c in changes],
-    }
-    return data, change_warnings(changes, base, sha)
+    return status.to_json(), status.warnings
 
 
 def _options(name: str) -> list[str]:

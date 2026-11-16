@@ -12,7 +12,7 @@ made by another process (a commit, ``git remote set-url``) is seen at once:
 - ``resolve(root, ref)``: the commit sha ``rev-parse --verify <ref>^{commit}`` gives; kept
   while the loose ref files ``ref`` may name and ``packed-refs`` are unchanged (mtime, size,
   inode). ``HEAD``, other pseudo-refs, revision expressions and a repository with the
-  reftable backend are never cached.
+  reftable backend are never cached. ``ref_files(root, ref)`` lists those files.
 - ``remote_url(root, remote)``: ``remote get-url``; kept while the repository's
   ``config`` (and ``config.worktree``) are unchanged.
 - ``merge_base(root, a, b)``: ``merge-base`` of two commit shas; kept for good, the
@@ -24,7 +24,8 @@ Batch commands (one git process each, whatever the number of items; every read r
 ``GIT_OPTIONAL_LOCKS=0``):
 
 - ``status(root)``: the working tree state from ``git status --porcelain=v2 -z
-  --untracked-files=all --no-renames``.
+  --untracked-files=all --no-renames``; ``status_head(root)`` adds the ``HEAD`` commit
+  (``--branch``) in the same process.
 - ``object_info(root, names)`` (``cat-file --batch-check``), ``exists(root, names)`` and
   ``read_objects(root, names)`` (``cat-file --batch``). Names are anything ``cat-file``
   accepts (``<sha>``, ``<rev>:<path>``) but must not contain a newline: git 2.37 has no
@@ -179,6 +180,12 @@ def _ref_files(found: GitDirs, ref: str) -> list[Path] | None:
     return [*files, found.common_dir / "packed-refs"]
 
 
+def ref_files(root: Path | str, ref: str) -> list[Path] | None:
+    """The files whose stamps change when ``ref`` moves; None when that is not known."""
+    found = dirs(root)
+    return _ref_files(found, ref) if found is not None else None
+
+
 def resolve(root: Path | str, ref: str) -> str | None:
     """The commit ``ref`` names (``rev-parse --verify --quiet <ref>^{commit}``), or None."""
     found = dirs(root)
@@ -280,20 +287,39 @@ def status(root: Path | str, *, untracked: bool = True) -> list[StatusEntry]:
     Renames are reported as a deletion and an addition (``--no-renames``); ignored files
     are not listed. Paths are decoded with ``surrogateescape``.
     """
+    return _status(root, untracked=untracked, branch=False)[1]
+
+
+def status_head(root: Path | str) -> tuple[str | None, list[StatusEntry]]:
+    """``(HEAD commit, status(root))`` from one ``git status --branch``.
+
+    The commit is None for an unborn branch.
+    """
+    return _status(root, untracked=True, branch=True)
+
+
+def _status(
+    root: Path | str, *, untracked: bool, branch: bool
+) -> tuple[str | None, list[StatusEntry]]:
     result = gitrun.run(
         root,
         "status",
         "--porcelain=v2",
         "-z",
+        *(["--branch"] if branch else []),
         "--untracked-files=all" if untracked else "--untracked-files=no",
         "--no-renames",
         read_only=True,
         check=True,
     )
+    head: str | None = None
     entries: list[StatusEntry] = []
     for record in result.z():
         tag = record[:1]
-        if tag == "?":
+        if tag == "#":
+            if record.startswith("# branch.oid ") and record[13:] != "(initial)":
+                head = record[13:]
+        elif tag == "?":
             entries.append(StatusEntry(record[2:], "untracked", "?", "?"))
         elif tag == "1":
             # 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
@@ -305,7 +331,7 @@ def status(root: Path | str, *, untracked: bool = True) -> list[StatusEntry]:
             fields = record.split(" ", 10)
             if len(fields) == 11:
                 entries.append(StatusEntry(fields[10], "unmerged", fields[1][0], fields[1][1]))
-    return entries
+    return head, entries
 
 
 def dirty_paths(root: Path | str) -> set[str]:

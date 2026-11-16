@@ -62,13 +62,14 @@ process is gone is shown with ``status_label`` "proces skončil" and stays as it
 trace DB is not created. Git is read only through the config readers, which run with
 ``GIT_OPTIONAL_LOCKS=0``; there is no ``git fetch`` and no provider call. The PR states in
 ``task_prs`` are kept fresh by the dashboard's background refresh (``pr_refresh.py``). The
-config state is kept for ``CONFIG_TTL`` seconds and the task titles for ``TASKS_TTL`` seconds
-per repository; file/directory metadata invalidates task reads before expiry. Backlog status
-is cached separately for ``BACKLOG_TTL`` seconds, so file edits and commits appear through
-the existing overview poll. Repositories are computed concurrently with ``REPO_TIMEOUT``
-seconds each; a slow or broken repository comes back with ``state`` ``timeout`` or ``error``
-and a warning, the others as usual. A completed timed-out computation is delivered on the
-next poll with ``stale: true``; the following poll computes fresh state.
+config state and the backlog status come from the repository snapshot shared with the
+other screens (``web.repostate``): a poll without a change in the checkout starts no git
+process. Task titles are kept for ``TASKS_TTL`` seconds per repository; a change of a backlog
+file (the snapshot's ``backlog_stamps``) invalidates them before expiry. Repositories are
+computed concurrently with ``REPO_TIMEOUT`` seconds each; a slow or broken repository comes
+back with ``state`` ``timeout`` or ``error`` and a warning, the others as usual. A completed
+timed-out computation is delivered on the next poll with ``stale: true``; the following poll
+computes fresh state.
 """
 
 from __future__ import annotations
@@ -88,7 +89,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 from urllib.parse import quote
 
-from aifactory import database, failure, oscompat
+from aifactory import database, failure, gitquery, oscompat
 from aifactory.backlog import (
     Backlog,
     Task,
@@ -99,15 +100,10 @@ from aifactory.backlog import (
     load_for_edit,
 )
 from aifactory.backlog.derived import ancestors
-from aifactory.backlog.loader import load_settings
-from aifactory.backlog.roots import backlog_roots
 from aifactory.config import ConfigError
 from aifactory.config.loader import load_config
-from aifactory.config.repo_state import repo_state
 from aifactory.config.source import CommitSource
-from aifactory.config.status import config_changes
 from aifactory.run.errors import TaskRunError
-from aifactory.run.gitops import repo_layout
 from aifactory.run.queue import Slots
 from aifactory.web.backlog import (
     BOARD_STATES,
@@ -122,16 +118,14 @@ from aifactory.web.backlog import (
     status as backlog_status,
 )
 from aifactory.web.chains import max_parallel_runs_in
-from aifactory.web.config_cache import CONFIG_TTL as CONFIG_TTL
-from aifactory.web.config_cache import ConfigCache
 from aifactory.web.control import FactoryControl
 from aifactory.web.registry import Registry, RepoEntry
 from aifactory.web.repos import trace_db_of
+from aifactory.web.repostate import REPO_STATES, RepoSnapshot
 
 JsonDict = dict[str, Any]
 T = TypeVar("T")
 
-BACKLOG_TTL = 2.0  # s, refreshed by the existing overview poll
 TASKS_TTL = 60.0  # s, task titles and statuses per repository
 REPO_TIMEOUT = 2.0  # s, per repository
 if sys.platform == "win32":  # a cold repository runs ~8 git processes, each 0.15-0.3 s there
@@ -153,38 +147,7 @@ STARTABLE_STATES = frozenset({"ok", "uncommitted"})
 class _Tasks:
     index: TaskIndex
     backlog: Backlog | None
-    stamps: dict[str, tuple[int, int, int] | None] = field(default_factory=dict)
-
-
-def _task_stamps(root: Path, backlog: Backlog | None) -> dict[str, tuple[int, int, int] | None]:
-    """Stat known files and directories; directory changes catch additions and Git moves."""
-    paths = {".factory/config.yaml"}
-    try:
-        settings = backlog.settings if backlog is not None else load_settings(root)
-    except (ConfigError, OSError, ValueError):
-        settings = None
-    if settings is not None:
-        # Watch intermediate wildcard directories too, including currently empty roots.
-        for pattern in settings.backlog_patterns:
-            parts = Path(pattern).parts
-            for i in range(len(parts)):
-                parents = root.glob(str(Path(*parts[:i]))) if i else [root]
-                paths.update(str(parent) for parent in parents if parent.is_dir())
-        for directory in backlog_roots(root, settings):
-            top = root / directory
-            paths.add(str(top))
-            for current, _dirs, files in os.walk(top):
-                paths.add(current)
-                paths.update(str(Path(current) / name) for name in files if name.endswith(".md"))
-    return {path: _task_stamp(root, path) for path in paths}
-
-
-def _task_stamp(root: Path, path: str) -> tuple[int, int, int] | None:
-    try:
-        stat = (root / path).stat()
-        return stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size
-    except OSError:
-        return None
+    stamps: object = None  # the RepoSnapshot.backlog_stamps the tasks were read at
 
 
 def _time(value: object) -> datetime | None:
@@ -680,11 +643,19 @@ def _lists(
 # --- config and backlog -----------------------------------------------------------------
 
 
-def _config_view(root: Path) -> tuple[JsonDict | None, list[JsonDict]]:
-    """The config state of ``root``: installed, invalid in base, uncommitted (D4)."""
-    try:
-        st = repo_state(root)
-    except ConfigError as exc:
+def _config_view(snap: RepoSnapshot) -> tuple[JsonDict | None, list[JsonDict]]:
+    """The config state of the snapshot's checkout: installed, invalid in base, uncommitted (D4).
+
+    Computed once per snapshot.
+    """
+    return snap.memo("overview_config", lambda: _read_config_view(snap))
+
+
+def _read_config_view(snap: RepoSnapshot) -> tuple[JsonDict | None, list[JsonDict]]:
+    root = snap.root
+    st = snap.state
+    if st is None:
+        exc = snap.state_error or ConfigError([])
         return None, [
             _warning(
                 "config_state_unavailable",
@@ -704,7 +675,7 @@ def _config_view(root: Path) -> tuple[JsonDict | None, list[JsonDict]]:
     uncommitted: list[JsonDict] = []
     if st.commit:
         try:
-            uncommitted = [c.to_dict() for c in config_changes(root, st.commit)]
+            uncommitted = [c.to_dict() for c in snap.config_status().changes]
         except ConfigError as exc:
             warnings.append(
                 _warning(
@@ -739,17 +710,16 @@ def _backlog_view(root: Path) -> JsonDict:
     }
 
 
-def _task_index(root: Path) -> tuple[_Tasks, list[JsonDict]]:
+def _task_index(root: Path, stamps: object) -> tuple[_Tasks, list[JsonDict]]:
     try:
         backlog = load_for_edit(root)
     except (ConfigError, TaskEditError, OSError, ValueError) as exc:
-        return _Tasks({}, None, _task_stamps(root, None)), [
+        return _Tasks({}, None, stamps), [
             _warning(
                 "task_titles_unavailable", f"task titles are not available: {exc}", error=str(exc)
             )
         ]
     index = {t.id: (t.title, t.status, t.path) for t in iter_tasks(backlog)}
-    stamps = _task_stamps(root, backlog)
     return _Tasks(index, backlog, stamps), []
 
 
@@ -901,10 +871,7 @@ class Overview:
         self.registry = registry
         self.control = control
         self.timeout = timeout
-        self._layouts = ConfigCache(clock)
-        self._configs = ConfigCache(clock)
         self._tasks = _TtlCache(clock)
-        self._backlogs = _TtlCache(clock)
         # Own threads: a repository stuck past the limit never blocks the loop's executor, and
         # while its computation still runs a new request waits for it instead of adding a thread.
         self._pool = ThreadPoolExecutor(max_workers=WORKERS, thread_name_prefix="overview")
@@ -926,26 +893,33 @@ class Overview:
                 ],
             )
         key = (entry.id, entry.path)
-        layout = self._layouts.get(key, path, lambda: repo_layout(path))
-        if layout is None or layout.toplevel is None:
+        try:
+            root = gitquery.toplevel(path)
+        except OSError:
+            root = None
+        if root is None:
             return _stub(
                 entry,
                 "not_git",
                 [_warning("not_git", f"{entry.path} is not a git working tree", path=entry.path)],
             )
-        root = layout.toplevel
-        config, config_warnings = self._configs.get(key, root, lambda: _config_view(root))
-        tasks, task_warnings = self._tasks.get(key, TASKS_TTL, lambda: _task_index(root))
-        if any(stamp != _task_stamp(root, path) for path, stamp in tasks.stamps.items()):
-            tasks, task_warnings = self._tasks.get(key, 0, lambda: _task_index(root))
+        snap = REPO_STATES.get(root)
+        config, config_warnings = _config_view(snap)
+        stamps = snap.backlog_stamps
+        tasks, task_warnings = self._tasks.get(key, TASKS_TTL, lambda: _task_index(root, stamps))
+        if tasks.stamps != stamps:
+            tasks, task_warnings = self._tasks.get(key, 0, lambda: _task_index(root, stamps))
         trace, trace_warnings = _trace_view(trace_db_of(root))
         item = _stub(entry, _state(config), [*config_warnings, *task_warnings, *trace_warnings])
         item["config"] = config
-        item["backlog"] = self._backlogs.get(key, BACKLOG_TTL, lambda: _backlog_view(root))
+        item["backlog"] = _backlog_view(root)
         from aifactory.repo_settings import RepositorySettings, SettingsError
 
+        home = self.registry.home
         try:
-            item["local_settings"] = RepositorySettings(root, self.registry.home).show()
+            # The identity costs a git process: once per snapshot; the file is read every poll.
+            local = snap.memo(("settings", home), lambda: RepositorySettings(root, home))
+            item["local_settings"] = local.show()
             item["local_settings_error"] = None
             item["auto_merge_policy"] = item["local_settings"]["auto_merge_policy"]
         except SettingsError as exc:
@@ -1043,10 +1017,7 @@ class Overview:
         """``({repos, totals}, registry warnings)`` for every registered repository."""
         state, warnings = await asyncio.to_thread(self.registry.snapshot)
         keep: set[object] = {(e.id, e.path) for e in state.repos}
-        self._layouts.prune(keep)
-        self._configs.prune(keep)
         self._tasks.prune(keep)
-        self._backlogs.prune(keep)
         with self._inflight_lock:
             for key in [k for k in self._inflight if k not in keep]:
                 del self._inflight[key]

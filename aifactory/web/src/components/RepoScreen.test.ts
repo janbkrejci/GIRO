@@ -68,3 +68,23 @@ it.each([['en', 'Demo repository'], ['cs', 'Ukázkové repo']])('shows the sampl
   expect(demo.get('[data-test="demo-banner"]').text()).toContain(label)
   expect(demo.find('[data-test="remove-demo"]').exists()).toBe(true)
 })
+
+it('refreshes the statuses on focus, not when switching screens', async () => {
+  const fetchMock = vi.fn(async (url: string) => {
+    let data: unknown = { items: [], levels: [], tasks: [] }
+    if (url.endsWith('/config/status')) data = CLEAN_STATUS
+    if (url === '/api/repos') data = { repos: [] }
+    return new Response(JSON.stringify({ ok: true, data, error: null, warnings: [] }))
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const statusCalls = () => fetchMock.mock.calls.filter(([url]) => /\/(config|backlog)\/status$/.test(url)).length
+  window.location.hash = '#/r/haifa/backlog'; window.dispatchEvent(new HashChangeEvent('hashchange'))
+  mount(RepoScreen, { attachTo: document.body }); await flushPromises()
+  const initial = statusCalls()
+  expect(initial).toBeGreaterThan(0)
+  window.location.hash = '#/r/haifa/runs'; window.dispatchEvent(new HashChangeEvent('hashchange'))
+  await vi.dynamicImportSettled(); await flushPromises()
+  expect(statusCalls()).toBe(initial)
+  window.dispatchEvent(new Event('focus')); await flushPromises()
+  expect(statusCalls()).toBeGreaterThan(initial)
+})
