@@ -63,10 +63,11 @@ from aifactory.providers import (
     PrStatus,
     get_provider,
 )
-from aifactory.review import flow as review_flow
+from aifactory.review import approve as review_approve
+from aifactory.review import rework as review_rework
+from aifactory.review.approve import ApproveResult, approve_task
 from aifactory.review.ci import checks_reason, settled_checks
 from aifactory.review.errors import ReviewError
-from aifactory.review.flow import ApproveResult, approve_task
 from aifactory.run.queue import WAITS_FOR_STACK, auto_merge_enabled
 from aifactory.run.stack import open_stack
 from aifactory.run.store import (
@@ -201,7 +202,7 @@ def try_auto_merge(
 ) -> AutoMergeResult:
     """Approve and merge the PR of `result` when every condition holds; never raises for that."""
     try:
-        review_flow.require_auto_merge(repo)
+        review_approve.require_auto_merge(repo)
     except ReviewError as exc:
         return AutoMergeResult(False, exc.code, exc.message, result.pr.url if result.pr else None)
     pr = result.pr
@@ -250,8 +251,8 @@ def resolve_and_merge(
         return run, AutoMergeResult(False, code_, reason, pr.url)
 
     try:
-        review_flow.require_auto_merge(repo)
-        resolved = review_flow.resolve_task(
+        review_approve.require_auto_merge(repo)
+        resolved = review_rework.resolve_task(
             repo,
             task.id,
             provider=provider,
@@ -348,12 +349,12 @@ def _hosting_and_merge(
         return AutoMergeResult(False, code, reason, url)
 
     try:
-        review_flow.require_auto_merge(repo)
+        review_approve.require_auto_merge(repo)
         if provider is None:
             provider = get_provider(rc.config.settings, main)
         status = provider.status(pr.request())
         while status.state == OPEN and status.mergeability == UNKNOWN:
-            review_flow.require_auto_merge(repo)
+            review_approve.require_auto_merge(repo)
             sleep(AUTO_MERGE_POLL_DELAY)
             status = provider.status(pr.request())
     except ReviewError as exc:

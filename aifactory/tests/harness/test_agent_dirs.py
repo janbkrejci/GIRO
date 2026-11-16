@@ -132,7 +132,7 @@ def test_worktree_clean_sweeps_historical_projects(
 ) -> None:
     from unittest.mock import MagicMock
 
-    from aifactory.review import flow
+    from aifactory.run import cleanup
 
     ctx = MagicMock()
     ctx.main = tmp_path
@@ -142,10 +142,10 @@ def test_worktree_clean_sweeps_historical_projects(
     active = tmp_path / "worktrees/active"
     row = MagicMock(worktree=str(active), state="running")
     ctx.store.all_runs.return_value = [row]
-    monkeypatch.setattr(flow, "_clean_locked", lambda *_: flow.CleanResult())
+    monkeypatch.setattr(cleanup, "_clean_locked", lambda *_: cleanup.CleanResult())
     kept = [project(existing), project(active / "subdir")]
     orphan = project(tmp_path / "worktrees/gone")
-    assert flow._clean(ctx).warnings == []
+    assert cleanup.clean(ctx).warnings == []
     assert not orphan.exists()
     assert all(path.exists() for path in kept)
 

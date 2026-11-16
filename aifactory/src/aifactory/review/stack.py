@@ -43,9 +43,9 @@ def restack_dependents(
     code: CodeRunner | None = None,
 ) -> list[str]:
     """Rebase the PRs stacked on `merged_branch` onto base and auto-merge them; warnings."""
-    # Local imports: review.flow and review.automerge import this module's callers.
+    # Local imports: review.rework and review.automerge import this module's callers.
     from aifactory.review.automerge import _hosting_and_merge, _record_error
-    from aifactory.review.flow import resolve_task
+    from aifactory.review.rework import resolve_task
 
     store = TaskRunStore(trace_db)
     try:
