@@ -11,15 +11,14 @@ read: ``in_repo`` is false, ``roster`` is None and ``settings`` the defaults.
 
 from __future__ import annotations
 
-import subprocess
-import tempfile
 from collections.abc import Mapping
 from functools import cached_property
 from pathlib import Path
 from typing import Any
 
-from aifactory.backlog import Backlog, check_backlog, load_backlog
+from aifactory.backlog import Backlog, check_backlog
 from aifactory.backlog.model import Issue
+from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.check.machine import Machine
 from aifactory.config.errors import ConfigError, ConfigIssue
 from aifactory.config.loader import FactoryConfig, load_config
@@ -31,7 +30,6 @@ from aifactory.config.status import ConfigChange, config_changes
 from aifactory.harness.config import SSSFConfig
 from aifactory.library.remote import library_status
 from aifactory.library.store import LibraryStoreError
-from aifactory.run.gitops import extract_backlog
 
 
 class NotARepositoryError(Exception):
@@ -247,13 +245,7 @@ class CheckContext:
         if self.base_config is None or self.commit is None:
             return None
         settings = self.base_config.settings
-        with tempfile.TemporaryDirectory(prefix="factory-check-") as tmp:
-            dest = Path(tmp)
-            try:
-                extract_backlog(self.main, self.commit, settings.backlog_patterns, dest)
-            except subprocess.CalledProcessError as exc:
-                raise RuntimeError(f"cannot read the backlog from {self.base}: {exc}") from exc
-            return load_backlog(dest, settings, create_missing=False)
+        return load_backlog_at(self.main, self.commit, settings, create_missing=False)
 
     @cached_property
     def backlog_issues(self) -> tuple[Issue, ...]:

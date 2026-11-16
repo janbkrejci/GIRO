@@ -383,13 +383,10 @@ def publish_run(repo: Path, run_id: str, launcher: Any = None) -> tuple[JsonDict
     store, row = _open_run(repo, run_id)
     store.close()
     if launcher is not None:
-        import tempfile
-
         from aifactory.backlog import Task
         from aifactory.run.queue import _base_backlog, auto_merge_enabled
 
-        with tempfile.TemporaryDirectory(prefix="factory-publish-") as tmp:
-            task = _base_backlog(repo, Path(tmp)).by_id.get(row.task_id)
+        task = _base_backlog(repo).by_id.get(row.task_id)
         if isinstance(task, Task) and auto_merge_enabled(repo):
             from aifactory.review import ReviewError
 

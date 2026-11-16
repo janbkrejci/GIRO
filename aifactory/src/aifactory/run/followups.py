@@ -46,13 +46,13 @@ from aifactory.backlog import (
     is_human,
     iter_tasks,
     link_task,
-    load_backlog,
     load_for_edit,
 )
 from aifactory.backlog.derived import descendant_tasks
 from aifactory.backlog.edit import _next_id, _write_checked, compose_id
 from aifactory.backlog.model import HUMAN
 from aifactory.backlog.roots import owning_root
+from aifactory.backlog.snapshot import read_snapshot
 from aifactory.config import ProjectSettings
 from aifactory.run.scope import literal_prefix
 from aifactory.workflow import WorkflowRun
@@ -396,97 +396,93 @@ def reconcile_ids(
         path.lower().endswith(".md") and owning_root(path, settings) is not None for path in changed
     ):
         return head, {}
-    with (
-        _snapshot(root, head, settings) as ours,
-        _snapshot(root, ancestor, settings) as old,
-        _snapshot(root, target, settings) as theirs,
-    ):
-        branch = load_backlog(ours, settings)
-        duplicates = [i for i in check_backlog(branch) if i.code == "duplicate_id"]
-        if duplicates:
-            raise ProviderError("follow_up_collision", "; ".join(i.message for i in duplicates))
-        previous = load_backlog(old, settings)
-        latest = load_backlog(theirs, settings)
-        additions = [t for t in iter_tasks(branch) if t.id not in previous.by_id]
-        if not additions:
-            return head, {}
-        reserved = set(branch.by_id) | set(latest.by_id)
-        renamed: dict[str, str] = {}
-        paths: dict[str, str] = {}
-        for task in additions:
-            taken = latest.by_id.get(task.id)
-            if taken is None:
-                continue
-            # The same follow-up already published by an earlier attempt is not a collision.
-            markers = re.findall(r"<!-- factory: follow-up-of=([^ ]+) -->", task.body)
-            same = (
-                isinstance(taken, Task)
-                and taken.path == task.path
-                and _norm(taken.title) == _norm(task.title)
-                and is_human(taken) == is_human(task)
-                and (markers and all(follow_up_marker(m) in taken.body for m in markers))
-            )
-            if same:
-                continue
-            if not markers and not task.follows:
-                raise ProviderError(
-                    "follow_up_collision", f"duplicate id {task.id}: not a follow-up"
-                )
-            step = task.parent.id
-            assert step is not None
-            new_id = _next_id(task.parent, step, reserved)
-            reserved.add(new_id)
-            renamed[task.id] = new_id
-            task_path = Path(task.path)
-            paths[task.path] = task_path.with_name(
-                task_path.name.replace(task.id, new_id, 1)
-            ).as_posix()
-
-        changes: list[git.TreeChange] = []
-        if renamed:
-            pattern = re.compile(
-                r"(?<![\w.-])(" + "|".join(re.escape(k) for k in renamed) + r")(?![\w.-])"
-            )
-            before = _contents(old)
-            for path, content in _contents(ours).items():
-                if before.get(path) == content:
-                    continue
-                rewritten = pattern.sub(lambda m: renamed[m.group()], content.decode("utf-8"))
-                destination = paths.get(path, path)
-                if destination != path:
-                    changes.append((path, None, None))
-                if destination != path or rewritten.encode("utf-8") != content:
-                    changes.append((destination, "100644", git.hash_blob(root, rewritten.encode())))
-        fixed = (
-            git.commit_tree_with(root, head, changes, "Renumber colliding follow-up IDs")
-            if changes
-            else head
+    ours = read_snapshot(root, head, settings)
+    old = read_snapshot(root, ancestor, settings)
+    theirs = read_snapshot(root, target, settings)
+    branch = ours.load()
+    duplicates = [i for i in check_backlog(branch) if i.code == "duplicate_id"]
+    if duplicates:
+        raise ProviderError("follow_up_collision", "; ".join(i.message for i in duplicates))
+    previous = old.load()
+    latest = theirs.load()
+    additions = [t for t in iter_tasks(branch) if t.id not in previous.by_id]
+    if not additions:
+        return head, {}
+    reserved = set(branch.by_id) | set(latest.by_id)
+    renamed: dict[str, str] = {}
+    paths: dict[str, str] = {}
+    for task in additions:
+        taken = latest.by_id.get(task.id)
+        if taken is None:
+            continue
+        # The same follow-up already published by an earlier attempt is not a collision.
+        markers = re.findall(r"<!-- factory: follow-up-of=([^ ]+) -->", task.body)
+        same = (
+            isinstance(taken, Task)
+            and taken.path == task.path
+            and _norm(taken.title) == _norm(task.title)
+            and is_human(taken) == is_human(task)
+            and (markers and all(follow_up_marker(m) in taken.body for m in markers))
         )
-        if git.is_ancestor(root, target, fixed):
-            merged = fixed
-        else:
-            try:
-                merged = git.merge_commit(
-                    root,
-                    fixed,
-                    target,
-                    "merge",
-                    "Merge current target and reconcile follow-up IDs",
-                )
-            except ProviderError as exc:
-                raise ProviderError(
-                    "follow_up_collision", f"cannot merge follow-ups into {base}: {exc}"
-                ) from exc
-        with _snapshot(root, merged, settings) as combined:
-            baseline = {(i.code, i.path, i.message) for i in check_backlog(latest)}
-            problems = [
-                i
-                for i in check_backlog(load_backlog(combined, settings))
-                if i.code == "duplicate_id" or (i.code, i.path, i.message) not in baseline
-            ]
-            if problems:
-                raise ProviderError("follow_up_collision", "; ".join(i.message for i in problems))
-        return merged, renamed
+        if same:
+            continue
+        if not markers and not task.follows:
+            raise ProviderError("follow_up_collision", f"duplicate id {task.id}: not a follow-up")
+        step = task.parent.id
+        assert step is not None
+        new_id = _next_id(task.parent, step, reserved)
+        reserved.add(new_id)
+        renamed[task.id] = new_id
+        task_path = Path(task.path)
+        paths[task.path] = task_path.with_name(
+            task_path.name.replace(task.id, new_id, 1)
+        ).as_posix()
+
+    changes: list[git.TreeChange] = []
+    if renamed:
+        pattern = re.compile(
+            r"(?<![\w.-])(" + "|".join(re.escape(k) for k in renamed) + r")(?![\w.-])"
+        )
+        before = old.markdown_files()
+        for path, content in ours.markdown_files().items():
+            if before.get(path) == content:
+                continue
+            rewritten = pattern.sub(lambda m: renamed[m.group()], content.decode("utf-8"))
+            destination = paths.get(path, path)
+            if destination != path:
+                changes.append((path, None, None))
+            if destination != path or rewritten.encode("utf-8") != content:
+                changes.append((destination, "100644", git.hash_blob(root, rewritten.encode())))
+    fixed = (
+        git.commit_tree_with(root, head, changes, "Renumber colliding follow-up IDs")
+        if changes
+        else head
+    )
+    if git.is_ancestor(root, target, fixed):
+        merged = fixed
+    else:
+        try:
+            merged = git.merge_commit(
+                root,
+                fixed,
+                target,
+                "merge",
+                "Merge current target and reconcile follow-up IDs",
+            )
+        except ProviderError as exc:
+            raise ProviderError(
+                "follow_up_collision", f"cannot merge follow-ups into {base}: {exc}"
+            ) from exc
+    combined = read_snapshot(root, merged, settings)
+    baseline = {(i.code, i.path, i.message) for i in check_backlog(latest)}
+    problems = [
+        i
+        for i in check_backlog(combined.load())
+        if i.code == "duplicate_id" or (i.code, i.path, i.message) not in baseline
+    ]
+    if problems:
+        raise ProviderError("follow_up_collision", "; ".join(i.message for i in problems))
+    return merged, renamed
 
 
 def advance_pr(root: Path, branch: str, old: str, new: str) -> None:

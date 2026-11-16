@@ -58,6 +58,32 @@ class _Loader:
         self.levels = settings.levels
         self.issues: list[Issue] = []
 
+    def roots(self) -> list[str]:
+        return backlog_roots(self.root, self.settings)
+
+    def is_dir(self, path: Path) -> bool:
+        return path.is_dir()
+
+    def is_file(self, path: Path) -> bool:
+        return path.is_file()
+
+    def iterdir(self, path: Path) -> Iterator[Path]:
+        return path.iterdir()
+
+    def read_text(self, path: Path) -> str:
+        return path.read_text(encoding="utf-8")
+
+    def load(self) -> Backlog:
+        containers = self.load_root()
+        backlog = Backlog(
+            root=self.root, settings=self.settings, containers=containers, issues=self.issues
+        )
+        backlog.roots = [r for r in self.roots() if self.is_dir(self.root / r)]
+        for node in iter_nodes(backlog):
+            assert node.id is not None
+            backlog.by_id.setdefault(node.id, node)
+        return backlog
+
     def rel(self, path: Path) -> str:
         try:
             return path.relative_to(self.root).as_posix()
@@ -69,7 +95,7 @@ class _Loader:
 
     def read_header(self, path: Path) -> tuple[dict[str, object], str] | None:
         try:
-            return parse_frontmatter(path.read_text(encoding="utf-8"))
+            return parse_frontmatter(self.read_text(path))
         except FrontmatterError as exc:
             self.issue("invalid_frontmatter", f"{self.rel(path)}: {exc}", path)
         except (OSError, UnicodeDecodeError) as exc:
@@ -94,7 +120,7 @@ class _Loader:
         return value
 
     def load_root(self) -> list[Container]:
-        roots = backlog_roots(self.root, self.settings)
+        roots = self.roots()
         if not roots:
             label = self.settings.backlog_label
             self.issue(
@@ -110,12 +136,12 @@ class _Loader:
 
     def load_backlog_dir(self, backlog_dir: str) -> list[Container]:
         backlog_root = self.root / backlog_dir
-        if not backlog_root.is_dir() and self.create_missing and self.root.is_dir():
+        if not self.is_dir(backlog_root) and self.create_missing and self.root.is_dir():
             try:
                 backlog_root.mkdir(parents=True, exist_ok=True)
             except OSError:
                 pass
-        if not backlog_root.is_dir():
+        if not self.is_dir(backlog_root):
             self.issue(
                 "missing_backlog_dir",
                 f"backlog directory '{backlog_dir}' does not exist",
@@ -123,10 +149,10 @@ class _Loader:
             )
             return []
         result: list[Container] = []
-        for entry in sorted(backlog_root.iterdir(), key=lambda p: p.name):
+        for entry in sorted(self.iterdir(backlog_root), key=lambda p: p.name):
             if entry.name.startswith("."):
                 continue
-            if entry.is_dir():
+            if self.is_dir(entry):
                 result.append(self.load_container(entry, 0, None))
             elif entry.suffix == ".md" and entry.name != INDEX_FILE:
                 self.issue(
@@ -143,7 +169,7 @@ class _Loader:
             id=None, title=None, level=level, path=self.rel(directory), parent=parent
         )
         index = directory / INDEX_FILE
-        if not index.is_file():
+        if not self.is_file(index):
             self.issue(
                 "missing_index",
                 f"{level} directory '{self.rel(directory)}' has no {INDEX_FILE}",
@@ -196,10 +222,10 @@ class _Loader:
                         container.extra[key] = value
 
         task_depth = len(self.levels) - 2
-        for entry in sorted(directory.iterdir(), key=lambda p: p.name):
+        for entry in sorted(self.iterdir(directory), key=lambda p: p.name):
             if entry.name.startswith("."):
                 continue
-            if entry.is_dir():
+            if self.is_dir(entry):
                 if depth < task_depth:
                     container.children.append(self.load_container(entry, depth + 1, container))
                 else:
@@ -208,7 +234,7 @@ class _Loader:
                         f"directory is deeper than configured levels {list(self.levels)}",
                         entry,
                     )
-            elif entry.is_file() and entry.suffix == ".md" and entry.name != INDEX_FILE:
+            elif self.is_file(entry) and entry.suffix == ".md" and entry.name != INDEX_FILE:
                 if depth == task_depth:
                     task = self.load_task(entry, container)
                     if task is not None:
@@ -387,11 +413,4 @@ def load_backlog(
 
     if synchronize_mirror:
         synchronize(root, settings)
-    loader = _Loader(root, settings, create_missing)
-    containers = loader.load_root()
-    backlog = Backlog(root=root, settings=settings, containers=containers, issues=loader.issues)
-    backlog.roots = [r for r in backlog_roots(root, settings) if (root / r).is_dir()]
-    for node in iter_nodes(backlog):
-        assert node.id is not None
-        backlog.by_id.setdefault(node.id, node)
-    return backlog
+    return _Loader(root, settings, create_missing).load()

@@ -41,7 +41,6 @@ and the commit are ``TaskEditError`` (``backlog_invalid``, ``not_on_base``, ``co
 
 from __future__ import annotations
 
-import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -54,11 +53,11 @@ from aifactory.backlog import (
     commit_backlog,
     edit_task,
     find_task,
-    load_backlog,
     load_for_edit,
 )
 from aifactory.backlog.commit import BacklogCommit
 from aifactory.backlog.roots import owning_root
+from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import ConfigError, ProjectSettings, load_run_config
 from aifactory.engine import permissions
 from aifactory.run import gitops
@@ -330,17 +329,14 @@ def allow_writes(
             )
         rc = load_run_config(main)
         settings = rc.config.settings
-        with tempfile.TemporaryDirectory(prefix="factory-base-") as tmp:
-            base_copy = Path(tmp)
-            try:
-                sha = gitops.git(main, "rev-parse", f"refs/heads/{rc.base}")
-                gitops.extract_backlog(main, sha, settings.backlog_patterns, base_copy)
-            except (OSError, RuntimeError) as exc:
-                raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
-            committed_task = load_backlog(base_copy, settings).by_id.get(task_id)
-            committed_writes = (
-                effective_task_writes(committed_task) if isinstance(committed_task, Task) else ()
-            )
+        try:
+            sha = gitops.git(main, "rev-parse", f"refs/heads/{rc.base}")
+            committed_task = load_backlog_at(main, sha, settings).by_id.get(task_id)
+        except (OSError, RuntimeError) as exc:
+            raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
+        committed_writes = (
+            effective_task_writes(committed_task) if isinstance(committed_task, Task) else ()
+        )
         missing = [p for p in plan.allow if not any(matches(p, w) for w in committed_writes)]
         if missing:
             raise TaskRunError(

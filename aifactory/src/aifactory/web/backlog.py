@@ -26,7 +26,6 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-import tempfile
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,6 +35,7 @@ from aifactory import backlog as core
 from aifactory import failure
 from aifactory.backlog import Backlog, Container, Task
 from aifactory.backlog.edit import _atomic_write, serialized_write, task_revision, write_lock
+from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.backlog.taskfile import has_entry
 from aifactory.config import ConfigError, load_local, load_run_config
 from aifactory.config.loader import WORKFLOWS_DIR
@@ -955,27 +955,22 @@ def run_check(
         rc = load_run_config(main)
     except ConfigError as exc:
         raise TaskRunError("invalid_config", str(exc)) from exc
-    with tempfile.TemporaryDirectory(prefix="factory-check-") as tmp:
-        dest = Path(tmp)
-        try:
-            gitops.extract_backlog(main, rc.commit, rc.config.settings.backlog_patterns, dest)
-        except (OSError, RuntimeError) as exc:
-            raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
-        base = core.load_backlog(dest, rc.config.settings)
-        base_task = base.by_id.get(task.id)
-        in_base = isinstance(base_task, Task)
-        unmet = (
-            [u.to_dict() for u in core.unmet(base, base_task)]
-            if isinstance(base_task, Task)
-            else []
-        )
-        effective_values: JsonDict = {"workflow": None, "writes": []}
-        if isinstance(base_task, Task):
-            workflow = core.effective_workflow(base_task)
-            effective_values = {
-                "workflow": None if workflow is None else str(workflow),
-                "writes": list(effective_task_writes(base_task)),
-            }
+    try:
+        base = load_backlog_at(main, rc.commit, rc.config.settings)
+    except (OSError, RuntimeError) as exc:
+        raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
+    base_task = base.by_id.get(task.id)
+    in_base = isinstance(base_task, Task)
+    unmet = (
+        [u.to_dict() for u in core.unmet(base, base_task)] if isinstance(base_task, Task) else []
+    )
+    effective_values: JsonDict = {"workflow": None, "writes": []}
+    if isinstance(base_task, Task):
+        workflow = core.effective_workflow(base_task)
+        effective_values = {
+            "workflow": None if workflow is None else str(workflow),
+            "writes": list(effective_task_writes(base_task)),
+        }
     running: JsonDict | None = None
     stack: JsonDict | None = None
     try:
