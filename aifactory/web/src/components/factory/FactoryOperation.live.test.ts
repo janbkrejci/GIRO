@@ -8,7 +8,20 @@ import { openDialog } from '@/test/modal'
 import { operation, overview, repo, running } from '@/test/overviewFixtures'
 import FactoryOperation from './FactoryOperation.vue'
 
-vi.mock('@/lib/api', async original => ({ ...await original<typeof import('@/lib/api')>(), fetchFactoryPlan: vi.fn(), fetchBasePullPlan: vi.fn(), fetchOverview: vi.fn(), applyFactoryPlan: vi.fn(), applyBasePull: vi.fn() }))
+const { repoOverviewMocks } = vi.hoisted(() => ({
+  // The component reads one repo (fetchRepoOverview); the tests describe the whole overview.
+  repoOverviewMocks: () => {
+    const fetchOverview = vi.fn()
+    const fetchRepoOverview = vi.fn(async (id: string) => {
+      const data = await fetchOverview() as { repos: { id: string }[] }
+      const repo = data.repos.find((r) => r.id === id)
+      if (!repo) throw new Error(`unknown repo ${id}`)
+      return repo
+    })
+    return { fetchOverview, fetchRepoOverview }
+  },
+}))
+vi.mock('@/lib/api', async original => ({ ...await original<typeof import('@/lib/api')>(), fetchFactoryPlan: vi.fn(), fetchBasePullPlan: vi.fn(), ...repoOverviewMocks(), applyFactoryPlan: vi.fn(), applyBasePull: vi.fn() }))
 enableAutoUnmount(afterEach)
 beforeEach(() => {
   vi.resetAllMocks()
