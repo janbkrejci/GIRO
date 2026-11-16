@@ -10,8 +10,9 @@ the registry; ``aclose`` may be called more than once.
 
 Only the standard library watches: polling every 1 s keeps changes under the 2 s the
 screens promise. The scan uses ``os.scandir`` so that ``DirEntry.stat()`` reuses the
-directory listing (on Windows no extra file open per file). ``.factory/worktrees``, ``.factory/data`` and the trace DB files are not
-watched as files (checkouts and logs of the runs themselves).
+directory listing (on Windows no extra file open per file). ``.factory/worktrees``,
+``.factory/data`` and the trace DB files are not watched as files (checkouts and logs of
+the runs themselves).
 """
 
 from __future__ import annotations
