@@ -10,7 +10,6 @@ import contextlib
 import hashlib
 import json
 import os
-import tempfile
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, Literal
@@ -206,15 +205,7 @@ class RepositorySettings:
             raise SettingsError("repo_settings_io", str(exc), self.path) from exc
 
     def _write(self, settings: RepoSettings) -> None:
-        fd, temporary = tempfile.mkstemp(prefix=f".{self.key}-", dir=self.directory)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-                stream.write(settings.model_dump_json(indent=2) + "\n")
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, self.path)
-        finally:
-            Path(temporary).unlink(missing_ok=True)
+        oscompat.atomic_write(self.path, settings.model_dump_json(indent=2) + "\n", fsync=True)
 
     def update(self, changes: Mapping[str, object]) -> RepoSettings:
         """Patch only supplied fields, re-reading under the cross-process lock."""

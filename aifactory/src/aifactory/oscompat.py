@@ -12,6 +12,9 @@ a job object on Windows.
 ``NEW_GROUP`` goes to ``Popen(creationflags=...)`` next to ``start_new_session=True``,
 which Windows ignores: the child gets its own process group and a hidden console of its
 own, so neither Ctrl+C nor closing the parent's console window stops it.
+``atomic_write`` replaces a file through a temporary file in the same directory; on
+Windows it retries the replace while another process (Defender, an indexer, a reader)
+holds the target open.
 """
 
 from __future__ import annotations
@@ -19,8 +22,10 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import suppress
+from pathlib import Path
 from typing import Any
 
 import psutil
@@ -341,3 +346,42 @@ else:
 
     def utf8_stdio() -> None:
         """POSIX: the locale decides, as before."""
+
+
+# Waits before each retry of ``os.replace`` after a PermissionError (Windows only):
+# there the replace fails while any other process has the target open.
+REPLACE_DELAYS: tuple[float, ...] = (0.05, 0.1, 0.2, 0.4, 0.8) if sys.platform == "win32" else ()
+
+
+def _replace(source: str, target: Path) -> None:
+    for delay in REPLACE_DELAYS:
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            time.sleep(delay)
+    os.replace(source, target)
+
+
+def atomic_write(path: Path, data: str | bytes, *, mode: int = 0o600, fsync: bool = False) -> None:
+    """Replace `path` with `data` (str as UTF-8, newlines kept) in one step.
+
+    The data goes to a temporary file in the same directory, created with `mode`
+    (POSIX), and replaces `path` with ``os.replace``. Readers see the old or the new
+    file, never a part. A failure leaves `path` as it was and removes the temporary file.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = data.encode("utf-8") if isinstance(data, str) else data
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            fchmod(stream.fileno(), mode)
+            stream.write(payload)
+            if fsync:
+                stream.flush()
+                os.fsync(stream.fileno())
+        _replace(temporary, path)
+    except BaseException:
+        with suppress(OSError):
+            os.unlink(temporary)
+        raise

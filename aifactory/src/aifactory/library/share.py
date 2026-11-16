@@ -29,6 +29,7 @@ from typing import Any
 
 from aifactory.environment import value
 from aifactory.library.store import REMOTE, LibraryStoreError, _git_detail
+from aifactory.oscompat import atomic_write
 from aifactory.providers import git
 from aifactory.providers.base import ProviderError
 
@@ -123,9 +124,7 @@ def read_proposals(root: Path) -> list[Proposal]:
 
 def write_proposals(root: Path, proposals: Sequence[Proposal]) -> None:
     path = _state_path(root)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps([asdict(p) for p in proposals], indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    atomic_write(path, json.dumps([asdict(p) for p in proposals], indent=2) + "\n")
 
 
 # ── commits and patch ids ─────────────────────────────────────────────────────

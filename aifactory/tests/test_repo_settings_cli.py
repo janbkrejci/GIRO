@@ -81,7 +81,7 @@ def test_errors_are_enveloped_and_do_not_overwrite(
     def fail(*args: object) -> None:
         raise OSError("cannot save")
 
-    monkeypatch.setattr("aifactory.repo_settings.os.replace", fail)
+    monkeypatch.setattr("aifactory.oscompat.os.replace", fail)
     rc, result = run_json(capsys, ["config", "local", "set", "--auto-merge", "on", *args])
     assert rc == 2 and result["error"]["code"] == "repo_settings_io"
     assert not service.path.exists()

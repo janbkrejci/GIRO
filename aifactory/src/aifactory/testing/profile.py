@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from aifactory import gitrun
+from aifactory.oscompat import atomic_write
 
 MAX_PROFILE_LENGTH = 12_000
 CONFIG_NAMES = frozenset(
@@ -138,11 +137,4 @@ class ProfileCache:
             knowledge=knowledge,
             durations=dict(list(observed.items())[-32:]),
         )
-        self.directory.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=self.directory, delete=False) as output:
-            temporary = Path(output.name)
-            output.write(stored.model_dump_json(indent=2).encode())
-        try:
-            os.replace(temporary, self.path)
-        finally:
-            temporary.unlink(missing_ok=True)
+        atomic_write(self.path, stored.model_dump_json(indent=2))

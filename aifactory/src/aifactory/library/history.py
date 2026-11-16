@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
-import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +18,7 @@ from typing import Any
 from aifactory.home import haifa_home
 from aifactory.library.model import ItemType
 from aifactory.library.tree import item_tree_path, item_versions
+from aifactory.oscompat import atomic_write
 from aifactory.providers.git import run_bytes
 
 _SEP = "\x1f"
@@ -98,11 +97,7 @@ def _load(path: Path) -> dict[str, str | None]:
 
 def _save(path: Path, commits: Mapping[str, str | None]) -> None:
     with contextlib.suppress(OSError):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=path.parent)
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            json.dump({"commits": dict(commits)}, handle, indent=1, sort_keys=True)
-        os.replace(tmp, path)
+        atomic_write(path, json.dumps({"commits": dict(commits)}, indent=1, sort_keys=True))
 
 
 def versions(
