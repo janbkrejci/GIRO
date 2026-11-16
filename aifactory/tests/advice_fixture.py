@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
+import repo_templates
+from gitutil import git_raw
 
-def git(root: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(root), "-c", "user.name=test", "-c", "user.email=test@test", *args],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
+git = git_raw
 
 
 def make_repo(root: Path) -> Path:
+    """A committed repo at the new folder `root` (built once per session, then copied)."""
     root.mkdir()
+    repo_templates.build(root, "advice", _build_repo)
+    return root
+
+
+def _build_repo(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
     git(root, "init", "-q", "-b", "main")
     files = {
         ".factory/config.yaml": "base: main\nlevels: [project, step, task]\ndocs_root: .\n",
@@ -51,7 +53,6 @@ def make_repo(root: Path) -> Path:
         path.write_text(text, encoding="utf-8", newline="\n")
     git(root, "add", ".")
     git(root, "commit", "-qm", "fixture")
-    return root
 
 
 def output(name: str = "plan", *, new: bool = False) -> dict[str, object]:

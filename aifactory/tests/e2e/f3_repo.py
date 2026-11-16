@@ -40,6 +40,8 @@ sys.path.insert(0, str(AIFACTORY / "tests" / "run"))
 
 from run_repo import files as run_repo_files  # noqa: E402
 
+from gitutil import git as git  # noqa: E402
+
 __all__ = [
     "T01",
     "T02",
@@ -69,13 +71,6 @@ T = TypeVar("T")
 GITIGNORE = (
     ".factory/local.yaml\n.factory/trace.db*\n.factory/worktrees/\n.factory/data/\n__pycache__/\n"
 )
-
-
-def git(repo: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
 
 
 def make_f3_repo(path: Path) -> Path:

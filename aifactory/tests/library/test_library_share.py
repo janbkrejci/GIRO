@@ -23,6 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))
 
 from gh_fake import GhLog, install_fake_gh, prepare_shared_gh, reply  # noqa: E402
 
+from gitutil import git
+
 Capsys = pytest.CaptureFixture[str]
 UPSTREAM = "https://github.com/janbkrejci/GIRO-LIBRARY.git"
 FORK = "https://github.com/ada/GIRO-LIBRARY.git"
@@ -34,13 +36,6 @@ if [ "$1" = "refs/heads/main" ]; then
     exit 1
 fi
 """
-
-
-def _git(cwd: Path, *args: str) -> str:
-    out = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True, encoding="utf-8"
-    )
-    return out.stdout.strip()
 
 
 @pytest.fixture(scope="module")
@@ -64,7 +59,7 @@ class Env:
         self.bare = tmp / "upstream.git"
         self.fork = tmp / "fork.git"
         for bare in (self.bare, self.fork):
-            _git(tmp, "init", "--bare", "--quiet", "-b", "main", str(bare))
+            git(tmp, "init", "--bare", "--quiet", "-b", "main", str(bare))
         monkeypatch.setenv("GIT_CONFIG_COUNT", "2")
         for n, (path, url) in enumerate(((self.bare, UPSTREAM), (self.fork, FORK))):
             monkeypatch.setenv(f"GIT_CONFIG_KEY_{n}", f"url.{path}.insteadOf")
@@ -83,7 +78,7 @@ class Env:
         hook = hooks / "update"
         hook.write_text(HOOK.format(log=self.pushed.as_posix()), encoding="utf-8", newline="\n")
         hook.chmod(0o755)
-        _git(self.bare, "config", "core.hooksPath", str(hooks))
+        git(self.bare, "config", "core.hooksPath", str(hooks))
 
     def pushed_refs(self) -> list[str]:
         if not self.pushed.exists():
@@ -153,8 +148,8 @@ def test_default_url_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_clone_without_url_uses_the_default_library(env: Env, capsys: Capsys) -> None:
     lib = _published(env, capsys)
-    assert _git(lib, "rev-parse", "HEAD") == _git(env.bare, "rev-parse", "main")
-    assert _git(lib, "config", "--get", "remote.origin.url") == UPSTREAM
+    assert git(lib, "rev-parse", "HEAD") == git(env.bare, "rev-parse", "main")
+    assert git(lib, "config", "--get", "remote.origin.url") == UPSTREAM
     assert _fail(capsys, ["library", "clone", "--seed-fallback", "--json"])["code"] == (
         "library_exists"
     )
@@ -178,11 +173,11 @@ def test_seed_fallback_without_network(env: Env, capsys: Capsys) -> None:
     assert obj["data"]["fallback"] is True and obj["data"]["remote"] is None
     assert any("from the seed" in w for w in obj["warnings"])
     assert (lib / "library.yaml").is_file()
-    head = _git(lib, "rev-parse", "HEAD")
+    head = git(lib, "rev-parse", "HEAD")
     assert _fail(capsys, ["library", "clone", "--seed-fallback", "--json"])["code"] == (
         "library_exists"
     )
-    assert _git(lib, "rev-parse", "HEAD") == head
+    assert git(lib, "rev-parse", "HEAD") == head
 
 
 @pytest.mark.usefixtures("_shared_gh")
@@ -190,7 +185,7 @@ def test_writer_sends_a_pull_request_from_a_branch(
     env: Env, capsys: Capsys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     lib = _published(env, capsys)
-    main = _git(env.bare, "rev-parse", "main")
+    main = git(env.bare, "rev-parse", "main")
     log = install_fake_gh(
         tmp_path,
         monkeypatch,
@@ -204,9 +199,9 @@ def test_writer_sends_a_pull_request_from_a_branch(
     pr = data["pull_request"]
     assert pr["url"] == PR_URL and pr["number"] == 7 and pr["fork"] is False
     assert pr["repo"] == "janbkrejci/GIRO-LIBRARY" and pr["base"] == "main"
-    assert _git(env.bare, "rev-parse", pr["branch"]) == data["commit"]
-    assert _git(env.bare, "rev-parse", "main") == main
-    assert _git(lib, "rev-parse", "HEAD") == data["commit"]  # usable before the merge
+    assert git(env.bare, "rev-parse", pr["branch"]) == data["commit"]
+    assert git(env.bare, "rev-parse", "main") == main
+    assert git(lib, "rev-parse", "HEAD") == data["commit"]  # usable before the merge
     create = next(a for a in log.argvs() if a[:2] == ["pr", "create"])
     assert create[create.index("--repo") + 1] == "janbkrejci/GIRO-LIBRARY"
     assert create[create.index("--base") + 1] == "main"
@@ -235,7 +230,7 @@ def test_reader_sends_a_pull_request_from_a_fork(
         monkeypatch.setenv("GIT_CONFIG_COUNT", "3")
         monkeypatch.setenv("GIT_CONFIG_KEY_2", f"url.{tmp_path / 'missing-fork.git'}.insteadOf")
         monkeypatch.setenv("GIT_CONFIG_VALUE_2", FORK)
-    main = _git(env.bare, "rev-parse", "main")
+    main = git(env.bare, "rev-parse", "main")
     log = install_fake_gh(
         tmp_path,
         monkeypatch,
@@ -252,9 +247,9 @@ def test_reader_sends_a_pull_request_from_a_fork(
     data = _ok(capsys, env.skill("lint"))
     pr = data["pull_request"]
     assert pr["fork"] is True and pr["head_repo"] == f"ada/{fork_name}"
-    assert _git(env.fork, "rev-parse", pr["branch"]) == data["commit"]
-    assert _git(env.bare, "for-each-ref", "refs/heads/giro-library/") == ""
-    assert _git(env.bare, "rev-parse", "main") == main
+    assert git(env.fork, "rev-parse", pr["branch"]) == data["commit"]
+    assert git(env.bare, "for-each-ref", "refs/heads/giro-library/") == ""
+    assert git(env.bare, "rev-parse", "main") == main
     fork = next(a for a in log.argvs() if a[:2] == ["repo", "fork"])
     assert fork[2] == "janbkrejci/GIRO-LIBRARY" and "--clone=false" in fork
     assert not any(arg.startswith("--remote") for arg in fork), fork
@@ -270,7 +265,7 @@ def test_main_of_the_library_is_never_pushed(
     env: Env, capsys: Capsys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     lib = _published(env, capsys)
-    main = _git(env.bare, "rev-parse", "main")
+    main = git(env.bare, "rev-parse", "main")
     log = install_fake_gh(
         tmp_path,
         monkeypatch,
@@ -278,18 +273,18 @@ def test_main_of_the_library_is_never_pushed(
     )
     _ok(capsys, env.skill("lint"))
     put(lib, "notes.md", "local\n")
-    _git(lib, "add", "notes.md")
-    _git(lib, "commit", "--quiet", "-m", "local note")
+    git(lib, "add", "notes.md")
+    git(lib, "commit", "--quiet", "-m", "local note")
     pushed = _ok(capsys, ["library", "push", "--json"])
     assert pushed["pushed"] == 1 and pushed["pull_request"]["url"] == PR_URL
     # the second pull request holds only the unsent commit
     branch = pushed["pull_request"]["branch"]
-    files = _git(env.bare, "ls-tree", "-r", "--name-only", branch).split()
+    files = git(env.bare, "ls-tree", "-r", "--name-only", branch).split()
     assert "notes.md" in files and "skills/lint/SKILL.md" not in files
     assert _ok(capsys, ["library", "push", "--json"])["pull_request"] is None
     refs = env.pushed_refs()
     assert refs and all(r.startswith("refs/heads/giro-library/") for r in refs)
-    assert _git(env.bare, "rev-parse", "main") == main
+    assert git(env.bare, "rev-parse", "main") == main
     _no_merge(log)
     # the guard itself: a direct push to main is refused and logged
     direct = subprocess.run(["git", "push", "--quiet", "origin", "HEAD:main"], cwd=lib)
@@ -301,7 +296,7 @@ def test_failed_pull_request_changes_nothing(
     env: Env, capsys: Capsys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     lib = _published(env, capsys)
-    head = _git(lib, "rev-parse", "HEAD")
+    head = git(lib, "rev-parse", "HEAD")
     install_fake_gh(
         tmp_path,
         monkeypatch,
@@ -312,14 +307,14 @@ def test_failed_pull_request_changes_nothing(
     )
     error = _fail(capsys, env.skill("lint"))
     assert error["code"] == "pr_failed" and "no auth" in error["message"]
-    assert _git(lib, "rev-parse", "HEAD") == head
-    assert _git(lib, "status", "--porcelain") == ""
+    assert git(lib, "rev-parse", "HEAD") == head
+    assert git(lib, "status", "--porcelain") == ""
     assert "refs/heads/main" not in env.pushed_refs()
 
 
 def test_push_branch_refuses_the_library_branch(env: Env) -> None:
     lib = env.tmp / "repo"
-    _git(env.tmp, "init", "--quiet", "-b", "main", str(lib))
+    git(env.tmp, "init", "--quiet", "-b", "main", str(lib))
     with pytest.raises(store.LibraryStoreError) as exc:
         share.push_branch(lib, str(env.bare), "0" * 40, "main")
     assert exc.value.code == "push_failed"
@@ -348,6 +343,6 @@ def test_missing_fork_does_not_push_to_a_guessed_repository(
         },
     )
     assert _fail(capsys, env.skill("lint"))["code"] == "pr_failed"
-    assert not _git(env.fork, "for-each-ref", "refs/heads/giro-library/")
+    assert not git(env.fork, "for-each-ref", "refs/heads/giro-library/")
     assert not any(a[:2] == ["pr", "create"] for a in log.argvs())
     assert env.pushed_refs() == []

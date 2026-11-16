@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -28,6 +27,10 @@ from workflow_fakes import (  # noqa: E402
     plan_envelope,
     triage_envelope,
 )
+
+from gitutil import commit_all as commit_all
+from gitutil import git as git
+from gitutil import write as write
 
 __all__ = [
     "SPEC",
@@ -109,26 +112,6 @@ def files(harness: str) -> dict[str, str]:
 def scripted_plan(script: Script, *argv: str) -> None:
     """A tester plan with the single check `argv`; there is no implicit review."""
     script.add("tester", plan_envelope(*argv))
-
-
-def git(repo: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
-
-
-def write(root: Path, rel: str, text: str) -> Path:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
-    return path
-
-
-def commit_all(repo: Path, message: str) -> str:
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", message)
-    return git(repo, "rev-parse", "HEAD")
 
 
 def make_run_repo(path: Path, harness: str = "claude") -> Path:

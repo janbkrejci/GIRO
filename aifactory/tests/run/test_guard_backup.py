@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
 from aifactory.run import backup
+from gitutil import git_raw
 
-
-def git(root: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True, check=True, encoding="utf-8"
-    ).stdout
+git = git_raw
 
 
 @pytest.fixture(name="repo")

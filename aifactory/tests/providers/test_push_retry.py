@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -10,36 +9,32 @@ from git_fake import HTTP2, REJECTED, install_fake_git
 
 from aifactory.providers import ProviderError
 from aifactory.providers import git as pgit
-
-
-def _git(cwd: Path, *args: str) -> str:
-    proc = subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
-    return proc.stdout.strip()
+from gitutil import git
 
 
 def test_fake_git_preserves_revision_arguments(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    head = _git(repo, "rev-parse", "HEAD")
+    head = git(repo, "rev-parse", "HEAD")
     install_fake_git(tmp_path, monkeypatch)
-    assert _git(repo, "rev-parse", "--verify", "main^{commit}") == head
+    assert git(repo, "rev-parse", "--verify", "main^{commit}") == head
 
 
 @pytest.fixture(name="repo")
 def repo_fixture(tmp_path: Path) -> Path:
     origin = tmp_path / "origin.git"
-    _git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
+    git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
     repo = tmp_path / "repo"
     repo.mkdir()
-    _git(repo, "init", "-q", "-b", "main")
-    _git(repo, "config", "user.name", "Test")
-    _git(repo, "config", "user.email", "test@example.com")
-    _git(repo, "config", "commit.gpgsign", "false")
+    git(repo, "init", "-q", "-b", "main")
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "commit.gpgsign", "false")
     (repo / "a.txt").write_text("a\n", encoding="utf-8")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "init")
-    _git(repo, "remote", "add", "origin", str(origin))
-    _git(repo, "branch", "factory/x-1")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "init")
+    git(repo, "remote", "add", "origin", str(origin))
+    git(repo, "branch", "factory/x-1")
     return repo
 
 
@@ -51,7 +46,7 @@ def sleeps_fixture(monkeypatch: pytest.MonkeyPatch) -> list[float]:
 
 
 def _remote_tip(repo: Path, branch: str) -> str:
-    return _git(repo, "ls-remote", "origin", f"refs/heads/{branch}")
+    return git(repo, "ls-remote", "origin", f"refs/heads/{branch}")
 
 
 @pytest.mark.parametrize(
