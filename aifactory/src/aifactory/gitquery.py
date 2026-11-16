@@ -15,6 +15,8 @@ made by another process (a commit, ``git remote set-url``) is seen at once:
   reftable backend are never cached.
 - ``remote_url(root, remote)``: ``remote get-url``; kept while the repository's
   ``config`` (and ``config.worktree``) are unchanged.
+- ``merge_base(root, a, b)``: ``merge-base`` of two commit shas; kept for good, the
+  answer of two given commits never changes.
 
 ``clear_caches()`` forgets everything (tests).
 
@@ -63,6 +65,7 @@ _TOPLEVELS: dict[str, Path] = {}
 _DIRS: dict[str, GitDirs] = {}
 _REFS: dict[tuple[str, str], tuple[tuple[object, ...], str]] = {}
 _REMOTES: dict[tuple[str, str], tuple[tuple[object, ...], str | None]] = {}
+_MERGE_BASES: dict[tuple[str, str, str], str] = {}
 _CACHE_LIMIT = 4096
 
 
@@ -73,6 +76,7 @@ def clear_caches() -> None:
         _DIRS.clear()
         _REFS.clear()
         _REMOTES.clear()
+        _MERGE_BASES.clear()
 
 
 def _remember(cache: dict[Any, Any], key: object, value: object) -> None:
@@ -229,6 +233,30 @@ def remote_url(root: Path | str, remote: str) -> str | None:
 
 
 # ── working tree state ───────────────────────────────────────────────────────────────
+
+
+_SHA = frozenset("0123456789abcdef")
+
+
+def merge_base(root: Path | str, a: str, b: str) -> str | None:
+    """The merge base of commits `a` and `b` (``git merge-base``), or None without one.
+
+    Cached when both are full commit shas (an answer that cannot change); any other
+    revision is asked every time.
+    """
+    found = dirs(root)
+    key = (str(found.common_dir if found else root), a, b)
+    pure = all(len(sha) in (40, 64) and set(sha) <= _SHA for sha in (a, b))
+    if pure:
+        cached = _MERGE_BASES.get(key)
+        if cached is not None:
+            return cached
+    result = gitrun.run(root, "merge-base", a, b, read_only=True)
+    if not result.ok or not result.out:
+        return None
+    if pure:
+        _remember(_MERGE_BASES, key, result.out)
+    return result.out
 
 
 @dataclass(frozen=True)

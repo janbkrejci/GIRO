@@ -155,16 +155,18 @@ def pr_changed_files(
 
     The merge base of ``refs/heads/<base>`` (else `base_sha`) and ``refs/heads/<branch>``
     in the main checkout; None when git cannot tell (a missing branch, ...). Never raises.
+    The refs and the merge base of the two commits are cached (``gitquery``): while
+    neither moves, only the diff starts git.
     """
-    head_ref = f"refs/heads/{branch}"
     try:
-        if git_ok(main, "rev-parse", "--verify", "-q", f"refs/heads/{base}"):
-            start = git(main, "merge-base", f"refs/heads/{base}", head_ref)
-        elif base_sha:
-            start = git(main, "merge-base", base_sha, head_ref)
-        else:
+        tip = gitquery.resolve(main, f"refs/heads/{branch}")
+        start_from = gitquery.resolve(main, f"refs/heads/{base}") or base_sha
+        if tip is None or not start_from:
             return None
-        proc = gitrun.run(main, "diff", "--name-only", "-z", start, head_ref)
+        start = gitquery.merge_base(main, start_from, tip)
+        if start is None:
+            return None
+        proc = gitrun.run(main, "diff", "--name-only", "-z", start, tip)
     except (RuntimeError, OSError):
         return None
     if proc.returncode != 0:
