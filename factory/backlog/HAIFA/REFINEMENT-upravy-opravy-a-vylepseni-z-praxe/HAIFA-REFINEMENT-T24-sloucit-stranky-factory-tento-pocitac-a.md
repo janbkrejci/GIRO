@@ -27,4 +27,4 @@ Stránky **Factory**, **Tento počítač** a **Knihovna** se v dashboardu obsahe
 - Stávající testy webu a backendu jsou upravené tak, aby odpovídaly novému uspořádání, a procházejí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

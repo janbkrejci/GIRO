@@ -28,4 +28,4 @@ Hotovo znamená:
 - Stavy `timeout` a `stale` a `REPO_TIMEOUT` fungují jako dnes.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

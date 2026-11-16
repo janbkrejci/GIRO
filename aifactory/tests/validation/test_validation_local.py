@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 from local_validation import LocalValidation, checks, result_checks, validation_env
 
-HAIFA_ROOT = Path(__file__).resolve().parents[3]
+GIRO_ROOT = Path(__file__).resolve().parents[3]
 
 pytestmark = pytest.mark.skipif(shutil.which("just") is None, reason="just is not on PATH")
 
@@ -83,7 +83,7 @@ def test_just_validate_local_b1(tmp_path: Path, marker: Path) -> None:
             "--workdir",
             str(work),
         ],
-        cwd=HAIFA_ROOT,
+        cwd=GIRO_ROOT,
         capture_output=True,
         text=True,
         timeout=900,

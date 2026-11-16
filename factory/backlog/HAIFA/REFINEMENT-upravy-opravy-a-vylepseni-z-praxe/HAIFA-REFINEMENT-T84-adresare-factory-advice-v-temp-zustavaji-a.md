@@ -29,5 +29,5 @@ Továrna po sobě nechává v `%TEMP%` adresáře `factory-advice-*`, každý zh
 - Test ověří úklid při úspěchu i při výjimce.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-26 · workflow build-test-review · bez změn, běh e02e5612 · už hotovo: 9a9bb7c1a6aef4a112b96efdc8f4ab73db012b8c — Remove orphaned factory-advice temp dirs and delete read-only git files, aifactory/src/aifactory/workflow/adaptive.py — advice_dir, cleanup_orphans, remove_tree a git clone --shared, aifactory/src/aifactory/web/app.py — cleanup_orphans při startu dashboard… · náklady $0.00

@@ -19,7 +19,7 @@ import pytest
 from factory_check_repo import GIT_IDENTITY, commit_all, make_check_repo, write
 
 from aifactory.cli import main
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.library.store import init_library, library_root
 from cli_json import run_json
 from fake_exe import make_executable
@@ -197,7 +197,7 @@ def _snapshot(repo: Path) -> dict[str, Any]:
         "library_head": _git(lib, "rev-parse", "HEAD") if lib.exists() else None,
         "library_status": _git(lib, "status", "--porcelain=v1", "-uall") if lib.exists() else None,
         "library_refs": _git(lib, "for-each-ref") if lib.exists() else None,
-        "home": _tree(haifa_home()),
+        "home": _tree(giro_home()),
     }
 
 
@@ -241,7 +241,7 @@ def test_check_changes_nothing(
             if before[key] != after[key]
         }
         assert changed == {}, (cwd, offline)
-    home = haifa_home()
+    home = giro_home()
     if with_library:
         assert {"repo_installed", "library_dirty"} <= repo_codes
         assert not (home / "cache").exists()

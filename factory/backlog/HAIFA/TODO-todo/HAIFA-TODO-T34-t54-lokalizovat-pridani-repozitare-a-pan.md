@@ -21,5 +21,5 @@ Task `HAIFA-S01-T54` na tomto tasku závisí a do jeho dokončení zůstává bl
 <!-- factory: follow-up-of=HAIFA-S01-T54 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/242 · náklady $0.00

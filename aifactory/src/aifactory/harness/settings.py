@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from aifactory.harness import CLI_BINARIES, HARNESSES, canonical, load
 from aifactory.harness import thinking as model_thinking
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.oscompat import atomic_write
 
 DEFAULT_MODELS = {"claude": "claude-opus-5-5", "codex": "gpt-6.1-sol", "pi": ""}
@@ -47,7 +47,7 @@ class HarnessSettings(BaseModel):
 
 
 def path(home: Path | None = None) -> Path:
-    return (haifa_home() if home is None else home) / FILE
+    return (giro_home() if home is None else home) / FILE
 
 
 def read(home: Path | None = None) -> HarnessSettings | None:
@@ -147,7 +147,7 @@ def catalog(home: Path) -> dict[str, Any]:
 
 def read_tests(home: Path | None = None) -> dict[str, Any]:
     try:
-        data = json.loads(((home or haifa_home()) / TEST_FILE).read_text(encoding="utf-8"))
+        data = json.loads(((home or giro_home()) / TEST_FILE).read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}

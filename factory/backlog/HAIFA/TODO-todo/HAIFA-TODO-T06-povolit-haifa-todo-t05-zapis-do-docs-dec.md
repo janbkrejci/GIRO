@@ -19,4 +19,4 @@ Task `HAIFA-TODO-T05` na tomto tasku závisí a do jeho dokončení zůstává b
 <!-- factory: follow-up-of=HAIFA-TODO-T05 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

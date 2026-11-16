@@ -26,5 +26,5 @@ Hotovo znamená:
 - `factory_repo` najde repo HAIFA mezi registrovanými repy, případně ho určí `HAIFA_FACTORY_REPO`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-01 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/188 · náklady $1.22

@@ -25,4 +25,4 @@ Hotovo znamená:
 - Nový test ověří, že počet procesů gitu na fázi nezávisí na počtu změněných souborů.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

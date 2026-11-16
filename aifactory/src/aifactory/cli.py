@@ -411,7 +411,7 @@ def _add_library_commands(parser: argparse.ArgumentParser) -> None:
             "pull request against the library branch; the branch itself is never pushed. On "
             "GitHub the pull request comes from a branch in the library repo when you may "
             "write to it, else from your fork (gh repo fork); other remotes get only the "
-            "branch haifa-library/... GIRO never merges or approves it. A library behind the "
+            "branch giro-library/... GIRO never merges or approves it. A library behind the "
             "remote (library_behind: run factory library pull) or diverged from it "
             "(library_diverged) is refused; a rejected push is push_failed, a failed gh call "
             "pr_failed."
@@ -3188,21 +3188,14 @@ def _leave_deleted_cwd() -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    from aifactory.home import haifa_home
-    from aifactory.migration_guard import check_home, process_lease
+    from aifactory.home import giro_home
     from aifactory.versioning import UpgradeError
 
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if arguments == ["--version"] or "--help" in arguments:
-        return _main(argv)
+    if list(sys.argv[1:] if argv is None else argv) == ["--data-home"]:
+        print(giro_home())
+        return 0
     try:
-        if arguments == ["--data-home"]:
-            print(haifa_home())
-            return 0
-        with process_lease(haifa_home()):
-            if "obs" not in (sys.argv[1:] if argv is None else argv):
-                check_home(haifa_home(), writing=True)
-            return _main(argv)
+        return _main(argv)
     except UpgradeError as exc:
         if "--json" in (sys.argv[1:] if argv is None else argv):
             return _emit_fail(exc.code, exc.message, exit_code=exc.exit_code)
@@ -3281,7 +3274,7 @@ def _obs(args: argparse.Namespace) -> int:
     import webbrowser
 
     from aifactory.config import ConfigError, load_local_checked
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.web import app as web_app
     from aifactory.web import server as web_server
     from aifactory.web.backlog import UsageError
@@ -3295,7 +3288,7 @@ def _obs(args: argparse.Namespace) -> int:
             return _emit_fail("invalid_value", message, exit_code=2)
         print(f"{label}: {message}", file=sys.stderr)
         return 2
-    home = haifa_home()
+    home = giro_home()
     registry = Registry(home)
     state, snapshot_warnings = registry.snapshot()
     warnings: list[str] = list(snapshot_warnings)
@@ -3412,11 +3405,11 @@ def _add_upgrade_command(parser: argparse.ArgumentParser) -> None:
 
 def _dashboard_running() -> bool:
     """Whether the dashboard of this GIRO home answers on its registered port."""
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.web import server as web_server
     from aifactory.web.registry import Registry
 
-    state, _warnings = Registry(haifa_home()).snapshot()
+    state, _warnings = Registry(giro_home()).snapshot()
     return web_server.probe_dashboard(state.port, web_server.resolve_host(None))
 
 

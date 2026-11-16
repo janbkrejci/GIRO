@@ -10,5 +10,5 @@ depends_on: []
 na stránce Factory jsou nálezy, chci mít možnost zaškrtat si, které chci vyřešit, a spustit běh, který je vyřídí
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-08 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/90 · náklady $0.00

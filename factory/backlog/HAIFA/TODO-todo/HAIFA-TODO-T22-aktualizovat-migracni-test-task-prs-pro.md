@@ -19,4 +19,4 @@ Task `HAIFA-REFINEMENT-T59` na tomto tasku závisí a do jeho dokončení zůst�
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T59 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

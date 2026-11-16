@@ -15,4 +15,4 @@ Done means:
 - Pokud je náklad neúnosný, vznikne task na sdílené cache.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

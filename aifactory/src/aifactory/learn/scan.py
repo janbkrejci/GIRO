@@ -58,7 +58,7 @@ from aifactory.failure import AgentReportedFail, InvalidOutput
 from aifactory.harness import canonical, install
 from aifactory.harness.check import check_harness
 from aifactory.harness.settings import effective_override
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.learn.collect import Objection, collect
 from aifactory.learn.store import (
     ACCEPTED,
@@ -143,7 +143,7 @@ def _own_id(repo: Path) -> str:
     """The registry id of ``repo``, '' when the dashboard does not know it."""
     from aifactory.web.registry import Registry, same_repo  # aifactory.web imports this module
 
-    state, _warnings = Registry(haifa_home()).snapshot()
+    state, _warnings = Registry(giro_home()).snapshot()
     return next((e.id for e in state.repos if same_repo(e.path, repo)), "")
 
 

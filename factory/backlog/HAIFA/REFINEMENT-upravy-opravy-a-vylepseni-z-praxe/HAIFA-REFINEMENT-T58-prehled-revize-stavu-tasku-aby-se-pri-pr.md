@@ -44,5 +44,5 @@ Hotovo znamená:
 - Task s během, který selhal, nebo s chybou publikace (`pr_error`) se zobrazuje stejně jako dosud. Stávající testy v `aifactory/tests/web/` procházejí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/126 · náklady $0.00

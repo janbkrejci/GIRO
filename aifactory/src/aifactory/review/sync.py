@@ -266,8 +266,7 @@ def _sync_body(branch: str, task_lines: list[str]) -> str:
     lines = [
         f"<!-- factory: sync branch={branch} -->",
         "",
-        "Doplňuje `status: done` a záznam v `## Běhy` pro tasky, "
-        "jejichž PR byl mergnut mimo HAIFA.",
+        "Doplňuje `status: done` a záznam v `## Běhy` pro tasky, jejichž PR byl mergnut mimo GIRO.",
         "",
     ]
     lines += task_lines

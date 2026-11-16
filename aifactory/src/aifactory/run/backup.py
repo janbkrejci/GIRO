@@ -156,7 +156,7 @@ def _write_tree(root: Path) -> str | None:
 
 def _copy_and_write_tree(root: Path, index: Path | None) -> str | None:
     for attempt in range(20):
-        with tempfile.TemporaryDirectory(prefix="haifa-index-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="giro-index-") as tmp:
             env: dict[str, str] | None = None
             if index is not None:
                 copy = Path(tmp) / "index"

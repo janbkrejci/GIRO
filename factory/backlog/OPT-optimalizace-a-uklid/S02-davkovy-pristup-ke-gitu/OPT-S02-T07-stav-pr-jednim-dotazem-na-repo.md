@@ -17,4 +17,4 @@ Hotovo znamená:
 - Testy s falešným `gh` a `az` ověří jedno volání seznamu na repo a stejný výsledek synchronizace jako dnes.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

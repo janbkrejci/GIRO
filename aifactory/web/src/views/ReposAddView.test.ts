@@ -510,7 +510,7 @@ describe('ReposAddView', () => {
 })
 
 
-it('labels an unsupported repo: HAIFA does not take it over', async () => {
+it('labels an unsupported repo: GIRO does not take it over', async () => {
   stub({ inspect: inspected({ factory: factory('unsupported') }) })
   const wrapper = await mountView()
   await inspectPath(wrapper)

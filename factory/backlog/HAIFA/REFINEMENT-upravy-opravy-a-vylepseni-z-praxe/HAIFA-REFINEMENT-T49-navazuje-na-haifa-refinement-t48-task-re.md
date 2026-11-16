@@ -11,5 +11,5 @@ follows: HAIFA-REFINEMENT-T48
 uděláš z toho PR?
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-19 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/116 · náklady $0.00

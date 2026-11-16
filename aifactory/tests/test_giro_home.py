@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 import yaml
 
-from aifactory import cli, environment, migration_guard
+from aifactory import cli, environment
 from aifactory.engine.utils import agent_environment, operator_env
 from aifactory.environment import (
     LEGACY_NAMES,
@@ -21,8 +21,7 @@ from aifactory.environment import (
     resolve,
     value,
 )
-from aifactory.home import haifa_home, load_env_file
-from aifactory.versioning import UpgradeError
+from aifactory.home import giro_home, load_env_file
 from aifactory.web.server import APP_NAME
 
 
@@ -87,7 +86,7 @@ def test_env_file_keeps_shell_origin_and_cannot_redirect_home(tmp_path: Path) ->
     load_env_file(env)
     assert env["GIRO_HOME"] == str(selected)
     assert env["GIRO_LIBRARY"] == "shell"
-    assert haifa_home(env) == selected
+    assert giro_home(env) == selected
 
 
 def test_worker_environment_overrides_the_run_id(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,33 +101,12 @@ def test_default_paths_and_explicit_home(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str
 ) -> None:
     monkeypatch.setattr(sys, "platform", platform)
-    assert haifa_home({"HOME": str(tmp_path)}) == tmp_path / ".config/giro"
+    assert giro_home({"HOME": str(tmp_path)}) == tmp_path / ".config/giro"
     assert (
-        haifa_home({"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(tmp_path / "xdg")})
+        giro_home({"HOME": str(tmp_path), "XDG_CONFIG_HOME": str(tmp_path / "xdg")})
         == tmp_path / "xdg/giro"
     )
-    assert haifa_home({"GIRO_HOME": str(tmp_path / "new")}) == tmp_path / "new"
-
-
-def test_legacy_only_and_empty_collision_do_not_write(tmp_path: Path) -> None:
-    source = tmp_path / "haifa"
-    source.mkdir()
-    env = {"XDG_CONFIG_HOME": str(tmp_path)}
-    with pytest.raises(UpgradeError, match="GIRO_HOME"):
-        haifa_home(env)
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["haifa"]
-    (tmp_path / "giro").mkdir()
-    with pytest.raises(UpgradeError) as caught:
-        haifa_home(env)
-    assert caught.value.code == "migration_collision"
-    assert list(source.iterdir()) == []
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="symlink privilege is optional on Windows")
-def test_same_directory_via_symlink_is_not_a_collision(tmp_path: Path) -> None:
-    (tmp_path / "haifa").mkdir()
-    (tmp_path / "giro").symlink_to(tmp_path / "haifa", target_is_directory=True)
-    assert haifa_home({"XDG_CONFIG_HOME": str(tmp_path)}) == tmp_path / "giro"
+    assert giro_home({"GIRO_HOME": str(tmp_path / "new")}) == tmp_path / "new"
 
 
 def test_entry_points_share_implementation_and_health_identity() -> None:
@@ -153,13 +131,12 @@ def test_giro_publication_is_gated_to_new_repository() -> None:
     assert "GIRO_RELEASE_ENABLED == 'true'" in job["if"]
     steps = "\n".join(step.get("run", "") for step in job["steps"])
     assert "dist/giro-$VERSION.zip" in steps
-    assert "dist/haifa-$VERSION.zip" not in steps
 
 
-def test_new_default_only_does_not_create_legacy(tmp_path: Path) -> None:
-    (tmp_path / "giro").mkdir()
-    assert haifa_home({"XDG_CONFIG_HOME": str(tmp_path)}) == tmp_path / "giro"
-    assert not (tmp_path / "haifa").exists()
+def test_old_default_folder_next_to_giro_is_ignored(tmp_path: Path) -> None:
+    (tmp_path / "haifa").mkdir()
+    assert giro_home({"XDG_CONFIG_HOME": str(tmp_path)}) == tmp_path / "giro"
+    assert not (tmp_path / "giro").exists()
 
 
 def test_agents_do_not_inherit_either_validation_channel(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -180,24 +157,11 @@ def test_version_is_giro_and_does_not_open_data(
     def forbidden(*args: Any) -> Path:
         raise AssertionError("version must not open the data home")
 
-    monkeypatch.setattr(aifactory.home, "haifa_home", forbidden)
+    monkeypatch.setattr(aifactory.home, "giro_home", forbidden)
     with pytest.raises(SystemExit) as exited:
         cli.main(["--version"])
     assert exited.value.code == 0
     assert capsys.readouterr().out.startswith("GIRO 1.")
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="symlink privilege is optional on Windows")
-def test_migration_locks_share_canonical_home_identity(tmp_path: Path) -> None:
-    source = tmp_path / "source"
-    source.mkdir()
-    alias = tmp_path / "alias"
-    alias.symlink_to(source, target_is_directory=True)
-    with migration_guard.migration_lock(source):
-        with pytest.raises(UpgradeError) as caught:
-            with migration_guard.migration_lock(alias):
-                raise AssertionError("second lock unexpectedly acquired")
-    assert caught.value.code == "update_busy"
 
 
 def test_invalid_library_url_is_refused() -> None:

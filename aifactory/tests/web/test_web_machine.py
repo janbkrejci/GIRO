@@ -474,7 +474,7 @@ def test_cached_check_follows_a_library_changed_outside_the_dashboard(
     first = response(client.get("/api/machine/check?fresh=1"))
     assert "library_behind" not in codes(first)
     probes = len(fake.calls)
-    # Another clone advances the remote; the library fetches it with git, not HAIFA.
+    # Another clone advances the remote; the library fetches it with git, not GIRO.
     other = tmp_path / "other"
     git(tmp_path, "clone", str(bare), str(other))
     write(other, "note.txt", "remote change\n")

@@ -10,7 +10,7 @@ describe('renderMarkdown', () => {
   })
 
   it('drops single-line and multi-line HTML comments', () => {
-    const html = renderMarkdown('před <!-- doplňuje HAIFA --> po\n\n<!--\nskryté\nřádky\n-->\nkonec')
+    const html = renderMarkdown('před <!-- doplňuje GIRO --> po\n\n<!--\nskryté\nřádky\n-->\nkonec')
     expect(html).not.toContain('doplňuje')
     expect(html).not.toContain('skryté')
     expect(html).not.toContain('&lt;!--')

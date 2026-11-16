@@ -29,5 +29,5 @@ Běh, ve kterém builder správně ohlásí `already_done` s evidencí, skončí
 - Test pokrývá `already_done` v řetězci auto-continue.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-26 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/174 · náklady $0.00

@@ -27,5 +27,5 @@ Chipy na Přehledu u jednotlivých rep, které ukazují stavy tasků (počet tas
 - Stávající testy Přehledu a StateChip projdou. Test ověří, že chip na Přehledu nese třídu nebo označení stavu, podle kterého se barví.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/50 · náklady $1.01

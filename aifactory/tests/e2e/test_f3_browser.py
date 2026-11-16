@@ -129,7 +129,7 @@ def server_fixture(tmp_path: Path) -> Iterator[Server]:
     script = fake_script(tmp_path / "script.json")
     wire, marker = tripwire(tmp_path / "wire")
     log = tmp_path / "obs.log"
-    home = tmp_path / "haifa-home"
+    home = tmp_path / "giro-home"
     init = git(repo, "rev-parse", "HEAD")
     with obs_server(repo, script, wire, log, home) as obs:
         yield Server(repo, obs.url, log, script, marker, init, home, obs.repo_id)
@@ -145,7 +145,7 @@ def page_fixture(server: Server, net: Net) -> Iterator[Page]:
     with sync_playwright() as p:
         browser = _launch(p)
         context: BrowserContext = browser.new_context(base_url=server.url)
-        context.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        context.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         context.set_default_timeout(DEFAULT_TIMEOUT_MS)
         expect.set_options(timeout=DEFAULT_TIMEOUT_MS)
 
@@ -616,7 +616,7 @@ def test_f3_task_lifecycle_in_browser(page: Page, server: Server, net: Net) -> N
     assert net.dialogs == []
 
     # both runs were separate processes; their envelopes and output are private files in
-    # the server's HAIFA home, none in the repo
+    # the server's GIRO home, none in the repo
     envelopes = sorted((server.home / "logs").glob("*.json"))
     assert len(envelopes) == 2, envelopes
     if sys.platform != "win32":  # Windows has no POSIX file modes

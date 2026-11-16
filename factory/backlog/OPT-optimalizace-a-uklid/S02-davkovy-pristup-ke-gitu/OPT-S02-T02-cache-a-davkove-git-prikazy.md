@@ -25,4 +25,4 @@ Hotovo znamená:
 - PR uvádí počet procesů gitu v `test_merges_a_reviewed_run` a v jednom testu `web/test_web_factory.py` před a po.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

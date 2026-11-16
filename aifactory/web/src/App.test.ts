@@ -26,7 +26,7 @@ function envelope(data: unknown) {
   return new Response(JSON.stringify({ ok: true, data, error: null, warnings: [] }))
 }
 
-const HEALTH = { app: 'haifa-dashboard', version: '0.1.0', home: '/home/me/.haifa' }
+const HEALTH = { app: 'giro-dashboard', version: '0.1.0', home: '/home/me/.giro' }
 
 function repo(id: string, name: string, path: string, status: RepoItem['status'] = 'ok'): RepoItem {
   return { id, name, path, added_at: '2026-10-01T10:00:00+00:00', status, factory: null }
@@ -911,8 +911,8 @@ describe('App', () => {
 
   it('restores the selected thread on a page reload with the panel open', async () => {
     resetAssistantForTests()
-    sessionStorage.setItem('haifa.assistant.open', '1')
-    sessionStorage.setItem('haifa.assistant.thread', 'aaaaaaaaaaaa')
+    sessionStorage.setItem('giro.assistant.open', '1')
+    sessionStorage.setItem('giro.assistant.thread', 'aaaaaaaaaaaa')
     stubApi({ handler: (url) => url === '/api/assistant/threads/aaaaaaaaaaaa' ? envelope({
       id: 'aaaaaaaaaaaa', harness: 'claude', model: 'opus', busy: false,
       messages: [{ id: 'a', role: 'assistant', text: 'Restored answer' }], seq: 0,
@@ -1005,7 +1005,7 @@ it('offers the global language preference with no repositories and keeps it acro
   expect(wrapper.get('[data-test="language-select"]').attributes('aria-label')).toBe('Language')
   await chooseOption(wrapper, '[data-test="language-select"]', 'cs')
   expect(document.documentElement.lang).toBe('cs')
-  expect(localStorage.getItem('haifa.dashboard.locale')).toBe('cs')
+  expect(localStorage.getItem('giro.dashboard.locale')).toBe('cs')
   for (const hash of ['#/r/first/backlog', '#/r/second/runs', '#/setup']) {
     go(hash)
     await flushPromises()
@@ -1013,5 +1013,5 @@ it('offers the global language preference with no repositories and keeps it acro
   }
   await chooseOption(wrapper, '[data-test="language-select"]', 'en')
   expect(document.documentElement.lang).toBe('en')
-  expect(localStorage.getItem('haifa.dashboard.locale')).toBe('en')
+  expect(localStorage.getItem('giro.dashboard.locale')).toBe('en')
 })

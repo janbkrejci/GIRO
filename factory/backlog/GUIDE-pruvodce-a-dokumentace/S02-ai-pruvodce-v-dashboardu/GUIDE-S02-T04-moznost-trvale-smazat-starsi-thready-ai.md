@@ -34,5 +34,5 @@ Dnes jde v panelu AI průvodce mezi staršími vlákny jen přepínat. Uživatel
 - Statický build dashboardu (`aifactory/src/aifactory/web/static`) je přegenerovaný přes `just web-build`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/95 · náklady $2.12

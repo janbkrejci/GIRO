@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from aifactory import oscompat
 from aifactory.config.source import GitError, git
 from aifactory.harness import settings as harness_settings
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 
 
 class SettingsError(Exception):
@@ -64,7 +64,7 @@ class RepositorySettings:
         self.repo = repo.resolve()
         self.identity = repository_identity(repo)
         self.key = hashlib.sha256(self.identity.encode("utf-8")).hexdigest()
-        self.directory = (haifa_home() if home is None else home) / "repositories"
+        self.directory = (giro_home() if home is None else home) / "repositories"
         self.path = self.directory / f"{self.key}.json"
         self.lock_path = self.directory / f"{self.key}.lock"
 

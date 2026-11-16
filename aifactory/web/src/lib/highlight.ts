@@ -54,7 +54,7 @@ export function highlightJson(raw: string | null | undefined): string {
   }
 }
 
-/** Highlight an already-parsed value (HAIFA payloads arrive parsed); a string may be JSON. */
+/** Highlight an already-parsed value (GIRO payloads arrive parsed); a string may be JSON. */
 export function highlightValue(value: unknown): string {
   if (value == null) return ''
   if (typeof value === 'string') return highlightJson(value)

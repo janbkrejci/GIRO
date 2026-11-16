@@ -46,7 +46,7 @@ def git(cwd: Path, *args: str) -> str:
 @pytest.fixture(autouse=True)
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """``$GIRO_HOME`` without a library, a git identity, and only claude on this machine."""
-    path = tmp_path / "haifa-home"
+    path = tmp_path / "giro-home"
     monkeypatch.setenv("GIRO_HOME", str(path))
     monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
@@ -415,7 +415,7 @@ def test_items_and_move_to_the_library(api: Api, tmp_path: Path) -> None:
     assert git(store.library_root(), "show", f"HEAD:{LIB_SYSTEM}") == "our builder"
     # the move reaches the library remote as a pull request branch, never on main
     assert git(library_bare, "rev-parse", "main") != done["library_commit"]
-    sent = git(library_bare, "for-each-ref", "--format=%(objectname)", "refs/heads/haifa-library/")
+    sent = git(library_bare, "for-each-ref", "--format=%(objectname)", "refs/heads/giro-library/")
     assert sent == done["library_commit"]
     assert SYSTEM not in git(a, "ls-tree", "-r", "--name-only", "HEAD")
     items = api.get("a", "factory/items")["data"]["items"]
@@ -601,21 +601,21 @@ def test_repo_only_workflow_inventory_and_move(api: Api, tmp_path: Path) -> None
     store.init_library("team")
     install(api, "a")
     root = tmp_path / "a"
-    path = ".factory/workflows/haifa-implement-task.yaml"
-    write(root, path, "name: haifa-implement-task\ndescription: Repo only\nsteps:\n  - build\n")
+    path = ".factory/workflows/giro-implement-task.yaml"
+    write(root, path, "name: giro-implement-task\ndescription: Repo only\nsteps:\n  - build\n")
     commit_push(root, "repo-only workflow")
     shared = api.client.get("/api/library").json()["data"]["items"]
-    assert not any(i["name"] == "haifa-implement-task" for i in shared)
+    assert not any(i["name"] == "giro-implement-task" for i in shared)
     inventory = api.client.get("/api/library/inventory").json()["data"]
-    row = next(i for i in inventory["items"] if i["name"] == "haifa-implement-task")
+    row = next(i for i in inventory["items"] if i["name"] == "giro-implement-task")
     assert row["repo"] == "a" and row["path"] == path and not row["ignored"]
     detail = api.client.post(
         "/api/library/repo-item", json={"repo": "a", "type": "workflow", "path": path}
     )
     assert detail.status_code == 200 and detail.json()["data"]["movable"]
-    options = {"type": "workflow", "name": "haifa-implement-task"}
+    options = {"type": "workflow", "name": "giro-implement-task"}
     plan = api.plan("a", "move", options=options)
     assert plan["blockers"] == []
     done = api.apply("a", plan, options=options)["data"]
     assert done["committed"] and not (root / path).exists()
-    assert api.client.get("/api/library/items/workflow/haifa-implement-task").status_code == 200
+    assert api.client.get("/api/library/items/workflow/giro-implement-task").status_code == 200

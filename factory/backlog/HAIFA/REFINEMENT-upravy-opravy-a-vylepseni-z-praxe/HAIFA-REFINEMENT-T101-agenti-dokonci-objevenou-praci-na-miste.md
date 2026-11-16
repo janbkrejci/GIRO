@@ -24,5 +24,5 @@ Hotovo znamená:
 - Stávající testy seed promptů procházejí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-02 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/196 · náklady $0.00

@@ -1,4 +1,4 @@
-"""The dashboard registry ``dashboard.yaml`` in the HAIFA home (``web/registry.py``)."""
+"""The dashboard registry ``dashboard.yaml`` in the GIRO home (``web/registry.py``)."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def _dir(path: Path) -> Path:
 
 
 def test_file_modes_and_content(tmp_path: Path) -> None:
-    home = tmp_path / "h" / "haifa"
+    home = tmp_path / "h" / "giro"
     registry = Registry(home)
     entry, created = registry.add(_dir(tmp_path / "repos" / "web"))
     assert created and entry.id == "web"

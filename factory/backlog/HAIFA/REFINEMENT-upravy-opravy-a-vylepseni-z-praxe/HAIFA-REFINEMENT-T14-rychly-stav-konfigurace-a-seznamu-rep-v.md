@@ -27,5 +27,5 @@ Mimo rozsah: výjimky Defenderu, změny intervalů pollingu ve frontendu, ostatn
 Tvrdá omezení: žádný zápis do indexu cílového repa, chování na POSIXu se nezhorší.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-13 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/25 · náklady $0.00

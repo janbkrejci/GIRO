@@ -30,5 +30,5 @@ Hotovo znamená:
 - Ručně: task, jehož běh selhal, je na Backlogu ve sloupci „Selhalo“ s červeným chipem, ne v Připraveno. Ve filtru stavů je volba Selhalo a souhrn na Přehledu ho počítá. Po úspěšném opakování se task přesune dál (Běží, review, Hotovo).
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-02 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/201 · náklady $1.89

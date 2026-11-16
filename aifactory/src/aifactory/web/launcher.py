@@ -6,7 +6,7 @@ CI checks), and ``start_publish`` (Publikovat with auto-merge) start
 ``<prefix> task run|return|resolve|retry|approve|publish ID --repo ROOT --json`` with
 ``start_new_session``, stdin closed, the repository root as cwd and the server's
 environment. The process's stdout (its JSON envelope) and stderr (its narration) go to two
-new files with mode 0600 in ``logs/`` of the HAIFA home (``aifactory.home``), never into
+new files with mode 0600 in ``logs/`` of the GIRO home (``aifactory.home``), never into
 the repository; their names carry the server's pid.
 
 The caller (off the event loop, in a thread pool) waits until the run is claimed in

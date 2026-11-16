@@ -20,5 +20,5 @@ Hotovo znamená:
 - Test souladu příručky (GUIDE-S01-T03) prochází.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-01 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/192 · náklady $0.00

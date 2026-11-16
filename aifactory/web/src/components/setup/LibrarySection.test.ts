@@ -97,7 +97,7 @@ describe('LibrarySection', () => {
     expect(wrapper.text()).toContain('je v knihovně')
   })
   it('moves the second repo’s identically named repo-only workflow through preview and confirmation', async () => {
-    const name = 'haifa-implement-task'
+    const name = 'giro-implement-task'
     const path = `.factory/workflows/${name}.yaml`
     const inventory = ['first', 'second'].map(repo => ({ repo, repo_name: repo, type: 'workflow', name, path, ignored: false, movable: true }))
     const plan = { action: 'move', type: 'workflow', name, base: 'develop', base_sha: 'b', digest: 'second-workflow-digest', target: 'base', library: 'abc',
@@ -320,7 +320,7 @@ describe('LibrarySection', () => {
     expect(wrapper.emitted('changed')).toHaveLength(1)
   })
   it('tells local changes, a pending pull request and a library in sync apart', async () => {
-    const pr = { branch: 'haifa-library/20261013-abc', base: 'main', title: 'library: import skill/lint', created: 'now', repo: 'janbkrejci/GIRO-LIBRARY', head_repo: 'ada/GIRO-LIBRARY', url: 'https://github.com/janbkrejci/GIRO-LIBRARY/pull/7', number: 7, state: 'OPEN', fork: true }
+    const pr = { branch: 'giro-library/20261013-abc', base: 'main', title: 'library: import skill/lint', created: 'now', repo: 'janbkrejci/GIRO-LIBRARY', head_repo: 'ada/GIRO-LIBRARY', url: 'https://github.com/janbkrejci/GIRO-LIBRARY/pull/7', number: 7, state: 'OPEN', fork: true }
     let status: Record<string, unknown> = { ahead: 1, unsent: 1, pull_requests: [] }
     const mock = api((url) => {
       if (url === '/api/library' || url === '/api/library?fetch=1') return envelope({ exists: true, items, library: '/h/library', remote: 'https://github.com/janbkrejci/GIRO-LIBRARY.git', branch: 'main', behind: 0, dirty: false, ...status })

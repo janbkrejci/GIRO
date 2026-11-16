@@ -37,5 +37,5 @@ Hotovo znamená:
 - `just web-test`, `just web-build`, `just lint`, `just typecheck` a `just pytest tests/e2e/test_intent_browser.py -n0` projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/104 · náklady $1.80

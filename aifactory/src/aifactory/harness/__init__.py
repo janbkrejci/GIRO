@@ -1,4 +1,4 @@
-"""Harness registry: the coding agents a HAIFA agent names explicitly (D13).
+"""Harness registry: the coding agents a GIRO agent names explicitly (D13).
 
 Every harness is a module with the same interface as ``aifactory.engine.agent_cc``:
 ``run(request, on_event, on_spawn, on_exit, on_wait) -> AgentResult``,

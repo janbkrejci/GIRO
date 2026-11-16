@@ -18,5 +18,5 @@ Důvod: AzureProvider does not implement checks, so with git_provider azure the 
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T28 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-18 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/109 · náklady $1.68

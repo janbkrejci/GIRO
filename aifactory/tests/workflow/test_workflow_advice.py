@@ -133,7 +133,7 @@ def test_engine_lifecycle_in_thread(
         )
     )
     from aifactory.harness import settings
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
 
     settings.write(
@@ -145,7 +145,7 @@ def test_engine_lifecycle_in_thread(
                 "pi": {"enabled": False},
             },
         },
-        haifa_home(),
+        giro_home(),
     )
     RepositorySettings(repo).update({"harness": "codex"})
     seen: list[Any] = []

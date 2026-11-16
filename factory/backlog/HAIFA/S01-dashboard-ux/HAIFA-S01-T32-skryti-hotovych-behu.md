@@ -19,5 +19,5 @@ V řádcích aktivních běhů na konci ikona pro archivaci (jako na GMailu), v 
 kliknutí na řádek i u archivovaných vede na detail.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-04 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/38 · náklady $2.72

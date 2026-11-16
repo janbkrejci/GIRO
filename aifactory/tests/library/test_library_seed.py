@@ -1,4 +1,4 @@
-"""The library seed: HAIFA's agents plus scout, and the package workflows."""
+"""The library seed: this repo's agents plus scout, and the package workflows."""
 
 from __future__ import annotations
 
@@ -34,8 +34,8 @@ from aifactory.workflow import (
     preflight,
 )
 
-HAIFA_ROOT = Path(__file__).resolve().parents[3]
-HAIFA_AGENTS = ("planner", "builder", "tester", "reviewer", "documenter")
+GIRO_ROOT = Path(__file__).resolve().parents[3]
+GIRO_AGENTS = ("planner", "builder", "tester", "reviewer", "documenter")
 HANDOFF = (
     "`<context_handoff_dir>` is an absolute path outside the repo. Write handoff files at "
     "exactly that path; never create a directory of the same name inside the repo or the "
@@ -54,7 +54,7 @@ EXPECTED_WRITES = {
     "reviewer": [],
     "documenter": ["factory/docs/"],
 }
-# HAIFA's own .factory/agents.yaml before its move under docs_root (protected files, so a
+# this repo's own .factory/agents.yaml before its move under docs_root (protected files, so a
 # task run cannot convert it); the seed already writes the docs_root paths
 UNCONVERTED_WRITES = {"planner": ["specs/"], "documenter": ["app_docs/"]}
 
@@ -129,7 +129,7 @@ def test_seed_workflows_are_not_copied() -> None:
     assert not (SEED_DIR / "workflows").exists()
 
 
-# Seed additions HAIFA's own `.factory/prompts` (protected, edited by the operator)
+# Seed additions this repo's own `.factory/prompts` (protected, edited by the operator)
 # may not have picked up yet. With or without them the prompts must be equal.
 PENDING_SEED_BLOCKS: dict[tuple[str, str], bytes] = {
     ("tester", "system"): (
@@ -177,63 +177,63 @@ _BUILDER_NEW_TESTS = (
     b"report what remains unverified to the tester.\n"
 )
 
-# Seed rewrites HAIFA's own `.factory/prompts` may not have picked up yet:
-# (agent, kind) -> (HAIFA's old text, the seed's new text).
+# Seed rewrites this repo's own `.factory/prompts` may not have picked up yet:
+# (agent, kind) -> (this repo's old text, the seed's new text).
 PENDING_SEED_REPLACEMENTS: dict[tuple[str, str], tuple[bytes, bytes]] = {
     ("builder", "system"): (_BUILDER_OLD_TESTS, _BUILDER_NEW_TESTS),
 }
 
 
 def _skip_without_repo_copy(name: str) -> None:
-    """Skip an agent HAIFA moved to the library: the repo has no copy to compare."""
-    if not (HAIFA_ROOT / ".factory/prompts" / name).is_dir():
-        pytest.skip(f"{name}: HAIFA uses the library copy (no .factory/prompts/{name})")
+    """Skip an agent this repo moved to the library: the repo has no copy to compare."""
+    if not (GIRO_ROOT / ".factory/prompts" / name).is_dir():
+        pytest.skip(f"{name}: GIRO uses the library copy (no .factory/prompts/{name})")
 
 
-def _haifa_prompt(name: str, kind: str) -> bytes:
-    return (HAIFA_ROOT / ".factory/prompts" / name / f"{kind}.md").read_bytes()
+def _giro_prompt(name: str, kind: str) -> bytes:
+    return (GIRO_ROOT / ".factory/prompts" / name / f"{kind}.md").read_bytes()
 
 
 def _pending(name: str) -> bool:
-    """Whether HAIFA's copy of agent ``name`` still lacks a seed addition."""
+    """Whether this repo's copy of agent ``name`` still lacks a seed addition."""
     return any(
-        block not in _haifa_prompt(agent, kind)
+        block not in _giro_prompt(agent, kind)
         for (agent, kind), block in PENDING_SEED_BLOCKS.items()
         if agent == name
     ) or any(
-        new not in _haifa_prompt(agent, kind)
+        new not in _giro_prompt(agent, kind)
         for (agent, kind), (_old, new) in PENDING_SEED_REPLACEMENTS.items()
         if agent == name
     )
 
 
-@pytest.mark.parametrize("name", HAIFA_AGENTS)
+@pytest.mark.parametrize("name", GIRO_AGENTS)
 @pytest.mark.parametrize("kind", ["system", "user"])
-def test_seed_prompts_equal_haifa(name: str, kind: str) -> None:
+def test_seed_prompts_equal_this_repo(name: str, kind: str) -> None:
     _skip_without_repo_copy(name)
     seed = (SEED_DIR / "agents" / name / f"{kind}.md").read_bytes()
-    haifa = _haifa_prompt(name, kind)
+    ours = _giro_prompt(name, kind)
     block = PENDING_SEED_BLOCKS.get((name, kind))
     if block is not None:
         assert block in seed
-        seed, haifa = seed.replace(block, b""), haifa.replace(block, b"")
+        seed, ours = seed.replace(block, b""), ours.replace(block, b"")
     replacement = PENDING_SEED_REPLACEMENTS.get((name, kind))
     if replacement is not None:
         old, new = replacement
         assert new in seed
         seed = seed.replace(new, old)
-        haifa = haifa.replace(new, old)
-    assert seed == haifa
+        ours = ours.replace(new, old)
+    assert seed == ours
 
 
-def test_seed_bindings_preserve_haifa_roles() -> None:
-    config = load_config(WorktreeSource(HAIFA_ROOT))
+def test_seed_bindings_preserve_this_repo_roles() -> None:
+    config = load_config(WorktreeSource(GIRO_ROOT))
     roster = {agent.name: agent for agent in config.agents.agents}
-    for name in HAIFA_AGENTS:
+    for name in GIRO_AGENTS:
         entry = roster_entry(load_library_item(SEED_DIR, "agent", name), config.settings)
         agent = roster[name]
         assert entry["purpose"] == agent.purpose
-        # Seed defaults are stable; the operator may switch HAIFA's local roster
+        # Seed defaults are stable; the operator may switch GIRO's local roster
         # to Codex or mix providers without changing the library's role templates.
         assert entry["harness"] == "claude"
         assert entry["model"] == "claude-opus-5-5"
@@ -242,17 +242,17 @@ def test_seed_bindings_preserve_haifa_roles() -> None:
         assert agent.writes in (EXPECTED_WRITES[name], UNCONVERTED_WRITES.get(name))
 
 
-@pytest.mark.parametrize("name", HAIFA_AGENTS)
-def test_seed_version_equals_haifa_repo_copy(name: str) -> None:
+@pytest.mark.parametrize("name", GIRO_AGENTS)
+def test_seed_version_equals_this_repo_copy(name: str) -> None:
     _skip_without_repo_copy(name)
     if _pending(name):
         pytest.skip(f"{name}: .factory/prompts lacks a seed addition (PENDING_SEED_BLOCKS)")
     seed = load_library_item(SEED_DIR, "agent", name)
     # A local prompt can inherit its purpose from the library without agents.yaml.
-    config = load_config(WorktreeSource(HAIFA_ROOT))
+    config = load_config(WorktreeSource(GIRO_ROOT))
     agent = next(agent for agent in config.agents.agents if agent.name == name)
     assert seed.version == agent_version(
-        agent.purpose, _haifa_prompt(name, "system"), _haifa_prompt(name, "user")
+        agent.purpose, _giro_prompt(name, "system"), _giro_prompt(name, "user")
     )
 
 
@@ -322,7 +322,7 @@ def test_init_library_writes_the_factory_skill(
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.setenv("GIRO_HOME", str(home / ".config" / "haifa"))
+    monkeypatch.setenv("GIRO_HOME", str(home / ".config" / "giro"))
     monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")

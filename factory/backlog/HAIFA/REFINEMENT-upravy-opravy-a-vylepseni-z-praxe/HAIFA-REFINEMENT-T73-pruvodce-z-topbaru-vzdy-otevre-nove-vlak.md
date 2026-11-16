@@ -26,5 +26,5 @@ Hotovo znamená:
 - Statický build v `aifactory/src/aifactory/web/static/` odpovídá zdroji.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-24 · workflow plan-build-test · PR https://github.com/janbkrejci/HAIFA/pull/152 · náklady $0.00

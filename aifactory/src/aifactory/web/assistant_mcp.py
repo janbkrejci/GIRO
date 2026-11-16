@@ -1,6 +1,6 @@
 """Stdio MCP transport for the guide gate; no shell or arbitrary file access.
 
-The dashboard fixes the HAIFA home and repository scope at process startup. Tool
+The dashboard fixes the GIRO home and repository scope at process startup. Tool
 arguments are passed as an argv array to the existing gate, never to a shell.
 """
 
@@ -44,7 +44,7 @@ def dispatch(message: dict[str, Any], home: Path, repo_id: str | None) -> dict[s
         return {
             "protocolVersion": requested if requested in supported else supported[-1],
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "haifa-guide", "version": "1"},
+            "serverInfo": {"name": "giro-guide", "version": "1"},
         }
     if method == "ping":
         return {}

@@ -47,7 +47,7 @@ def _write(
 
 
 def test_record_and_read_from_offset(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    assert mainwrites.journal(repo) == (repo / ".git" / "haifa" / "main-writes.jsonl").resolve()
+    assert mainwrites.journal(repo) == (repo / ".git" / "giro" / "main-writes.jsonl").resolve()
     assert mainwrites.offset(repo) == 0
     monkeypatch.delenv(basemoves.RUN_ENV, raising=False)
     _record(repo, "backlog/a.md", None, b"a\n")

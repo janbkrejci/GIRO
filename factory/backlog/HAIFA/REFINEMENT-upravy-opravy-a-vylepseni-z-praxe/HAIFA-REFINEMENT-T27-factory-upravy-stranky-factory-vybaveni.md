@@ -46,5 +46,5 @@ Dnes se warning o necommitnuté konfiguraci zobrazuje zvlášť pro každý soub
 - Pokud se mění texty a názvy v UI, aktualizovat i průvodce v `aifactory/src/aifactory/guide/`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/39 · náklady $8.00

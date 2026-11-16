@@ -29,5 +29,5 @@ Done means:
 - `aifactory/validation/README.md` popisuje režim azure: co potřebuje a jak po běhu uklidit PR a větve.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-18 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/111 · náklady $8.67

@@ -58,9 +58,9 @@ def make_bundle(
     *,
     tamper: str | None = None,
     drop: str | None = None,
-    brand: str = "haifa",
+    brand: str = "giro",
 ) -> Path:
-    """A ``haifa-<version>.zip`` laid out like ``bundle/build.py`` makes it."""
+    """A ``<brand>-<version>.zip`` laid out like ``bundle/build.py`` makes it."""
     wheel = f"aifactory-{version}-py3-none-any.whl"
     files = {
         wheel: _wheel(version),
@@ -162,7 +162,7 @@ def test_newer_version_installs_with_uv(tmp_path: Path, uv_log: Path, capsys: Ca
     assert "dashboard" in data["next"]
     cwd, argv = uv_log.read_text("utf-8").strip().split("|")
     assert argv == f"tool install --force {wheel} --constraints constraints.txt"
-    assert Path(cwd).name == f"haifa-{NEWER}"
+    assert Path(cwd).name == f"giro-{NEWER}"
     assert not Path(cwd).exists()  # the temporary directory is gone
     # the new factory refreshes the library to its seed
     assert _factory_calls(uv_log) == ["library status --json", "library seed"]
@@ -237,7 +237,7 @@ def test_older_version_is_up_to_date(tmp_path: Path, uv_log: Path, capsys: Capsy
 
 
 def test_broken_zip_is_bundle_invalid(tmp_path: Path, uv_log: Path, capsys: Capsys) -> None:
-    bundle = tmp_path / f"haifa-{NEWER}.zip"
+    bundle = tmp_path / f"giro-{NEWER}.zip"
     bundle.write_bytes(b"not a zip at all")
     code, obj = _run(capsys, str(bundle))
     assert code == 2 and obj["error"]["code"] == "bundle_invalid"
@@ -279,7 +279,7 @@ def test_editable_install_is_refused(
 
 
 def test_editable_detection_from_direct_url() -> None:
-    editable = json.dumps({"url": "file:///src/haifa/aifactory", "dir_info": {"editable": True}})
+    editable = json.dumps({"url": "file:///src/giro/aifactory", "dir_info": {"editable": True}})
     plain = json.dumps({"url": "file:///tmp/aifactory.whl", "archive_info": {}})
     assert upgrade.editable_from_direct_url(editable) is True
     assert upgrade.editable_from_direct_url(plain) is False
@@ -332,7 +332,7 @@ def test_missing_file_url_is_download_failed(tmp_path: Path, capsys: Capsys) -> 
 
 
 @pytest.mark.parametrize(
-    "url", ["http://example.invalid/haifa-9.0.0.zip", "ftp://example.invalid/haifa.zip"]
+    "url", ["http://example.invalid/giro-9.0.0.zip", "ftp://example.invalid/giro.zip"]
 )
 def test_other_url_scheme_is_refused(url: str, uv_log: Path, capsys: Capsys) -> None:
     code, obj = _run(capsys, url)
@@ -479,8 +479,8 @@ def test_giro_zip_with_aifactory_wheel_is_accepted(tmp_path: Path) -> None:
     assert error.value.code == "up_to_date"
 
 
-def test_giro_brand_rejects_legacy_root_and_renamed_distribution(tmp_path: Path) -> None:
-    old_root = make_bundle(tmp_path / "legacy", version="1.0.1")
+def test_giro_brand_rejects_foreign_root_and_renamed_distribution(tmp_path: Path) -> None:
+    old_root = make_bundle(tmp_path / "foreign", version="1.0.1", brand="other")
     with pytest.raises(UpgradeError, match="release identity"):
         upgrade.run_upgrade(
             str(old_root), expected_version="1.0.1", bundle_brand="giro", dry_run=True

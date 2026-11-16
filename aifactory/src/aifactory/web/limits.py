@@ -9,7 +9,7 @@ carries an ``error`` and no windows; the endpoint itself never fails because of 
 The limits come only from the interactions with the harnesses, never from a request of
 their own: every value is the last one a harness reported (``measured_at``).
 
-- Claude: the last ``rate_limit_event`` in the stream-json output of an agent of a HAIFA
+- Claude: the last ``rate_limit_event`` in the stream-json output of an agent of a GIRO
   run (``<repo>/.factory/data/sessions/<run>/<agent>/raw_output.jsonl``) of the
   registered repositories. ``measured_at`` is the time the output file was last written.
 - Codex: the last ``rate_limits`` of a token count in Codex's own session logs
@@ -126,7 +126,7 @@ def _reversed_lines(path: Path) -> Iterator[str]:
 
 
 def _claude_outputs(roots: Iterable[Path], limit: int) -> list[Path]:
-    """The agent outputs of HAIFA runs in ``roots``, last written first, at most ``limit``."""
+    """The agent outputs of GIRO runs in ``roots``, last written first, at most ``limit``."""
     found: list[tuple[float, Path]] = []
     for root in dict.fromkeys(roots):
         for path in (root / SESSIONS_DIR).glob("*/*/raw_output.jsonl"):
@@ -349,7 +349,7 @@ class LimitsSource:
     Shown are the harnesses a repository uses plus those ``available`` on this machine (default:
     ``available_harnesses`` with the real readers, none with injected ``readers``), so
     switching a roster does not hide the other subscription. ``roots`` gives the registered
-    repositories whose HAIFA runs the Claude reader searches; the repository asked about is
+    repositories whose GIRO runs the Claude reader searches; the repository asked about is
     searched too.
     """
 

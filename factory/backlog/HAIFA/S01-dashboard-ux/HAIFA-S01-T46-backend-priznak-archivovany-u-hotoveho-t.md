@@ -26,5 +26,5 @@ Hotovo znamená:
 - Nové i dosavadní testy v `aifactory/tests/run/test_queue_prefs.py` a `aifactory/tests/web/test_web_backlog_queue.py` projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-24 · workflow plan-build-test · PR https://github.com/janbkrejci/HAIFA/pull/149 · náklady $0.00

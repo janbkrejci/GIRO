@@ -32,11 +32,10 @@ def test_missing_status_is_added_to_header() -> None:
 
 def test_existing_section_with_comment_keeps_it() -> None:
     text = (
-        "---\nid: T1\nstatus: todo\n---\n\n## Zadání\nDo it.\n\n"
-        "## Běhy\n\n<!-- doplňuje HAIFA -->\n"
+        "---\nid: T1\nstatus: todo\n---\n\n## Zadání\nDo it.\n\n## Běhy\n\n<!-- doplňuje GIRO -->\n"
     )
     out = mark_done(text, ENTRY)
-    assert out.endswith(f"## Běhy\n\n<!-- doplňuje HAIFA -->\n{ENTRY}\n")
+    assert out.endswith(f"## Běhy\n\n<!-- doplňuje GIRO -->\n{ENTRY}\n")
     assert out.count("## Běhy") == 1
 
 

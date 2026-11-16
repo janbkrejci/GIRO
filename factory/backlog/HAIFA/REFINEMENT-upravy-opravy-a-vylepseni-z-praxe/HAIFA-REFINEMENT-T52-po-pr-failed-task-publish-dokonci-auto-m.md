@@ -44,5 +44,5 @@ Princip: dočasná chyba hostingu na konci běhu nesmí změnit výsledek. Po `t
 - `just lint`, `just typecheck` a pytest dotčených balíčků (`tests/providers`, `tests/run`, `tests/review`, `tests/web`) jsou zelené.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/118 · náklady $0.00

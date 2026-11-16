@@ -24,5 +24,5 @@ Hotovo znamená:
 Mimo rozsah: backend parsování a ukládání návrhů, prompt agenta `guide`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/105 · náklady $1.11

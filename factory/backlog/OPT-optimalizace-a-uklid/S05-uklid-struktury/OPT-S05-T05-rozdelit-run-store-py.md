@@ -17,4 +17,4 @@ Hotovo znamená:
 - Schéma databáze se nemění a existující `trace.db` se otevře bez migrace.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

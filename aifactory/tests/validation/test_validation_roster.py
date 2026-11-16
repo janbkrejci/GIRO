@@ -21,7 +21,7 @@ from validation.scenarios import _roster_gap
 
 from validation import runner, sandbox
 
-HAIFA_ROOT = Path(__file__).resolve().parents[3]
+GIRO_ROOT = Path(__file__).resolve().parents[3]
 PI_HAIKU = Path("aifactory/validation/rosters/pi-haiku")
 TEMPLATE_HARNESSES = {
     "plan": "claude",
@@ -99,11 +99,11 @@ def test_resolve_roster_requires_the_four_agents(tmp_path: Path) -> None:
         resolve_roster(tmp_path)
 
 
-def test_resolve_roster_relative_to_haifa_root() -> None:
+def test_resolve_roster_relative_to_giro_root() -> None:
     rel = Path("aifactory/validation/template/.factory")
     # the template's .factory has agents.yaml and workflows/simple-sdlc.yaml
-    assert resolve_roster(rel) == (HAIFA_ROOT / rel).resolve()
-    assert resolve_roster(PI_HAIKU) == (HAIFA_ROOT / PI_HAIKU).resolve()
+    assert resolve_roster(rel) == (GIRO_ROOT / rel).resolve()
+    assert resolve_roster(PI_HAIKU) == (GIRO_ROOT / PI_HAIKU).resolve()
 
 
 def test_pi_haiku_roster_harnesses(tmp_path: Path) -> None:
@@ -200,7 +200,7 @@ def test_validate_local_pi_haiku_roster(tmp_path: Path, marker: Path) -> None:
             "--workdir",
             str(work),
         ],
-        cwd=HAIFA_ROOT,
+        cwd=GIRO_ROOT,
         capture_output=True,
         text=True,
         timeout=600,
@@ -214,7 +214,7 @@ def test_validate_local_pi_haiku_roster(tmp_path: Path, marker: Path) -> None:
 
     summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
     assert summary["results"] == {"R5": "passed"}, proc.stderr[-4000:]
-    assert summary["roster"] == str((HAIFA_ROOT / PI_HAIKU).resolve())
+    assert summary["roster"] == str((GIRO_ROOT / PI_HAIKU).resolve())
     assert summary["harness_per_step"]["build"] == "pi"
     assert "codex" not in summary["harness_per_step"].values()
     assert not marker.exists()

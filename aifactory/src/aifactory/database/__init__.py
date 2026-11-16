@@ -1,4 +1,4 @@
-"""SQLite connections, optionally executed by a shared HAIFA database service."""
+"""SQLite connections, optionally executed by a shared GIRO database service."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ import yaml
 from aifactory import yamlload
 from aifactory.config.errors import ConfigError, ConfigIssue
 from aifactory.environment import value
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 
 _ENDPOINTS: dict[str, tuple[str, str]] = {}
 MACHINE = hashlib.sha256(f"{socket.gethostname()}:{uuid.getnode()}".encode()).hexdigest()
@@ -48,7 +48,7 @@ def canonical_remote(remote: str) -> str:
 
 def database_path(root: Path, local: Path, url: str | None = None) -> Path:
     """Global database.yaml / GIRO_DATABASE_URL, with an optional local override."""
-    label = str(haifa_home() / "database.yaml")
+    label = str(giro_home() / "database.yaml")
     try:
         if url is None:
             url = value("DATABASE_URL")
@@ -209,3 +209,28 @@ def connect(database: str | Path, **options: Any) -> sqlite3.Connection:
         return cast(sqlite3.Connection, sqlite3.connect(database, **options))
     options = {key: value for key, value in options.items() if key != "uri"}
     return cast(sqlite3.Connection, RemoteConnection(*endpoint, options))
+
+
+# Shared databases created before GIRO name these tables with the old product prefix.
+_RENAMED_TABLES = {
+    "giro_backlog": "haifa_backlog",
+    "giro_backlog_revision": "haifa_backlog_revision",
+    "giro_owners": "haifa_owners",
+}
+
+
+def adopt_legacy_table(conn: sqlite3.Connection, name: str) -> None:
+    """Rename the pre-GIRO table of `name` to `name` when only the old one exists.
+
+    ``ALTER TABLE ... RENAME`` keeps the rows and rewrites triggers that refer to it;
+    old trigger names are left to the caller.
+    """
+    old = _RENAMED_TABLES[name]
+    present = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (?, ?)", (old, name)
+        )
+    }
+    if present == {old}:
+        conn.execute(f"ALTER TABLE {old} RENAME TO {name}")

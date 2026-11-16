@@ -8,4 +8,4 @@ status: cancelled
 Dokumentace API.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

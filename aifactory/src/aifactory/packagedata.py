@@ -1,6 +1,6 @@
 """Packaged data files of aifactory, read once per process.
 
-HAIFA builds itself: merging a task replaces files of this package under running processes.
+GIRO builds itself: merging a task replaces files of this package under running processes.
 Code already in memory must keep the data it came with; otherwise a run that started before
 the merge meets a new ``roles.yaml`` with a code step it does not know. The default roles and
 workflows (``defaults/`` and ``engine/defaults/``) are read when this module is first imported

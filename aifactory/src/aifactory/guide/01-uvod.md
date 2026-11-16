@@ -4,7 +4,7 @@ Goal in. Release out.
 
 GIRO je lokální dashboard a nástroj `giro`, který pouští kódovací agenty (Claude Code, Codex, pi) na tasky z backlogu v tvých Git repech. **Hledat v příručce** hledá ve všech kapitolách, i bez diakritiky.
 
-## Jak GIRO funguje <!-- section:jak-haifa-funguje -->
+## Jak GIRO funguje <!-- section:jak-giro-funguje -->
 
 1. **Backlog** je strom markdown souborů v repu (`factory/backlog/<projekt>/<step>/<task>.md`) se zadáními a parametry tasků.
 2. **Běh** založí tasku worktree a větev a provede jeho **workflow**: role agentů (planner, builder, tester, reviewer…) a kódové kroky (testy, commit).

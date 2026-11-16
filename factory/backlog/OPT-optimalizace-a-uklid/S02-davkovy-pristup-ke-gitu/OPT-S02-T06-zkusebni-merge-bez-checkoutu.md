@@ -18,4 +18,4 @@ Hotovo znamená:
 - Test cesty `merge-tree` se se starším gitem přeskočí, test záložní cesty běží vždy.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

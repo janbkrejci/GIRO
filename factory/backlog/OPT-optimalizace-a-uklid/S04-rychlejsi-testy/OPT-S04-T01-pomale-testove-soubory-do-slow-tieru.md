@@ -16,4 +16,4 @@ Hotovo znamená:
 - `tests/test_tiers.py` projde a `pytest -m 'not slow' --collect-only` uvedené testy nevybere.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

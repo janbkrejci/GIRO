@@ -7,7 +7,7 @@ engine depends on the process's cwd. With ``max_parallel_runs`` above 1,
 ``<prefix> task run ID --repo ROOT --json --member``, the same way the dashboard
 starts runs (``web.launcher``): ``start_new_session``, stdin closed, the repository
 root as cwd, stdout (the JSON envelope) and stderr (the narration) in two new files
-with mode 0600 in ``logs/`` of the HAIFA home.
+with mode 0600 in ``logs/`` of the GIRO home.
 
 ``--member`` runs exactly one task (never a chain). With repository-local
 ``auto_merge`` enabled, the member process merges its own PR (only it holds the workflow run with

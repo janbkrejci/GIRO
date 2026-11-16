@@ -27,5 +27,5 @@ Stejný zastaralý stav čtou i kanban (`web/backlog.py`, `in_review` z `store.o
 - `just lint`, `just typecheck` a testy dotčených balíčků projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/45 · náklady $5.07

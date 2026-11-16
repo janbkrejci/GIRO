@@ -18,4 +18,4 @@ Hotovo znamená:
 - Test nového endpointu, browser test přehledu projde, `just web-build`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

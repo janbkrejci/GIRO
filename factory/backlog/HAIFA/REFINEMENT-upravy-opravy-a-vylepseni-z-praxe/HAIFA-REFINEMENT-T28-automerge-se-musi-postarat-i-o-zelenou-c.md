@@ -32,5 +32,5 @@ Schválím-li PR a dám ho mergnout, nebo když ho jde mergnout automerge, tak s
 - Dokumentace chování v průvodci (`guide/07-review.md`) odpovídá novému chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/40 · náklady $7.87

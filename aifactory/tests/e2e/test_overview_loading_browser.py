@@ -42,9 +42,9 @@ def test_slow_repo_loading_overlay() -> None:
         browser = _launch(playwright)
         try:
             page = browser.new_page()
-            page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
             page.route("**/*", serve)
-            page.goto("http://haifa.test/#/overview")
+            page.goto("http://giro.test/#/overview")
             card = page.locator('[data-test="overview-card"][data-repo="haifa"]')
             overlay = card.locator('[data-test="repo-loading"]')
             expect(overlay).to_be_visible()
@@ -109,9 +109,9 @@ def test_overview_shows_local_controls_without_legacy_preview() -> None:
         browser = _launch(playwright)
         try:
             page = browser.new_page()
-            page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
             page.route("**/*", serve)
-            page.goto("http://haifa.test/#/overview")
+            page.goto("http://giro.test/#/overview")
             controls = page.locator('[data-test="local-repo-controls"]')
             expect(controls).to_be_visible()
             expect(controls.locator('[data-test="legacy-preview"]')).to_have_count(0)
@@ -225,9 +225,9 @@ def test_overview_backlog_indicator_refreshes_in_both_modes() -> None:
         browser = _launch(playwright)
         try:
             page = browser.new_page()
-            page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
             page.route("**/*", serve)
-            page.goto("http://haifa.test/#/overview")
+            page.goto("http://giro.test/#/overview")
             calm_row = page.locator('[data-test="calm-repo"][data-repo="haifa"]')
             active_card = page.locator('[data-test="overview-card"][data-repo="active"]')
             expect(calm_row.locator('[data-test="project-section"]')).to_have_count(0)
@@ -272,7 +272,7 @@ def test_overview_backlog_indicator_refreshes_in_both_modes() -> None:
                 page.locator('[data-repo="active"] [data-test="repo-backlog-status"]')
             ).to_have_text("Stav backlogu se nepodařilo přečíst")
             page.locator('[data-repo="active"] [data-test="repo-backlog-status"]').click()
-            expect(page).to_have_url("http://haifa.test/#/r/active/backlog")
+            expect(page).to_have_url("http://giro.test/#/r/active/backlog")
         finally:
             browser.close()
 
@@ -312,10 +312,10 @@ def test_overview_locale_at_narrow_width(locale: str, heading: str, running_labe
         try:
             page = browser.new_page(viewport={"width": 390, "height": 844})
             page.add_init_script(
-                f"localStorage.setItem('haifa.dashboard.locale', {json.dumps(locale)})"
+                f"localStorage.setItem('giro.dashboard.locale', {json.dumps(locale)})"
             )
             page.route("**/*", serve)
-            page.goto("http://haifa.test/#/overview")
+            page.goto("http://giro.test/#/overview")
             view = page.locator('[data-test="repo-page"]')
             expect(view.locator("h1")).to_have_text(heading)
             expect(view.locator('[data-test="total-running"]')).to_contain_text(running_label)

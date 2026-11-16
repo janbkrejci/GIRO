@@ -26,5 +26,5 @@ Hotovo znamená:
 - U lekce s cílem `seed` má task writes `aifactory/src/aifactory/seed/agents/<role>/`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-01 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/193 · náklady $1.57

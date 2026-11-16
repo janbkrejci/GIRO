@@ -113,7 +113,6 @@ def test_bundle_install_guide_is_the_installation_chapter() -> None:
     assert "[Řešení problémů]" not in text and "kapitole Řešení problémů" in text
     assert text.count("\n") == source.count("\n")
     assert "giro-9.9.9.zip" in text
-    assert "haifa-H.zip" not in text
     assert "uv tool uninstall aifactory" in text
     assert "--keep-data" in text
     assert "GIRO_LIBRARY_URL" in text
@@ -124,5 +123,5 @@ def test_bundle_install_guide_is_the_installation_chapter() -> None:
 
 @pytest.mark.parametrize("locale", ["cs", "en"])
 def test_rebranded_sections_keep_their_public_urls(locale: str) -> None:
-    assert "jak-haifa-funguje" in _sections(guide.chapter("uvod", locale=locale).markdown)
+    assert "jak-giro-funguje" in _sections(guide.chapter("uvod", locale=locale).markdown)
     assert "zalozka-factory" in _sections(guide.chapter("konfigurace", locale=locale).markdown)

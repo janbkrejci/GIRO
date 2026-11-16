@@ -37,5 +37,5 @@ Hotovo znamená:
 - Dashboard (`#/guide`) a bundle (`INSTALL.md`) fungují. Testy guide, bundlu a GuideView projdou podle AGENTS.md.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/64 · náklady $4.70

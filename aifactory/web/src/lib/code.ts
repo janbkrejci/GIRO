@@ -1,4 +1,4 @@
-// HAIFA builds itself: a merge into this repo can change the aifactory package under the running
+// GIRO builds itself: a merge into this repo can change the aifactory package under the running
 // dashboard. /api/code says whether the code on disk differs from the one the server started
 // with; /api/restart replaces the server process. Writes are refused (409 stale_code) meanwhile.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'

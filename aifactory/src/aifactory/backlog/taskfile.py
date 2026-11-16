@@ -115,7 +115,7 @@ FIELD_ORDER: tuple[str, ...] = (
     "auto_merge",
     "auto_heal",
 )
-RUNS_PLACEHOLDER = "<!-- doplňuje HAIFA při schválení PR -->"
+RUNS_PLACEHOLDER = "<!-- doplňuje GIRO při schválení PR -->"
 _UNSAFE_CHARS = set(":#,[]{}&*!|>'\"%@`\n\r\t")
 
 

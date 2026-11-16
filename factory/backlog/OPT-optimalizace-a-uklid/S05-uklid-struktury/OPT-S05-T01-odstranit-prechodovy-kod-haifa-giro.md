@@ -26,4 +26,4 @@ Hotovo znamená:
 - Rozhodnutí je zapsané v `docs/decisions.md`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

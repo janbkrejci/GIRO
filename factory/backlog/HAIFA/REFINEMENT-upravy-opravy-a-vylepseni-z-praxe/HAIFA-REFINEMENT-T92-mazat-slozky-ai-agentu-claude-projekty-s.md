@@ -39,5 +39,5 @@ Hotovo znamená:
 - Odstranění worktree (approve, `task clean`) smaže jeho Claude složku.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-27 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/181 · náklady $0.00

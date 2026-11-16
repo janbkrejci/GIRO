@@ -18,5 +18,5 @@ Důvod: Bod 4 tasku HAIFA-REFINEMENT-T33 vyžaduje změnu v aifactory/src/aifact
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T33 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/47 · náklady $1.19

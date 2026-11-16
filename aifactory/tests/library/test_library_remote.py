@@ -153,7 +153,7 @@ def test_write_in_b_behind_a_then_pull(homes: Homes, capsys: Capsys) -> None:
     homes.use("a")
     first = _ok(capsys, _import(homes, "lint"))
     sent = first["pull_request"]
-    assert sent["branch"].startswith("haifa-library/") and sent["url"] is None
+    assert sent["branch"].startswith("giro-library/") and sent["url"] is None
     assert _git(homes.bare, "rev-parse", "main") == main
     assert _git(homes.bare, "rev-parse", sent["branch"]) == first["commit"]
     assert _git(lib_a, "rev-parse", "HEAD") == first["commit"]

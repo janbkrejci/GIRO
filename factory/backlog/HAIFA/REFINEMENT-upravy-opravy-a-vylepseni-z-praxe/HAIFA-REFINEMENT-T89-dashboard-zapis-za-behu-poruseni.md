@@ -29,5 +29,5 @@ writes: [aifactory/src/aifactory/run/, aifactory/src/aifactory/web/, aifactory/s
 - Dashboard ukáže, že base po `backlog commit` čeká na `config pull`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-27 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/178 · náklady $0.00

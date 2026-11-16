@@ -50,5 +50,5 @@ Soubor drobných úprav z praxe. Všechny se týkají UI dashboardu a knihovny.
 - Doplnit backendové testy pro obnovu knihovny a vytvoření skillu při instalaci.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/49 · náklady $10.16

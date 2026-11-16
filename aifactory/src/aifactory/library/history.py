@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.library.model import ItemType
 from aifactory.library.tree import item_tree_path, item_versions
 from aifactory.oscompat import atomic_write
@@ -60,7 +60,7 @@ class Revision:
 
 
 def cache_dir(environ: Mapping[str, str] | None = None) -> Path:
-    return haifa_home(environ) / "cache" / "library"
+    return giro_home(environ) / "cache" / "library"
 
 
 def changes(root: Path, path: str, rev: str = "HEAD") -> list[Change]:

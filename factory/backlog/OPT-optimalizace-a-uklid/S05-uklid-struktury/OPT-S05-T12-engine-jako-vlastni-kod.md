@@ -20,4 +20,4 @@ Hotovo znamená:
 - Testy `tests/engine/` a `tests/harness/` projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

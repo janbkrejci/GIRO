@@ -1,6 +1,6 @@
 """Fingerprint of the aifactory package on disk, so a long-running process notices an update.
 
-HAIFA builds itself: merging a task replaces files of this package under a running dashboard.
+GIRO builds itself: merging a task replaces files of this package under a running dashboard.
 ``CodeWatch`` takes the fingerprint when it is created and compares it with the files on disk.
 The fingerprint covers every file of the package (relative path, size and modification time,
 no contents) except ``__pycache__``.

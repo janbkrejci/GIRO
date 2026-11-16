@@ -39,7 +39,7 @@ def proposal(**overrides: Any) -> dict[str, Any]:
 def machine_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Computer settings with claude as default and every CLI found on PATH."""
     from aifactory.harness import settings
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
 
     monkeypatch.setattr("aifactory.harness.settings.shutil.which", lambda name: f"/bin/{name}")
     value = settings.HarnessSettings(
@@ -50,7 +50,7 @@ def machine_settings(monkeypatch: pytest.MonkeyPatch) -> None:
             "pi": settings.HarnessChoice(enabled=False),
         },
     )
-    home = haifa_home()
+    home = giro_home()
     home.mkdir(parents=True, exist_ok=True)
     (home / settings.FILE).write_text(value.model_dump_json())
 

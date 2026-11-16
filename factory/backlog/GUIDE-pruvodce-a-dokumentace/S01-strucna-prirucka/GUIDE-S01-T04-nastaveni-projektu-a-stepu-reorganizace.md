@@ -27,5 +27,5 @@ Vytáhnout nastavení na úroveň stromu backlogu: z řádku projektu/stepu ve s
 - Statický build dashboardu je přegenerovaný (`just web-build`).
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/100 · náklady $3.36

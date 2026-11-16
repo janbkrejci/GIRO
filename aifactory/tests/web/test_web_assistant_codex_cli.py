@@ -81,7 +81,7 @@ class Handler(BaseHTTPRequestHandler):
                 "type": "function_call",
                 "id": f"fc_{index}",
                 "call_id": f"call_{index}",
-                "namespace": "mcp__haifa_guide",
+                "namespace": "mcp__giro_guide",
                 "name": "guide",
                 "arguments": json.dumps({"argv": argv}),
             }
@@ -219,9 +219,9 @@ def test_native_tools_are_absent_and_hallucinated_shell_is_blocked_on_new_and_re
             "list_mcp_resources",
             "list_mcp_resource_templates",
             "read_mcp_resource",
-            "mcp__haifa_guide",
+            "mcp__giro_guide",
         }
-        namespace = next(tool for tool in tools if tool.get("name") == "mcp__haifa_guide")
+        namespace = next(tool for tool in tools if tool.get("name") == "mcp__giro_guide")
         assert [tool["name"] for tool in namespace["tools"]] == ["guide"]
     final_input = model_server.requests[3]["input"]
     outputs = {

@@ -43,5 +43,5 @@ Když existují víc než dva harnessy, určí se řetěz, v jakém pořadí se 
 - Frontend testy pro nový prvek v `ContainerSettings`. Statický build dashboardu je přegenerovaný.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/97 · náklady $9.75

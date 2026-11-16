@@ -9,11 +9,11 @@ information the guard of run A would blame its agent, undo the write and fail
 the run.
 
 Every such write appends one JSON line to
-``<git common dir>/haifa/main-writes.jsonl`` *after* the file was replaced: the
+``<git common dir>/giro/main-writes.jsonl`` *after* the file was replaced: the
 checkout and path, the sha256 of the content before (``None`` when the file did
 not exist) and after the write, the mode of the file and ``run`` — the value of
 ``GIRO_RUN_ID`` in the writing process. The written content itself is kept by
-digest under ``<git common dir>/haifa/main-writes/<sha256>`` so the guard can put
+digest under ``<git common dir>/giro/main-writes/<sha256>`` so the guard can put
 it back when the agent overwrites it. A task run sets ``GIRO_RUN_ID`` while its
 workflow runs; agents inherit it, and so does every ``factory`` command an agent
 starts, so an entry carrying the run's own id counts as a write of the agent.
@@ -61,7 +61,7 @@ class Accepted:
 
 def _common_dir(root: Path) -> Path | None:
     common = gitops.common_dir(root)
-    return None if common is None else common / "haifa"
+    return None if common is None else common / "giro"
 
 
 def journal(root: Path) -> Path | None:

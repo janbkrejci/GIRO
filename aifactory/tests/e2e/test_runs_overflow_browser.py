@@ -57,9 +57,9 @@ def test_runs_paging_browser() -> None:
         browser = _launch(playwright)
         try:
             page = browser.new_page(viewport={"width": 390, "height": 844})
-            page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
             page.route("**/*", serve)
-            page.goto("http://haifa.test/#/r/haifa/runs")
+            page.goto("http://giro.test/#/r/haifa/runs")
             expect(page.locator('[data-test="page-count"]')).to_have_text("1–100 z 101")
             page.locator('[data-test="next-page"]').click()
             expect(page.locator('[data-test="page-count"]')).to_have_text("101–101 z 101")
@@ -119,7 +119,7 @@ def test_runs_overflow_browser(width: int) -> None:
 
     def serve(route: Route) -> None:
         url = urlsplit(route.request.url)
-        assert url.netloc == "haifa.test", route.request.url
+        assert url.netloc == "giro.test", route.request.url
         path = url.path
         data: dict[str, Any]
         if path == "/api/repos/haifa/runs":
@@ -146,9 +146,9 @@ def test_runs_overflow_browser(width: int) -> None:
         browser = _launch(playwright)
         try:
             page = browser.new_page(viewport={"width": width, "height": 900})
-            page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
             page.route("**/*", serve)
-            page.goto("http://haifa.test/#/r/haifa/runs")
+            page.goto("http://giro.test/#/r/haifa/runs")
             region = page.get_by_role("region", name="Seznam běhů")
             expect(region).to_be_visible()
             page.evaluate("document.fonts.ready")
@@ -212,7 +212,7 @@ def test_runs_overflow_browser(width: int) -> None:
 
             with page.expect_response(lambda response: response.url.endswith("/archive")):
                 archive.click()
-            expect(page).to_have_url("http://haifa.test/#/r/haifa/runs")
+            expect(page).to_have_url("http://giro.test/#/r/haifa/runs")
             page.locator('[data-test="view-archived"]').click()
             expect(region.locator('[data-test="unarchive"]')).to_be_enabled()
             with page.expect_response(lambda response: response.url.endswith("/unarchive")):
@@ -226,9 +226,9 @@ def test_runs_overflow_browser(width: int) -> None:
 
             # Both a link and the rest of the row still open the same run.
             region.locator('[data-col="tokens"]').click()
-            expect(page).to_have_url("http://haifa.test/#/r/haifa/runs/many-phases")
-            page.goto("http://haifa.test/#/r/haifa/runs")
+            expect(page).to_have_url("http://giro.test/#/r/haifa/runs/many-phases")
+            page.goto("http://giro.test/#/r/haifa/runs")
             page.locator(".task-link").click()
-            expect(page).to_have_url("http://haifa.test/#/r/haifa/runs/many-phases")
+            expect(page).to_have_url("http://giro.test/#/r/haifa/runs/many-phases")
         finally:
             browser.close()

@@ -24,5 +24,5 @@ Hotovo znamená:
 - Testy souladu příručky a skillu (`uv run pytest aifactory/tests -k "guide or skill"`) projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-01 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/195 · náklady $1.76

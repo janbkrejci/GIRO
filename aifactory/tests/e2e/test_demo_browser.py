@@ -118,7 +118,7 @@ def test_demo_from_empty_overview_to_merge(tmp_path: Path, monkeypatch: pytest.M
     release = tmp_path / "release-build"
     script = _script(tmp_path / "fake.json", release)
     wire, marker = tripwire(tmp_path / "wire")
-    home, log = tmp_path / "haifa-home", tmp_path / "obs.log"
+    home, log = tmp_path / "giro-home", tmp_path / "obs.log"
     home.mkdir()
     tests = {"claude": {"claude-opus-5-5": {"ok": True, "answer": "OK"}}}
     (home / "harness-tests.json").write_text(json.dumps(tests), encoding="utf-8")
@@ -148,7 +148,7 @@ def test_demo_from_empty_overview_to_merge(tmp_path: Path, monkeypatch: pytest.M
 
             context.route("**/*", local_only)
             page = context.new_page()
-            page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+            page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
 
             def no_dialog(dialog: Dialog) -> None:
                 dialogs.append(f"{dialog.type}: {dialog.message}")

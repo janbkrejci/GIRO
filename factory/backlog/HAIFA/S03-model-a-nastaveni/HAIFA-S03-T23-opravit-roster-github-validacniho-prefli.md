@@ -22,5 +22,5 @@ Done means:
 - Neměň validační scénáře, roster, workflow, ani výsledky; oprava je pouze kompatibilita preflightu. Neřeš nyní další případné chyby R10.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-08 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/97 · náklady $0.00

@@ -30,5 +30,5 @@ Hotovo znamená:
 - Ručně: po Schválit u PR bez auto-merge na hostingu s CI se task na Backlogu, na Přehledu, v přepínači rep i v Review ukazuje jako „Schváleno, čeká na CI“. Po merge je Hotovo, po červeném CI znovu „Čeká na review“.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/135 · náklady $0.00

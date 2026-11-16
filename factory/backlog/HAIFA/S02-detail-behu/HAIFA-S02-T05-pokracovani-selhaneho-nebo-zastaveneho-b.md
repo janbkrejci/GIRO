@@ -31,5 +31,5 @@ Hotovo, když:
 - testy bez sítě a živých modelů (falešné harnessy) pokryjí pokračování po selhání, po zastavení, s posunutou base bez konfliktu i s ním a odmítnutí u schváleného tasku.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-13 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/24 · náklady $0.00

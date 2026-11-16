@@ -13,5 +13,5 @@ Tam, kde se za HAIFA-S01-T01 píše dvojtečka, ji vyhodíme. Stačí, že je za
 A nad HAIFA-S01-T01 apod. se nebude zobrazovat v tooltipu název tisku, tooltip pryč.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-04 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/39 · náklady $1.35

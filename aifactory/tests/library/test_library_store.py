@@ -37,7 +37,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     user_home.mkdir()
     monkeypatch.setenv("HOME", str(user_home))
     monkeypatch.setenv("USERPROFILE", str(user_home))  # Path.home() on Windows
-    monkeypatch.setenv("GIRO_HOME", str(user_home / ".config" / "haifa"))
+    monkeypatch.setenv("GIRO_HOME", str(user_home / ".config" / "giro"))
     monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
@@ -46,7 +46,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def _lib(home: Path) -> Path:
-    return home / ".config" / "haifa" / "library"
+    return home / ".config" / "giro" / "library"
 
 
 def _init(capsys: Capsys) -> dict[str, Any]:

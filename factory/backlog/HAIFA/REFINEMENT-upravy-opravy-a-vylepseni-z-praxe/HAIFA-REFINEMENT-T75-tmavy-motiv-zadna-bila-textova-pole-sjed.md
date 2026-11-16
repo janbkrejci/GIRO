@@ -31,5 +31,5 @@ Redesign barevné palety, nové motivy, změny chování formulářů. Checkboxy
 - `aifactory/src/aifactory/web/static/` je přegenerovaný přes `just web-build` a commitnutý.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-24 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/155 · náklady $0.00

@@ -17,4 +17,4 @@ Hotovo znamená:
 - PR obsahuje tabulku odstraněných plných testů a jejich náhrad.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

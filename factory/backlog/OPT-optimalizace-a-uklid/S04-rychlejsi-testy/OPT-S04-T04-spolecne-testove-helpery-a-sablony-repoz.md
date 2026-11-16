@@ -17,4 +17,4 @@ Hotovo znamená:
 - Všechny upravené testové soubory projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

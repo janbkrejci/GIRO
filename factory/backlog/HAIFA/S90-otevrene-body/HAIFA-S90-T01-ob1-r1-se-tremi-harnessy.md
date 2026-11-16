@@ -19,5 +19,5 @@ Done means:
 Out of scope: změny produktu, pokud validace projde.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-09 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/1 · náklady $3.62

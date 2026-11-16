@@ -25,5 +25,5 @@ Ověření:
 - just lint, just typecheck, just web-test, just web-build a příslušný browser test dialogu v Backlogu podle AGENTS.md. Bez živých modelů a služeb; při nezměněném backendu nepřidávat duplicitní testy runtime politiky.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-14 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/227 · náklady $0.00

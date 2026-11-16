@@ -51,7 +51,7 @@ def test_intent_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, languag
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script(f"localStorage.setItem('haifa.dashboard.locale', '{language}')")
+        page.add_init_script(f"localStorage.setItem('giro.dashboard.locale', '{language}')")
         page.set_default_timeout(15000)
         try:
             page.goto(f"{url}/#/r/{identifier}/backlog")

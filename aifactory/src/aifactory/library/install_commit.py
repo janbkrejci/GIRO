@@ -18,7 +18,7 @@ commit goes to ``factory-init/<n>`` with a pull request; base and the checkout s
 
 Blockers (``data.blockers``; the commit refuses with the first, exit 2):
 ``already_installed`` (``config.yaml`` in base), ``existing_config`` (an sssf installation;
-HAIFA does not take it over), ``config_not_committed`` (``config.yaml`` only in the working
+GIRO does not take it over), ``config_not_committed`` (``config.yaml`` only in the working
 tree; ``giro config commit``), ``dirty_paths`` (a planned path on disk with other
 content), ``invalid_plan`` (the planned configuration does not load) and, for the direct
 target, ``not_on_base``, ``run_in_progress``, ``base_behind``, ``base_diverged``.

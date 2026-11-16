@@ -652,7 +652,7 @@ def test_bad_local_harness_never_starts_on_roster(
     repo: Path, script: Script, failure: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from aifactory.harness import settings
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
     from intent_fixture import computer_binding
 
@@ -672,7 +672,7 @@ def test_bad_local_harness_never_starts_on_roster(
         machine.harnesses["codex"].model = ""
         settings.path().write_text(machine.model_dump_json())
     if failure == "failed":
-        (haifa_home() / settings.TEST_FILE).write_text('{"codex": {"gpt-6.1-sol": {"ok": false}}}')
+        (giro_home() / settings.TEST_FILE).write_text('{"codex": {"gpt-6.1-sol": {"ok": false}}}')
     if failure == "invalid":
         local.path.write_text(local.path.read_text().replace('"codex"', '"unknown"'))
     with pytest.raises(TaskRunError) as exc:

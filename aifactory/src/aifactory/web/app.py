@@ -172,7 +172,7 @@ library without a remote through an empty git remote) share one nonblocking lock
 for validation and core adapters.
 
 More repositories: ``create_multi_app`` serves every repository in ``dashboard.yaml`` of
-the HAIFA home (``registry.py``). ``GET /api/health`` (``app: haifa-dashboard``, ``version``,
+the GIRO home (``registry.py``). ``GET /api/health`` (``app: giro-dashboard``, ``version``,
 ``home``), ``GET /api/code`` and ``POST /api/restart`` (as above, no repository needed;
 not served per repository), ``GET /api/limits`` (the machine's subscriptions),
 ``GET /api/repos`` (the repositories with ``status``, the ``factory`` state and ``demo``, true
@@ -296,7 +296,7 @@ from aifactory.codeprint import CodeWatch
 from aifactory.config import ConfigError
 from aifactory.demo import is_demo
 from aifactory.harness import settings as harness_settings
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.review import sync as review_sync
 from aifactory.review.errors import ReviewError
 from aifactory.run import gitops
@@ -383,7 +383,7 @@ class _WorktreeCleanup:
         await asyncio.gather(*self._tasks, return_exceptions=True)
 
 
-REPO_SCOPE_KEY = "haifa.repo"
+REPO_SCOPE_KEY = "giro.repo"
 """The ASGI scope key under which ``RepoScope`` puts the request's ``RepoContext``."""
 
 
@@ -1949,7 +1949,7 @@ async def _http_error(request: Request, exc: Exception) -> Response:
 
 
 def _raised_at(exc: Exception) -> str:
-    """`` (in function, file.py:line)`` of the innermost frame of HAIFA that raised ``exc``.
+    """`` (in function, file.py:line)`` of the innermost frame of GIRO that raised ``exc``.
 
     An error such as ``FileNotFoundError`` from ``os.getcwd()`` names no file; the place in
     the code then says what failed.
@@ -2096,17 +2096,9 @@ def _starlette(
     else:
         routes.append(Route("/", frontend_missing))
 
-    @asynccontextmanager
-    async def guarded_lifespan(app: Starlette) -> AsyncIterator[None]:
-        from aifactory.migration_guard import process_lease
-
-        with process_lease(app.state.home):
-            async with lifespan(app):
-                yield
-
     return Starlette(
         routes=routes,
-        lifespan=guarded_lifespan,
+        lifespan=lifespan,
         middleware=[
             Middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts)),
             Middleware(WriteGuardMiddleware),
@@ -2148,7 +2140,7 @@ def _shared_state(
         return latest.get("ok") is not False
 
     def roots() -> list[Path]:
-        """Repositories whose HAIFA runs carry the Claude limits: the registered ones."""
+        """Repositories whose GIRO runs carry the Claude limits: the registered ones."""
         registry: Registry | None = getattr(app.state, "registry", None)
         if registry is not None:
             return [Path(entry.path) for entry in registry.snapshot()[0].repos]
@@ -2222,7 +2214,7 @@ def create_app(
     app.state.task_advice = AdviceManager(task_parameters=True)
     app.state.intent = IntentManager()
     app.state.learn = LearnManager()
-    app.state.home = haifa_home()
+    app.state.home = giro_home()
     app.state.library = machine.GlobalState()
     app.state.repo = root
     app.state.live = ctx.live
@@ -2878,7 +2870,7 @@ def create_multi_app(
     allowed_hosts: Sequence[str] = ALLOWED_HOSTS,
     background_checks: bool = False,
 ) -> Starlette:
-    """The dashboard for every repository in the registry of ``home`` (default: HAIFA home).
+    """The dashboard for every repository in the registry of ``home`` (default: GIRO home).
 
     ``port`` is the port the server listens on (``restart_required`` compares it with the
     registry). Each repository's API is under ``/api/repos/{repo_id}/`` with the same paths
@@ -2886,7 +2878,7 @@ def create_multi_app(
     ``/api/fs/dirs`` and ``picker`` opens the folder dialog of ``/api/fs/pick``; the other
     arguments are as in ``create_app``.
     """
-    home_dir = haifa_home() if home is None else home
+    home_dir = giro_home() if home is None else home
     registry = Registry(home_dir)
     contexts = RepoContexts(registry, live_interval)
 

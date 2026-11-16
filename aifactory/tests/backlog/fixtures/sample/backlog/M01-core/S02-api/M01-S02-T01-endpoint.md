@@ -11,4 +11,4 @@ writes: [src/api/]
 Endpoint pro čtení modelu.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

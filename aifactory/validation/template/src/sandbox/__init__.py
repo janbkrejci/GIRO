@@ -1,1 +1,1 @@
-"""The HAIFA validation sandbox package."""
+"""The GIRO validation sandbox package."""

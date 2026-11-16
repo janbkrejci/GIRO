@@ -39,7 +39,7 @@ browserové testy se tak spustí jen jednou.
 
 Struktura kódu a konvence jsou v [CLAUDE.md](CLAUDE.md), platná rozhodnutí v [docs/decisions.md](docs/decisions.md). Návod pro agenty, kteří GIRO ovládají, vypíše `giro --skill`.
 
-[GIRO release workflow](.github/workflows/giro-release.yml) vydává pouze z nového veřejného repo s explicitním `GIRO_RELEASE_ENABLED=true`. [Přechodový HAIFA workflow](.github/workflows/ci.yml) publikuje pouze schválený uchovaný zdroj poslední HAIFA. Rebrandingový main starého repo nic nevydává. CI nenahrazuje lokální testy, lint, typovou kontrolu ani kontrolu Windows; před mergem spusť `just check` a `just e2e`.
+[GIRO release workflow](.github/workflows/giro-release.yml) vydává pouze z nového veřejného repo s explicitním `GIRO_RELEASE_ENABLED=true`. CI nenahrazuje lokální testy, lint, typovou kontrolu ani kontrolu Windows; před mergem spusť `just check` a `just e2e`.
 
 ## Licence
 

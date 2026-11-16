@@ -30,5 +30,5 @@ Hotovo znamená:
 - `factory learn scan` bez `--all` dává stejný výsledek jako před změnou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-01 · workflow plan-build-test · PR https://github.com/janbkrejci/HAIFA/pull/189 · náklady $2.50

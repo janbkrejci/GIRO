@@ -56,9 +56,9 @@ class DemoResult:
 
 def default_dir(home: Path | None = None) -> Path:
     """Where ``giro try`` creates the sample without a folder argument."""
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
 
-    return (home if home is not None else haifa_home()) / DEMO_DIR
+    return (home if home is not None else giro_home()) / DEMO_DIR
 
 
 def _copy_template(target: Path) -> None:
@@ -109,12 +109,12 @@ def _undo(target: Path, existed: bool) -> None:
 
 
 def _register(path: Path, home: Path | None) -> tuple[str | None, list[str]]:
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.web.backlog import UsageError
     from aifactory.web.registry import Registry, RepoError
     from aifactory.web.repos import register_repo
 
-    registry = Registry(home if home is not None else haifa_home())
+    registry = Registry(home if home is not None else giro_home())
     try:
         entry, _created, warnings = register_repo(registry, str(path))
     except RepoError as exc:
@@ -190,11 +190,11 @@ def remove_demo(home: Path | None = None) -> DemoRemoval:
     ``run_in_progress`` (``RepoError``) while a run of the sample is alive; nothing changes
     then. A sample that is not registered or whose folder is gone is removed as far as it is.
     """
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.web.registry import Registry, RepoError, same_repo
 
     target = default_dir(home).absolute()
-    registry = Registry(home if home is not None else haifa_home())
+    registry = Registry(home if home is not None else giro_home())
     state, _warnings = registry.snapshot()
     entry = next((e for e in state.repos if same_repo(e.path, target)), None)
     if target.is_dir():

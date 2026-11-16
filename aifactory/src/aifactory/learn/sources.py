@@ -1,6 +1,6 @@
 """Where ``factory learn`` reads objections from: every repo the dashboard knows.
 
-The repos are the entries of the dashboard registry (``dashboard.yaml`` in the HAIFA
+The repos are the entries of the dashboard registry (``dashboard.yaml`` in the GIRO
 home). A repo whose folder is gone or that has no trace DB is skipped with a warning;
 one broken repo never fails the whole read.
 
@@ -8,7 +8,7 @@ Objections read through ``collect_all`` carry the registry id in ``repo`` and a 
 prefixed with it (``<repo_id>:<envelope_id>#<n>``), unique across all repos. Keys without
 the prefix (stored by lessons made from one repo) belong to the repo the lesson came from.
 
-The factory repo is the registered repo holding the HAIFA source: the one named by
+The factory repo is the registered repo holding the GIRO source: the one named by
 ``GIRO_FACTORY_REPO`` (a registry id), else the one whose ``aifactory/pyproject.toml``
 names the project ``aifactory``.
 """
@@ -24,7 +24,7 @@ from pathlib import Path
 from aifactory import database
 from aifactory.config.settings import load_local
 from aifactory.environment import value
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.learn.collect import Objection, collect
 from aifactory.web.registry import ID_RE, Registry, RepoEntry, same_repo
 
@@ -43,7 +43,7 @@ class SourceRepo:
 
 
 def _entries(home: Path | None) -> tuple[tuple[RepoEntry, ...], list[str]]:
-    state, warnings = Registry(home or haifa_home()).snapshot()
+    state, warnings = Registry(home or giro_home()).snapshot()
     return state.repos, list(warnings)
 
 
@@ -85,7 +85,7 @@ def _is_factory(root: Path) -> bool:
 
 
 def factory_repo(home: Path | None = None) -> RepoEntry | None:
-    """The registered repo holding the HAIFA source, None when there is none.
+    """The registered repo holding the GIRO source, None when there is none.
 
     ``GIRO_FACTORY_REPO`` (a registry id) decides when set; an id that is not registered
     gives None.

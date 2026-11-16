@@ -26,5 +26,5 @@ Spustit ručně, až bude dostupný kredit na Codex. Do té doby nespouštět p�
 - Výsledek `inconclusive`, lokální běh s falešným harnessem ani nedostupný kredit neznamenají splnění úkolu.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-08 · workflow manual-r10-validation · PR https://github.com/janbkrejci/HAIFA/pull/98 · náklady $0.00

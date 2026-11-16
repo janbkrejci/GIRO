@@ -7,7 +7,7 @@ command, the ``guide`` script in its working directory, which calls ``main`` her
     guide factory REPO COMMAND...        one allowed factory command with --json in REPO
     guide sql REPO "SELECT ..."          one read-only query on the trace DB of REPO
 
-``REPO`` is the id of a registered repository (``dashboard.yaml`` in the HAIFA home); ``-``
+``REPO`` is the id of a registered repository (``dashboard.yaml`` in the GIRO home); ``-``
 is accepted for the library commands, which need no repository. Allowed commands are
 ``ALLOWED``: ``task list/show/runs``, ``backlog list/check``, ``check``, ``config show``,
 ``library list/show`` and ``workflow show`` (answered here: the workflow YAML of the
@@ -16,7 +16,7 @@ repository, else of the package). Anything else, ``--repo`` and any argument nam
 authorizer that permits reading only; a shared database server is not queried.
 
 Every output passes ``redact``: values of ``.env`` files of the registered repositories and
-of the HAIFA home, and of secret-looking environment variables, become ``[redacted]``.
+of the GIRO home, and of secret-looking environment variables, become ``[redacted]``.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from typing import Any
 
 from aifactory.environment import child_environment
 from aifactory.environment import value as env_value
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 
 ALLOWED: tuple[tuple[str, ...], ...] = (
     ("task", "list"),
@@ -102,7 +102,7 @@ def _env_values(path: Path) -> list[str]:
 def secrets(roots: Iterable[Path], home: Path | None = None) -> list[str]:
     """Values that must never reach the guide, longest first."""
     found: set[str] = set()
-    for root in [*roots, home if home is not None else haifa_home()]:
+    for root in [*roots, home if home is not None else giro_home()]:
         try:
             files = [p for p in root.glob(".env*") if p.is_file()]
         except OSError:
@@ -129,7 +129,7 @@ def registered(home: Path | None = None, *, repo_id: str | None = None) -> dict[
     """Registered repository id -> path."""
     from aifactory.web.registry import Registry
 
-    state = Registry(home if home is not None else haifa_home()).snapshot()[0]
+    state = Registry(home if home is not None else giro_home()).snapshot()[0]
     scope = repo_id if repo_id is not None else env_value("GUIDE_REPO")
     return {entry.id: Path(entry.path) for entry in state.repos if not scope or entry.id == scope}
 
@@ -181,7 +181,7 @@ def run_factory(
     try:
         result = subprocess.run(
             [sys.executable, "-m", "aifactory", *words],
-            cwd=str(cwd) if cwd else str(haifa_home()),
+            cwd=str(cwd) if cwd else str(giro_home()),
             capture_output=True,
             text=True,
             encoding="utf-8",

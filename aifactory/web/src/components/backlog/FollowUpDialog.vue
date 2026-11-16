@@ -20,7 +20,7 @@ const props = defineProps<{
 const emit = defineEmits<{ created: [result: FollowUpResult]; cancel: [] }>()
 
 let requestId = Array.from(crypto.getRandomValues(new Uint8Array(16)), (value) => value.toString(16).padStart(2, '0')).join('')
-const requestKey = `haifa.follow-up.${window.location.hash}.${props.taskId}`
+const requestKey = `giro.follow-up.${window.location.hash}.${props.taskId}`
 function requestIdentity(payload: object): string {
   try {
     const saved = JSON.parse(sessionStorage.getItem(requestKey) ?? 'null')

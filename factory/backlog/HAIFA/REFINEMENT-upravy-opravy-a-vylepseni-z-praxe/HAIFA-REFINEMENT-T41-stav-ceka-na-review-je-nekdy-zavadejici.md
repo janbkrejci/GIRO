@@ -29,5 +29,5 @@ Když má task zapnutý automerge, nečeká na review, ale na mergnutí PR. Dash
 - Stávající testy jsou upravené a nové pokrývají oba případy (automerge zapnutý/vypnutý) v backendu i frontendu.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/54 · náklady $6.50

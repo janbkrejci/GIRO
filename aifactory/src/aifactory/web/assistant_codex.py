@@ -157,7 +157,7 @@ def launch_args(request: AgentRequest, home: Path, repo_id: str | None) -> list[
         "web_search": "disabled",
         # Replace the whole table rather than merging another server into ambient config.
         "mcp_servers": {
-            "haifa_guide": {
+            "giro_guide": {
                 "command": sys.executable,
                 "args": server_args,
                 "required": True,
@@ -187,7 +187,7 @@ def run(request: AgentRequest, *, home: Path, repo_id: str | None, **callbacks: 
     request = request.model_copy(
         update={
             "system_prompt": request.system_prompt
-            + "\nTransport: use the haifa_guide MCP guide tool for every ./guide command. "
+            + "\nTransport: use the giro_guide MCP guide tool for every ./guide command. "
             "Pass its arguments in argv without ./guide. No shell or file tools are available."
         }
     )

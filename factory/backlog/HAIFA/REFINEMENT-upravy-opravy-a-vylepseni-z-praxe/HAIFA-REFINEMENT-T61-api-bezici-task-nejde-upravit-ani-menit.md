@@ -34,5 +34,5 @@ Hotovo znamená:
 - Projdou stávající testy `tests/web/test_web_backlog*.py`, `test_web_task_run.py`, `test_web_task_advice.py` a `test_web_workflow_advice.py`. Testy, které počítaly s force startem blokovaného tasku, uprav podle nového chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/127 · náklady $0.00

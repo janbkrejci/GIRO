@@ -20,5 +20,5 @@ Důvod: In HAIFA-TODO-T02 AzureProvider started reporting checks (reports_checks
 <!-- factory: follow-up-of=HAIFA-TODO-T02 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-18 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/110 · náklady $0.30

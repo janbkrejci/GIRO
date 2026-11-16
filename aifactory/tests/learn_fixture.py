@@ -13,7 +13,7 @@ from aifactory.engine import agents
 from aifactory.engine.data_types import AgentResult
 from aifactory.engine.tracer import Tracer
 from aifactory.harness.check import HarnessStatus
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.run.store import TaskRunStore
 from aifactory.web.registry import Registry
 
@@ -139,7 +139,7 @@ def make_learn_repo(tmp_path: Path, name: str = "repo") -> Path:
 
 def register_learn_repos(tmp_path: Path, *names: str) -> dict[str, Path]:
     """A learn repo per name, each registered in the dashboard registry: ``{id: root}``."""
-    registry = Registry(haifa_home())
+    registry = Registry(giro_home())
     repos: dict[str, Path] = {}
     for name in names:
         parent = tmp_path / f"src-{name}"

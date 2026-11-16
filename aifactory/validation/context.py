@@ -154,7 +154,7 @@ class Context:
     commands: list[dict[str, Any]] = field(default_factory=list)
     selected: list[str] = field(default_factory=list)  # the scenarios of this run
     # run commands over the fake harness in this process (validation.inprocess), not in a
-    # worker subprocess; concurrent commands (``haifa_async``) always get a subprocess
+    # worker subprocess; concurrent commands (``giro_async``) always get a subprocess
     in_process: bool = False
     _n: int = 0
 
@@ -181,7 +181,7 @@ class Context:
         """``local``, ``github`` or ``azure``."""
         return self.remote
 
-    # -- HAIFA commands --
+    # -- GIRO commands --
 
     def _prepare(
         self, argv: list[str], task: str | None, variant: str, fake: bool, repo_args: bool
@@ -249,7 +249,7 @@ class Context:
         )
         return cmd
 
-    def haifa(
+    def giro(
         self, *argv: str, task: str | None = None, variant: str = "happy", fake: bool = False
     ) -> Cmd:
         """Run one ``factory`` command; `task` picks the fake script (local mode or `fake`)."""
@@ -259,13 +259,13 @@ class Context:
         """A ``factory`` command without ``--repo`` (e.g. ``workflow check``), still in the repo."""
         return self._command(list(argv), None, "happy", False, False)
 
-    def haifa_async(self, *argv: str, task: str | None = None, variant: str = "happy") -> Pending:
+    def giro_async(self, *argv: str, task: str | None = None, variant: str = "happy") -> Pending:
         return self._spawn(list(argv), task, variant, False, True)
 
     def run_task(
         self, task_id: str, *extra: str, variant: str = "happy", fake: bool = False
     ) -> Cmd:
-        return self.haifa("task", "run", task_id, *extra, task=task_id, variant=variant, fake=fake)
+        return self.giro("task", "run", task_id, *extra, task=task_id, variant=variant, fake=fake)
 
     # -- git and base --
 
@@ -275,7 +275,7 @@ class Context:
         return sha or None
 
     def catch_up_base(self) -> None:
-        """Fast-forward the main checkout's base to origin (github: HAIFA does not do it)."""
+        """Fast-forward the main checkout's base to origin (github: GIRO does not do it)."""
         if self.fetch_base() is None:
             return
         git_ok(self.repo, "merge", "--ff-only", "-q", f"origin/{self.base}")

@@ -11,7 +11,7 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.learn.sources import FACTORY_REPO_ENV
 from aifactory.learn.store import ACCEPTED, PROPOSED, REJECTED
 from aifactory.learn.view import lessons as view_lessons
@@ -128,7 +128,7 @@ def _finished(manager: LearnManager, repo: Path) -> dict[str, Any]:
 
 
 def test_scan_body_all_is_passed_to_the_scanner(client: TestClient, repo: Path) -> None:
-    own, _created = Registry(haifa_home()).add(repo)
+    own, _created = Registry(giro_home()).add(repo)
     calls: list[tuple[str | None, bool]] = []
 
     def scanner(root: Path, since: str | None, all_repos: bool) -> dict[str, Any]:

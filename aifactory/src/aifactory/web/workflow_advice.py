@@ -22,7 +22,7 @@ from aifactory.config import load_run_config
 from aifactory.errors import UsageError
 from aifactory.harness import HARNESSES, canonical
 from aifactory.harness import settings as harness_settings
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.run import gitops, mainwrites
 from aifactory.web.backlog import ensure_task_not_running
 from aifactory.workflow.adaptive import (
@@ -104,7 +104,7 @@ def repo_lock(repo: Path) -> Iterator[None]:
     common = gitops.common_dir(repo)
     if common is None:
         raise UsageError("repository has no git common directory")
-    path = common / "haifa/workflow-advice.lock"
+    path = common / "giro/workflow-advice.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     try:
@@ -214,7 +214,7 @@ class AdviceManager:
         }
 
     def options(self, repo: Path) -> dict[str, Any]:
-        data = harness_settings.catalog(haifa_home())
+        data = harness_settings.catalog(giro_home())
         configured = data["settings"]["harnesses"]
         harnesses = [
             {
