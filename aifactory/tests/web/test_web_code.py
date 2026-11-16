@@ -12,8 +12,9 @@ from starlette.testclient import TestClient
 from web_repo import git_repo
 
 from aifactory.codeprint import CodeWatch
-from aifactory.upgrade import UpgradeError
-from aifactory.web import create_app, guard
+from aifactory.versioning import UpgradeError
+from aifactory.web import guard
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 

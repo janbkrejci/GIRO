@@ -21,7 +21,8 @@ from playwright.sync_api import Route, expect, sync_playwright
 from test_f3_browser import _launch
 
 from aifactory.codeprint import CodeWatch
-from aifactory.web import create_multi_app, machine
+from aifactory.web import machine
+from aifactory.web.app import create_multi_app
 from aifactory.web.limits import LimitsSource
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "check"))

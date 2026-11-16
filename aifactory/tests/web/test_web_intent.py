@@ -12,7 +12,7 @@ from starlette.testclient import TestClient
 
 from advice_fixture import git, make_repo
 from aifactory.backlog import check_backlog, load_backlog
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from intent_fixture import export_step, install_fake, task
 
 

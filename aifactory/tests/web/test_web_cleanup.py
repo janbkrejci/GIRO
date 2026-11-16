@@ -14,7 +14,8 @@ from starlette.testclient import TestClient
 
 from aifactory import review
 from aifactory.web import app as web_app
-from aifactory.web import create_app, create_multi_app, monitoring
+from aifactory.web import monitoring
+from aifactory.web.app import create_app, create_multi_app
 from aifactory.web.registry import Registry
 
 BASE = "http://127.0.0.1:4700"

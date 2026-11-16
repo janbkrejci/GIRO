@@ -28,8 +28,8 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.run import TaskRunRow, TaskRunStore, members
 from aifactory.run.errors import TaskRunError
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
 from aifactory.web import launcher as launcher_module
+from aifactory.web.app import create_app
 from aifactory.web.launcher import DEFAULT_COMMAND, LaunchedRun, RunLauncher
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))

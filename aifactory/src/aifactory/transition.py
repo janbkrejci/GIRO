@@ -25,7 +25,6 @@ from typing import Any
 from aifactory import oscompat
 from aifactory.config.settings import load_local_checked
 from aifactory.environment import child_environment, value
-from aifactory.library.remote import version_key
 from aifactory.migration_guard import (
     MARKER,
     check_home,
@@ -34,7 +33,8 @@ from aifactory.migration_guard import (
     write_manifest,
 )
 from aifactory.run.gitops import common_dir
-from aifactory.upgrade import UpgradeError, fetch_bundle, run_upgrade
+from aifactory.upgrade import fetch_bundle, run_upgrade
+from aifactory.versioning import UpgradeError, version_key
 from aifactory.web.registry import Registry
 from aifactory.web.server import dashboard_url, restart_command
 

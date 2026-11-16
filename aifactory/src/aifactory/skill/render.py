@@ -108,11 +108,16 @@ def _harnesses() -> str:
 
 def placeholders(parser: argparse.ArgumentParser | None = None) -> dict[str, str]:
     """Every ``{{name}}`` of the template and its generated text."""
-    from aifactory.backlog.model import INDEX_FILE, INHERITED_KEYS, LIST_FIELDS, VALID_STATUSES
-    from aifactory.backlog.render import STATUS_FILTERS
+    from aifactory.backlog.model import (
+        INDEX_FILE,
+        INHERITED_KEYS,
+        LIST_FIELDS,
+        STATUS_FILTERS,
+        VALID_STATUSES,
+    )
     from aifactory.backlog.taskfile import FIELD_ORDER, RUNS_HEADING, RUNS_PLACEHOLDER
     from aifactory.engine.role_registry import CODE_ACTIONS
-    from aifactory.harness.override import THINKING_LEVELS
+    from aifactory.harness import THINKING_LEVELS
     from aifactory.run.queue import SKIP_REASONS, STOP_REASONS
 
     return {

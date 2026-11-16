@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from aifactory import __version__, oscompat
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 
 MARKER = "giro-migration.json"
 

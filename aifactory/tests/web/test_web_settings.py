@@ -14,7 +14,7 @@ from aifactory.config import config_changes, load_local, resolve_commit
 from aifactory.config.errors import ConfigIssue
 from aifactory.config.settings import parse_project_settings
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 CONFIG = ".factory/config.yaml"

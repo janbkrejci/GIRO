@@ -19,7 +19,7 @@ from aifactory.run import TaskRunError, TaskRunStore, run_task
 from aifactory.run.allow_writes import allow_writes, plan_allow_writes, violation_paths
 from aifactory.run.scope import effective_task_writes
 from aifactory.run.store import FAILED, SUCCEEDED
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from cli_json import run_json
 
 Capsys = pytest.CaptureFixture[str]

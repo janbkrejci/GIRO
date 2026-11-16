@@ -32,7 +32,7 @@ def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
     """Explicit GIRO_HOME/HAIFA_HOME, otherwise the guarded GIRO default."""
     env = os.environ if environ is None else environ
     from aifactory.environment import value
-    from aifactory.upgrade import UpgradeError
+    from aifactory.versioning import UpgradeError
 
     explicit = value("HOME", env)
     if explicit is not None:

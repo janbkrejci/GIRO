@@ -11,7 +11,7 @@ from web_repo import git_repo
 
 from aifactory import guide
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 BASE = "http://127.0.0.1:4700"
 

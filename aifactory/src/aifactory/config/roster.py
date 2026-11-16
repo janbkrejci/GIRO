@@ -22,8 +22,7 @@ from aifactory import yamlload
 from aifactory.config.errors import ConfigError, ConfigIssue
 from aifactory.config.loader import AGENTS_FILE, load_config
 from aifactory.config.source import OverlaySource, WorktreeSource, repo_root
-from aifactory.harness import canonical, load
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS, canonical, load
 
 PRESETS = {
     "codex": {"harness": "codex", "model": "gpt-6.1-sol", "thinking": "medium"},

@@ -24,7 +24,8 @@ from aifactory.migration_guard import (
 )
 from aifactory.transition import _copy as _copy
 from aifactory.transition import _data_paths, _digest
-from aifactory.upgrade import UpgradeError, run_upgrade
+from aifactory.upgrade import run_upgrade
+from aifactory.versioning import UpgradeError
 
 
 def migrate(source: Path, target: Path, haifa_bundle: Path) -> dict[str, Any]:

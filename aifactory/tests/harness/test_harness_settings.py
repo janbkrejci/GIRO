@@ -9,7 +9,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from aifactory.harness import settings, thinking
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 
 
 def choices() -> dict[str, Any]:

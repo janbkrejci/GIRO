@@ -18,7 +18,7 @@ from starlette.types import Message
 from test_web_terminal import _client
 
 from aifactory import oscompat
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 from aifactory.web import guard, terminal_pty
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX PTY sessions")

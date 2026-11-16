@@ -10,8 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from aifactory import backlog as core
 from aifactory.engine.data_types import EnvelopeBase
 from aifactory.errors import UsageError
-from aifactory.harness import canonical
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS, canonical
 
 
 class TaskParameters(BaseModel):

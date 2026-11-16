@@ -17,7 +17,8 @@ from aifactory.harness.config import SSSFConfig
 from aifactory.library.install import init_repo
 from aifactory.repo_settings import RepositorySettings
 from aifactory.run.errors import TaskRunError
-from aifactory.web import backlog, create_app, machine
+from aifactory.web import backlog, machine
+from aifactory.web.app import create_app
 
 
 def _tree_tasks(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:

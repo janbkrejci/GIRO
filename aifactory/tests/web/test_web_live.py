@@ -19,7 +19,7 @@ from starlette.testclient import TestClient
 from trace_fixture import T1, T2, make_repo, make_trace_db
 
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from aifactory.web.live import LiveWatcher
 
 BASE = "http://127.0.0.1:4700"

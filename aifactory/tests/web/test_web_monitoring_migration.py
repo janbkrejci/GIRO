@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from aifactory import migration_guard
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 from aifactory.web import monitoring
 
 

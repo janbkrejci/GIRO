@@ -18,7 +18,8 @@ from starlette.types import Message
 from aifactory import oscompat
 from aifactory.codeprint import CodeWatch
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app, terminal
+from aifactory.web import terminal
+from aifactory.web.app import create_multi_app
 from aifactory.web.server import allowed_hosts
 
 

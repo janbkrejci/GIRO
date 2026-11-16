@@ -17,7 +17,7 @@ from aifactory import cli, home_migration, migration_guard, upgrade
 from aifactory.engine.utils import agent_environment, operator_env
 from aifactory.environment import SUFFIXES, child_environment, resolve, value
 from aifactory.home import haifa_home, load_env_file
-from aifactory.upgrade import UpgradeError
+from aifactory.versioning import UpgradeError
 from aifactory.web.server import APP_NAME
 from test_upgrade import make_bundle
 

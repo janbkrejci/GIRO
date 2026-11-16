@@ -518,7 +518,7 @@ async def _active_runs(request: Request) -> int:
 
 
 async def updates_install(request: Request) -> JSONResponse:
-    from aifactory.upgrade import UpgradeError
+    from aifactory.versioning import UpgradeError
 
     source: Updates = request.app.state.updates
     if active := await _active_runs(request):

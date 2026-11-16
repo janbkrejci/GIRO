@@ -23,9 +23,12 @@ from starlette.testclient import TestClient
 from aifactory import cli, migration_guard, oscompat, transition, upgrade
 
 __version__ = "0.1.9999"
+from aifactory.library import remote as library_remote
 from aifactory.library.remote import library_min_factory_version
-from aifactory.upgrade import UpgradeError, run_upgrade
-from aifactory.web import create_multi_app, updates
+from aifactory.upgrade import run_upgrade
+from aifactory.versioning import UpgradeError
+from aifactory.web import updates
+from aifactory.web.app import create_multi_app
 from test_upgrade import make_bundle
 from test_upgrade import uv_log as uv_log
 
@@ -190,7 +193,7 @@ def test_preparation_failures_preserve_haifa_and_can_retry(
     elif failure == "shared_db":
         monkeypatch.setenv("HAIFA_DATABASE_URL", "https://database.invalid")
     elif failure == "minimum":
-        monkeypatch.setattr(upgrade, "library_min_factory_version", lambda env=None: "2.0.0")
+        monkeypatch.setattr(library_remote, "library_min_factory_version", lambda env=None: "2.0.0")
     else:
         # Corruption is caught by the backup worker, after preparation.
         (home / "broken.db").write_bytes(b"invalid sqlite")
@@ -206,7 +209,7 @@ def test_preparation_failures_preserve_haifa_and_can_retry(
     if failure == "missing_old":
         make_bundle(hosting["old"].parent, version=__version__)
     monkeypatch.setattr(shutil, "copytree", original_copytree)
-    monkeypatch.setattr(upgrade, "library_min_factory_version", original_minimum)
+    monkeypatch.setattr(library_remote, "library_min_factory_version", original_minimum)
     monkeypatch.setattr(subprocess, "Popen", _fake_worker)
     monkeypatch.setenv("HAIFA_HOME", str(home))
     monkeypatch.delenv("HAIFA_DATABASE_URL", raising=False)

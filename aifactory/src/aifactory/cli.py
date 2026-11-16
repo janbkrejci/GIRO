@@ -1365,7 +1365,7 @@ def _config_pull(args: argparse.Namespace) -> int:
 
 
 def _add_backlog_commands(parser: argparse.ArgumentParser) -> None:
-    from aifactory.backlog import CONTAINER_KEYS, STATUS_FILTERS
+    from aifactory.backlog.model import CONTAINER_KEYS, STATUS_FILTERS
 
     parser.set_defaults(backlog_parser=parser)
     sub = parser.add_subparsers(dest="backlog_command", metavar="<subcommand>")
@@ -2096,7 +2096,7 @@ def _add_task_commands(parser: argparse.ArgumentParser) -> None:
         help="deprecated compatibility option; automatic continuation follows repository-local "
         "auto_continue, set with factory config local set --auto-continue on/off",
     )
-    from aifactory.harness.override import THINKING_LEVELS
+    from aifactory.harness import THINKING_LEVELS
 
     run.add_argument(
         "--harness",
@@ -3195,7 +3195,7 @@ def _leave_deleted_cwd() -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     from aifactory.home import haifa_home
     from aifactory.migration_guard import check_home, process_lease
-    from aifactory.upgrade import UpgradeError
+    from aifactory.versioning import UpgradeError
 
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments and arguments[0] == "migrate":
@@ -3436,10 +3436,10 @@ def _upgrade(args: argparse.Namespace) -> int:
     from aifactory.upgrade import (
         HANDOFF_HINT,
         RESTART_HINT,
-        UpgradeError,
         needs_handoff,
         run_upgrade,
     )
+    from aifactory.versioning import UpgradeError
 
     try:
         # On Windows a running dashboard locks the tool environment the upgrade replaces.

@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from aifactory import __version__
-from aifactory.library.remote import version_key
-from aifactory.upgrade import UpgradeError, editable_install, run_upgrade
+from aifactory.upgrade import editable_install, run_upgrade
+from aifactory.versioning import UpgradeError, version_key
 from aifactory.web.server import RESTART_ENV, exit_process, restart_command
 
 UPDATE_REPOSITORY = "janbkrejci/GIRO"

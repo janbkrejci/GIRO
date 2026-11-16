@@ -364,7 +364,7 @@ def test_dashboard_shows_pr_error_and_publishes(
     from starlette.testclient import TestClient
 
     from aifactory.skill import envelope_problems
-    from aifactory.web import create_app
+    from aifactory.web.app import create_app
 
     _, log, _ = failed_publish_run(repo, script, tmp_path, monkeypatch)
     client = TestClient(
@@ -541,7 +541,7 @@ def test_dashboard_publish_merges_after_response(
     from aifactory.providers import ProviderError
     from aifactory.providers.local import LocalProvider
     from aifactory.review import automerge
-    from aifactory.web import create_app
+    from aifactory.web.app import create_app
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
     from thread_launcher import ThreadLauncher
@@ -688,7 +688,7 @@ def test_publish_without_auto_merge_does_not_continue(
     if dashboard:
         from starlette.testclient import TestClient
 
-        from aifactory.web import create_app
+        from aifactory.web.app import create_app
 
         client = TestClient(create_app(repo), base_url="http://127.0.0.1:4700")
         response = client.post(f"/api/runs/{first.run.run_id}/publish")

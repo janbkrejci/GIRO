@@ -14,7 +14,7 @@ from starlette.testclient import TestClient
 from trace_fixture import make_trace_db
 
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 

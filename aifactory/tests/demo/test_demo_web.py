@@ -10,7 +10,7 @@ from starlette.testclient import TestClient
 
 from aifactory.demo import default_dir, remove_demo
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 from aifactory.web.registry import Registry, RepoError
 
 BASE = "http://127.0.0.1:4700"

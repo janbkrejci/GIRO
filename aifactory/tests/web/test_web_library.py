@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 
 from aifactory.library import share, store
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 from aifactory.web.machine import CachedCheck
 
 

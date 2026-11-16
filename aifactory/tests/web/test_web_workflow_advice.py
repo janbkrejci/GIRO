@@ -11,7 +11,7 @@ from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 from advice_fixture import make_repo, output
-from aifactory.web import create_app
+from aifactory.web.app import create_app
 from aifactory.web.workflow_advice import AdviceManager
 
 

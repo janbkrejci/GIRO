@@ -24,7 +24,7 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.run.errors import TaskRunError
 from aifactory.run.store import TaskChainRow, TaskRunRow, TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app, create_multi_app
+from aifactory.web.app import create_app, create_multi_app
 from aifactory.web.control import KEEP_SECONDS, FactoryControl
 
 STEP = "backlog/M01-core/S01-model"

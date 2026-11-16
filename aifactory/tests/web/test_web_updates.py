@@ -7,8 +7,9 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from aifactory.upgrade import UpgradeError
-from aifactory.web import create_multi_app, updates
+from aifactory.versioning import UpgradeError
+from aifactory.web import updates
+from aifactory.web.app import create_multi_app
 from aifactory.web.server import RESTART_ENV, restart_command
 
 
