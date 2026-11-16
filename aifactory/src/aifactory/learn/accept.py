@@ -43,6 +43,7 @@ from aifactory.home import giro_home
 from aifactory.learn.collect import Objection
 from aifactory.learn.scan import trace_db
 from aifactory.learn.store import LessonStore, StoredLesson
+from aifactory.registry import Registry, same_repo
 
 LEARN_CODE = "LEARN"
 LEARN_TITLE = "Lekce z běhů"
@@ -207,7 +208,6 @@ def _existing(backlog: Backlog, lesson: StoredLesson) -> Task | None:
 def _repo_id(repo: Path) -> str:
     """The registry id of ``repo``, '' when the dashboard does not know it."""
     # aifactory.web imports the learn package
-    from aifactory.registry import Registry, same_repo
 
     state, _warnings = Registry(giro_home()).snapshot()
     return next((e.id for e in state.repos if same_repo(e.path, repo)), "")

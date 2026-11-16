@@ -237,7 +237,7 @@ def test_two_repos_with_identical_task_ids_are_isolated(tmp_path: Path) -> None:
 
 def test_busy_queue_and_task_state_are_rejected(tmp_path: Path) -> None:
     from aifactory.web.backlog import UsageError
-    from aifactory.web.workflow_advice import Cancellation
+    from aifactory.web.workflow_advice import Cancellation, task_state
     from aifactory.workflow.adaptive import context
 
     repo = make_repo(tmp_path / "repo")
@@ -259,7 +259,7 @@ def test_busy_queue_and_task_state_are_rejected(tmp_path: Path) -> None:
             context(repo, None, {"step": "P01-S01", "title": "Draft", "body": "x" * 100_001})
         edit_task(repo, "P01-S01-T01", status="cancelled")
         with pytest.raises(UsageError, match="task state"):
-            context(repo, "P01-S01-T01", {})
+            context(repo, "P01-S01-T01", {}, task_state=task_state(repo))
         cancellation = Cancellation()
         cancellation.set()
         assert cancellation.is_set()

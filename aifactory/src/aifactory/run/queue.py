@@ -131,6 +131,7 @@ from aifactory.backlog import (
     unmet,
 )
 from aifactory.backlog.derived import ancestors, descendant_tasks
+from aifactory.backlog.followup_ids import follow_up_marker
 from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import ConfigError, ProjectSettings, RunConfig
 from aifactory.engine.utils import now_iso
@@ -138,7 +139,6 @@ from aifactory.errors import TaskRunError
 from aifactory.providers import GitProvider
 from aifactory.run import heal as heal_mod
 from aifactory.run import task as task_mod
-from aifactory.run.followups import follow_up_marker
 from aifactory.run.members import ChainRunner, ProcessRunner
 from aifactory.run.policy import DISABLED, DISABLED_MESSAGE, enabled, require_enabled
 from aifactory.run.stack import stack_tip, stacked_on, unmet_ids

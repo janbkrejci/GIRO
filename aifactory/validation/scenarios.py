@@ -1274,7 +1274,7 @@ def b1(ctx: Context) -> ScenarioResult:
         f"{ctx.base_commits()}",
     )
     res.observe(
-        "B1 běží s falešným harnessem v obou režimech: hlídač zápisů (run/guard.py) je kód, "
+        "B1 běží s falešným harnessem v obou režimech: hlídač zápisů (aifactory/guard.py) je kód, "
         "model k ověření nepotřebuje; zápisy jdou do negitignorovaných souborů, "
         "gitignorované hlídač nevidí"
     )

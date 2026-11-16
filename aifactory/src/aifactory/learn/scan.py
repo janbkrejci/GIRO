@@ -70,6 +70,7 @@ from aifactory.learn.store import (
     lesson_id,
     normalize,
 )
+from aifactory.registry import Registry, same_repo
 from aifactory.scope import TaskScope
 from aifactory.workflow.propose import _isolated
 
@@ -141,7 +142,6 @@ def trace_db(repo: Path) -> Path:
 
 def _own_id(repo: Path) -> str:
     """The registry id of ``repo``, '' when the dashboard does not know it."""
-    from aifactory.registry import Registry, same_repo  # aifactory.web imports this module
 
     state, _warnings = Registry(giro_home()).snapshot()
     return next((e.id for e in state.repos if same_repo(e.path, repo)), "")

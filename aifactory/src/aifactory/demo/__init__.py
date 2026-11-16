@@ -109,10 +109,10 @@ def _undo(target: Path, existed: bool) -> None:
 
 
 def _register(path: Path, home: Path | None) -> tuple[str | None, list[str]]:
+    from aifactory.errors import UsageError
     from aifactory.home import giro_home
     from aifactory.registry import Registry, RepoError
     from aifactory.repo_vet import register_repo
-    from aifactory.web.backlog import UsageError
 
     registry = Registry(home if home is not None else giro_home())
     try:

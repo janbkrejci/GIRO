@@ -17,7 +17,7 @@ import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from pathlib import Path
 
-from aifactory import gitquery, gitrun
+from aifactory import basemoves, gitquery, gitrun
 from aifactory.providers.base import ProviderError
 
 # Global options for commands that check files out: write them with parallel workers.
@@ -180,10 +180,9 @@ def advance_branch(
 ) -> None:
     """Move `branch` from `old_sha` forward to `new_sha` (a descendant).
 
-    The move is recorded in the base-move journal (``run/basemoves.py``) so the
+    The move is recorded in the base-move journal (``aifactory/basemoves.py``) so the
     guard of a concurrent task run does not blame its agent for it.
     """
-    from aifactory import basemoves
 
     current = rev_parse(root, f"refs/heads/{branch}")
     if current != old_sha:

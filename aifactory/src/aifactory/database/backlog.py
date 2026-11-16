@@ -9,6 +9,7 @@ from pathlib import Path
 from aifactory.backlog.roots import backlog_roots, owning_root
 from aifactory.config.settings import ProjectSettings, load_local
 from aifactory.database import adopt_legacy_table, connect, is_remote
+from aifactory.locks import path_lock
 from aifactory.oscompat import atomic_write
 
 
@@ -225,7 +226,6 @@ def synchronize(root: Path, settings: ProjectSettings) -> None:
     path = _path(root)
     if path is not None:
         from aifactory.backlog.edit import write_lock
-        from aifactory.locks import path_lock
 
         path.parent.mkdir(parents=True, exist_ok=True)
         # Same order as edits: protect their loaded baseline through publication.
@@ -237,7 +237,6 @@ def publish(root: Path, changes: dict[str, str]) -> None:
     path = _path(root)
     if path is not None:
         from aifactory.backlog.edit import write_lock
-        from aifactory.locks import path_lock
 
         path.parent.mkdir(parents=True, exist_ok=True)
         # Same order as edits: protect their loaded baseline through publication.

@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 from aifactory import failure as failures
 from aifactory import gitops
 from aifactory.backlog import Task, load_backlog, unmet
+from aifactory.backlog.followup_ids import advance_pr, publication_lock, reconcile_ids
 from aifactory.backlog.roots import owning_root
 from aifactory.backlog.taskfile import mark_done, run_entry
 from aifactory.config import ConfigError, RunConfig, load_run_config
@@ -584,8 +585,6 @@ def _prepare_approve(ctx: _Ctx, task_id: str) -> _Prepared:
     _refuse_blocked(main, settings, task_id)
     worktree, temp = _branch_worktree(ctx, branch, "approve")
 
-    from aifactory.run.followups import publication_lock
-
     with publication_lock(main):
         repaired = _refresh_follow_up_ids(ctx, row, worktree)
     if status.mergeability == CONFLICT and not repaired:
@@ -613,7 +612,6 @@ def _prepare_approve(ctx: _Ctx, task_id: str) -> _Prepared:
 
 
 def _finish_approve(ctx: _Ctx, prepared: _Prepared, merged_by: str) -> ApproveResult:
-    from aifactory.run.followups import publication_lock
 
     with publication_lock(ctx.main):
         if _refresh_follow_up_ids(ctx, prepared.row, prepared.worktree):
@@ -625,7 +623,6 @@ def _finish_approve(ctx: _Ctx, prepared: _Prepared, merged_by: str) -> ApproveRe
 
 
 def _refresh_follow_up_ids(ctx: _Ctx, row: TaskPrRow, worktree: Path) -> bool:
-    from aifactory.run.followups import advance_pr, reconcile_ids
 
     head = gitops.git(worktree, "rev-parse", "HEAD")
     fixed, _ = reconcile_ids(ctx.main, head, row.base, ctx.rc.config.settings)

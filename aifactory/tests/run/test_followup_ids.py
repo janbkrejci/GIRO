@@ -13,6 +13,12 @@ from run_repo import SPEC, T01, T02, Script, commit_all, fake_env, git, make_run
 from test_followups import follow_up, workflow_run
 
 from aifactory.backlog import Task, check_backlog, link_task, load_backlog
+from aifactory.backlog.followup_ids import (
+    advance_pr,
+    follow_up_marker,
+    publication_lock,
+    reconcile_ids,
+)
 from aifactory.config import ProjectSettings, load_run_config
 from aifactory.providers import CHECKS_NONE, ChecksStatus, ProviderError, PullRequest, publish
 from aifactory.providers import git as pgit
@@ -21,16 +27,7 @@ from aifactory.repo_settings import RepositorySettings
 from aifactory.review import ReviewError, approve_task
 from aifactory.review.automerge import _hosting_and_merge
 from aifactory.run import TaskRunStore, run_task
-from aifactory.run.followups import (
-    _contents,
-    _record,
-    _snapshot,
-    advance_pr,
-    follow_up_marker,
-    publication_lock,
-    reconcile_ids,
-    record,
-)
+from aifactory.run.followups import _contents, _record, _snapshot, record
 
 
 @pytest.fixture

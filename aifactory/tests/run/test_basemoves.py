@@ -1,4 +1,4 @@
-"""The base-move journal (``run/basemoves.py``) and the factory commands that write it."""
+"""The base-move journal (``aifactory/basemoves.py``) and the factory commands that write it."""
 
 from __future__ import annotations
 

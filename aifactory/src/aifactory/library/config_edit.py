@@ -80,7 +80,7 @@ from aifactory.providers.publish import (
 if TYPE_CHECKING:
     from aifactory.library.inherit import LibrarySnapshot
     from aifactory.library.store import LibraryPlan
-    from aifactory.run.store import TaskRunStore
+    from aifactory.providers.publish import RunStore
 
 Command = Literal["set", "remove", "move"]
 Target = Literal["worktree", "direct", "pr"]
@@ -777,7 +777,7 @@ def _dirty(root: Path, files: Sequence[PlannedFile]) -> list[str]:
     return dirty(root, files)
 
 
-def _store(root: Path) -> TaskRunStore | None:
+def _store(root: Path) -> RunStore | None:
     from aifactory.library.install_commit import _store as store
 
     return store(root)

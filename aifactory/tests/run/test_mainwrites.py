@@ -1,4 +1,4 @@
-"""The journal of factory writes (``run/mainwrites.py``) and ``backup.supersede``."""
+"""The journal of factory writes (``aifactory/mainwrites.py``) and ``backup.supersede``."""
 
 from __future__ import annotations
 

@@ -13,7 +13,7 @@ import sys
 import tempfile
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal
@@ -23,7 +23,7 @@ from pydantic import ConfigDict, Field
 from aifactory import backlog as core
 from aifactory import gitrun, oscompat, yamlload
 from aifactory.config import FactoryConfig, load_run_config
-from aifactory.config.runtime import main_ignored, prepare_cfg
+from aifactory.config.runtime import apply_agents_override, main_ignored, prepare_cfg
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentCall, EnvelopeBase, PhaseParams
 from aifactory.engine.runner import Run
@@ -64,9 +64,18 @@ def fingerprint(value: dict[str, Any]) -> str:
 
 
 def context(
-    repo: Path, task_id: str | None, draft: dict[str, Any], *, task_parameters: bool = False
+    repo: Path,
+    task_id: str | None,
+    draft: dict[str, Any],
+    *,
+    task_parameters: bool = False,
+    task_state: Callable[[core.Backlog, core.Task], str] | None = None,
 ) -> dict[str, Any]:
-    """Normalize drafts against current parents, relationships and base configuration."""
+    """Normalize drafts against current parents, relationships and base configuration.
+
+    ``task_state`` gives the board state of an existing task (the dashboard passes it); a
+    task in one of ``ADVICE_CLOSED_STATES`` gets no advice.
+    """
     allowed = {"step", "title", "workflow", "writes", "body", "depends_on", "related", "parameters"}
     if set(draft) - allowed:
         raise UsageError("unknown draft field")
@@ -89,15 +98,12 @@ def context(
             raise UsageError(f"{key} must be a string or null")
     if len(json.dumps(draft).encode()) > 100_000:
         raise UsageError("draft exceeds 100 KB; shorten the task before requesting advice")
-    from aifactory.web.backlog import _runtime, board_state
-
     backlog = core.load_for_edit(repo)
     task = core.find_task(backlog, task_id, core.check_backlog(backlog)) if task_id else None
     current: dict[str, Any]
     parent: core.Container
     if task:
-        rt, _ = _runtime(repo)
-        if board_state(backlog, task, rt) in ADVICE_CLOSED_STATES:
+        if task_state is not None and task_state(backlog, task) in ADVICE_CLOSED_STATES:
             raise UsageError("workflow advice is unavailable for this task state")
         parent = task.parent
         current = {
@@ -402,7 +408,6 @@ def recommend(
     output_type = TaskRecommendationOutput if task_parameters else WorkflowRecommendationOutput
     rc = load_run_config(repo, ctx["commit"])
     loaded = rc.config
-    from aifactory.config.runtime import apply_agents_override
     from aifactory.harness.settings import ensure_enabled
 
     try:
