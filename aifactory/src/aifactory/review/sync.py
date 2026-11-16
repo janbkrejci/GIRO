@@ -109,8 +109,10 @@ def sync_backlog(repo: Path, *, provider: GitProvider | None = None) -> SyncResu
 def refresh_prs(repo: Path, *, provider: GitProvider | None = None) -> SyncResult:
     """Refresh the provider state of open task PRs and open sync PRs; nothing else.
 
-    No git fetch, no worktree, no commit, no PR is created. A provider error of one PR
-    is a warning in the result. Used by the dashboard's background refresh.
+    No git fetch, no commit, no PR is created. The local provider checks mergeability with
+    a trial merge: ``merge-tree`` without a checkout (git 2.38+), with an older git in a
+    throwaway worktree (``providers.git.trial_merge``). A provider error of one PR is a
+    warning in the result. Used by the dashboard's background refresh.
     """
     ctx = _context(repo, provider)
     try:
