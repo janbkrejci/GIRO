@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import posixpath
+from collections import deque
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 
@@ -38,16 +38,27 @@ class _Snapshot(_Loader):
 
     def resolve(self, path: Path) -> str:
         rel = self.rel(path)
-        for _ in range(40):
-            parts = PurePosixPath(rel).parts
-            for i in range(1, len(parts) + 1):
-                prefix = "/".join(parts[:i])
-                if prefix in self.links:
-                    rel = posixpath.normpath(posixpath.join(self.links[prefix], *parts[i:]))
-                    break
-            else:
-                return rel
-        raise OSError(f"symlink loop in committed backlog: {self.rel(path)}")
+        if not self.links:
+            return rel
+        pending = deque(PurePosixPath(rel).parts)
+        resolved: list[str] = []
+        followed = 0
+        while pending:
+            part = pending.popleft()
+            if part == "..":
+                if not resolved:
+                    raise RuntimeError(f"backlog symlink escapes snapshot: {rel}")
+                resolved.pop()
+                continue
+            resolved.append(part)
+            target = self.links.get("/".join(resolved))
+            if target is not None:
+                followed += 1
+                if followed > 40:
+                    raise OSError(f"symlink loop in committed backlog: {rel}")
+                resolved.pop()
+                pending.extendleft(reversed(PurePosixPath(target).parts))
+        return "/".join(resolved) or "."
 
     def is_dir(self, path: Path) -> bool:
         try:
@@ -135,10 +146,15 @@ def read_snapshot(
     links: dict[str, str] = {}
     for rel in symlinks:
         target = files[rel].decode("utf-8")
-        destination = posixpath.normpath(posixpath.join(posixpath.dirname(rel), target))
-        if target.startswith("/") or destination == ".." or destination.startswith("../"):
+        if target.startswith("/"):
             raise RuntimeError(f"backlog symlink escapes snapshot: {rel}")
-        links[rel] = destination
+        links[rel] = target
     if create_missing:
         directories.update(r for r in roots if r not in files)
-    return _Snapshot(root, settings, roots, directories, files, links)
+    snapshot = _Snapshot(root, settings, roots, directories, files, links)
+    for rel in links:
+        try:
+            snapshot.resolve(root / rel)
+        except OSError:
+            pass  # A cyclic link is unreadable, just as Path.is_file/is_dir report.
+    return snapshot

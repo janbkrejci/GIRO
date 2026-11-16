@@ -161,3 +161,36 @@ def test_git_failure_does_not_become_an_empty_backlog(
     monkeypatch.setattr(subprocess, "run", fail_batch)
     with pytest.raises(RuntimeError, match="cannot read objects"):
         load_backlog_at(root, sha, settings)
+
+
+@pytest.mark.parametrize(
+    ("directory", "target"),
+    [("deep/sub", "alias/../task.txt"), ("deep/a/b/c/d/e", "alias/../../../../../task.txt")],
+)
+def test_symlink_parent_is_resolved_after_following_a_directory_link(
+    tmp_path: Path, directory: str, target: str
+) -> None:
+    write(tmp_path, "factory/backlog/P/index.md", index_md("P"))
+    write(tmp_path, "factory/backlog/P/deep/task.txt", task_md("P-T"))
+    write(tmp_path, f"factory/backlog/P/{directory}/.keep", "")
+    commit(tmp_path)
+    for path, destination in [("alias", directory), ("T.md", target)]:
+        blob = (
+            subprocess.check_output(
+                ["git", "hash-object", "-w", "--stdin"], cwd=tmp_path, input=destination.encode()
+            )
+            .decode()
+            .strip()
+        )
+        git(
+            tmp_path,
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "120000",
+            blob,
+            f"factory/backlog/P/{path}",
+        )
+    git(tmp_path, "commit", "-qm", "nested symlink")
+    backlog = load_backlog_at(tmp_path, "HEAD", ProjectSettings(levels=("project", "task")))
+    assert "P-T" in backlog.by_id
