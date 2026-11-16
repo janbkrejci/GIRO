@@ -41,16 +41,14 @@ from aifactory.review.automerge import AutoMergeResult, resolve_and_merge
 from aifactory.run import (
     STOP_DISABLED,
     STOP_EXHAUSTED,
-    STOP_FAILED,
     STOP_NOT_MERGED,
-    TaskPrRow,
-    TaskRunStore,
     retry_chain,
     run_chain,
     run_task,
 )
-from aifactory.run.scope import output_paths
-from aifactory.run.store import MERGED_BY_AUTO, MERGED_BY_OPERATOR
+from aifactory.runstore.rows import MERGED_BY_AUTO, MERGED_BY_OPERATOR, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
+from aifactory.scope import output_paths
 from aifactory.workflow import EngineCodeRunner
 from cli_json import read_envelope
 
@@ -294,20 +292,6 @@ def test_auto_merge_json_carries_the_host_vote() -> None:
     assert AutoMergeResult(False, "no_pr", "none", None).to_json()["reviewed"] is False
 
 
-@pytest.mark.parametrize("auto_continue", [False, True])
-def test_failed_run_is_not_merged(repo: Path, script: Script, auto_continue: bool) -> None:
-    setup(repo, step=f"auto_merge: true\nauto_continue: {str(auto_continue).lower()}\n")
-    build(script, "bad", path="README.md")  # outside writes: the run fails
-
-    chain = run_chain(repo, T01)
-
-    assert chain.stop == (STOP_FAILED if auto_continue else STOP_DISABLED)
-    assert not chain.ok
-    assert len(chain.runs) == 1 and not chain.runs[0].ok
-    assert chain.runs[0].auto_merge is None
-    assert pr_row(repo, T01) is None
-
-
 def test_workflow_without_review_is_never_merged(repo: Path, script: Script) -> None:
     setup(repo, workflow="plan-commit")
     build(script, "one")
@@ -339,20 +323,6 @@ def test_rejected_review_is_not_merged(repo: Path, script: Script) -> None:
     assert (row.auto_merge_error or "").startswith("review_rejected: ")
     assert "missing tests" in (row.auto_merge_error or "")
     assert not on_main(repo, "src/app/one.py")
-
-
-def test_local_switch_overrides_task_auto_merge(repo: Path, script: Script) -> None:
-    setup(repo)
-    RepositorySettings(repo).update({"auto_merge": False})
-    build(script, "one")
-    review(script)
-
-    chain = run_chain(repo, T01)
-
-    assert chain.stop == STOP_DISABLED
-    assert chain.runs[0].auto_merge is None
-    row = pr_row(repo, T01)
-    assert row is not None and row.state == "open" and row.auto_merge_error is None
 
 
 def test_conflict_keeps_the_pr_open(repo: Path, script: Script) -> None:
@@ -392,21 +362,6 @@ def test_chain_continues_after_the_merge(repo: Path, script: Script) -> None:
         row = pr_row(repo, task_id)
         assert row is not None and row.merged_by == MERGED_BY_AUTO
         assert status_on_main(repo, task_id) == "done"
-
-
-def test_chain_stops_when_not_merged(repo: Path, script: Script, capsys: Capsys) -> None:
-    setup(repo, step="auto_merge: true\nauto_continue: true\n")
-    build(script, "one")
-    review(script, approved=False)
-
-    code = main(["task", "run", T01, "--repo", str(repo)])
-
-    out = capsys.readouterr().out
-    assert code == 0
-    assert "auto-merge: not merged (review_rejected)" in out
-    assert f"factory task approve {T01}" in out
-    assert "auto-continue: stopped (not_merged)" in out
-    assert pr_row(repo, T02) is None
 
 
 def test_cli_json_reports_auto_merge(repo: Path, script: Script, capsys: Capsys) -> None:
@@ -1004,15 +959,15 @@ def _member(
     import contextlib
 
     import aifactory.run as run_pkg
-    from aifactory.cli import _member_run
-    from aifactory.review import flow as review_flow
+    from aifactory.cli.task import _member_run
+    from aifactory.review import rework as review_rework
 
     result = _conflicting_run(repo, script)
     _resolver(script)
     review(script, approved=approve)
     monkeypatch.setattr(run_pkg, "run_task", lambda *a, **k: result)
     real_lock = TaskRunStore.merge_lock
-    real_resolve = review_flow.resolve_task
+    real_resolve = review_rework.resolve_task
 
     @contextlib.contextmanager
     def merge_lock(self: TaskRunStore, timeout: float = 600.0) -> Iterator[None]:
@@ -1026,7 +981,7 @@ def _member(
         return real_resolve(*args, **kwargs)
 
     monkeypatch.setattr(TaskRunStore, "merge_lock", merge_lock)
-    monkeypatch.setattr(review_flow, "resolve_task", resolve_task)
+    monkeypatch.setattr(review_rework, "resolve_task", resolve_task)
     return _member_run(repo, T01, None, False, code=ResolveCode([True]))
 
 

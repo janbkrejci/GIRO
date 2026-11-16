@@ -19,5 +19,5 @@ Důvod: HAIFA-REFINEMENT-T35 changes the seed semantics. Install and upgrade now
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T35 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/58 · náklady $0.56

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from aifactory.harness import CLI_BINARIES, HARNESSES, canonical, load
 from aifactory.harness import thinking as model_thinking
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
+from aifactory.oscompat import atomic_write
 
 DEFAULT_MODELS = {"claude": "claude-opus-5-5", "codex": "gpt-6.1-sol", "pi": ""}
 FILE = "harnesses.json"
@@ -47,7 +47,7 @@ class HarnessSettings(BaseModel):
 
 
 def path(home: Path | None = None) -> Path:
-    return (haifa_home() if home is None else home) / FILE
+    return (giro_home() if home is None else home) / FILE
 
 
 def read(home: Path | None = None) -> HarnessSettings | None:
@@ -75,15 +75,7 @@ def write(value: dict[str, Any], home: Path) -> HarnessSettings:
         for n, c in settings.harnesses.items()
     ):
         raise ValueError("choose a default harness")
-    home.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=".harnesses-", dir=home)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            stream.write(settings.model_dump_json(indent=2) + "\n")
-        os.replace(temporary, path(home))
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    atomic_write(path(home), settings.model_dump_json(indent=2) + "\n")
     return settings
 
 
@@ -155,7 +147,7 @@ def catalog(home: Path) -> dict[str, Any]:
 
 def read_tests(home: Path | None = None) -> dict[str, Any]:
     try:
-        data = json.loads(((home or haifa_home()) / TEST_FILE).read_text(encoding="utf-8"))
+        data = json.loads(((home or giro_home()) / TEST_FILE).read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}

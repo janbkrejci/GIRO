@@ -13,22 +13,23 @@ from starlette.concurrency import run_in_threadpool
 from starlette.testclient import TestClient
 
 from aifactory import review
+from aifactory.registry import Registry
 from aifactory.web import app as web_app
-from aifactory.web import create_app, create_multi_app, monitoring
-from aifactory.web.registry import Registry
+from aifactory.web import monitoring
+from aifactory.web.app import create_multi_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
 
-@pytest.mark.parametrize("multi", [False, True])
 def test_cancel_returns_while_cleanup_runs_and_skips_overlap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, multi: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo = make_backlog_repo(tmp_path / "repo")
     registry = Registry(tmp_path / "home")
     entry, _ = registry.add(repo)
-    app = create_multi_app(home=registry.home) if multi else create_app(repo)
-    prefix = f"/api/repos/{entry.id}" if multi else "/api"
+    app = create_multi_app(home=registry.home)
+    prefix = f"/api/repos/{entry.id}"
     started, release, finished = threading.Event(), threading.Event(), threading.Event()
     calls: list[Path] = []
 
@@ -51,7 +52,7 @@ def test_cancel_returns_while_cleanup_runs_and_skips_overlap(
             assert started.wait(5)
             assert not finished.is_set()
             assert not release.is_set()  # response arrived with the worker still blocked
-            assert client.get(f"{prefix}/health" if not multi else "/api/health").status_code == 200
+            assert client.get("/api/health").status_code == 200
             assert client.portal is not None
             client.portal.call(run_in_threadpool, app.state.worktree_cleanup.registered, registry)
             assert calls == [repo]
@@ -70,8 +71,8 @@ def test_cleanup_failure_is_logged_and_does_not_undo_cancel(
         raise RuntimeError("cleanup broke")
 
     monkeypatch.setattr(review, "clean_worktrees", clean)
-    app = create_app(repo)
-    with TestClient(app, base_url=BASE) as client:
+    app = repo_app(repo)
+    with RepoClient(app, base_url=BASE) as client:
         response = client.post(f"/api/backlog/tasks/{B1}/edit", json={"status": "cancelled"})
         assert response.status_code == 200
     assert calls == [repo]
@@ -80,7 +81,7 @@ def test_cleanup_failure_is_logged_and_does_not_undo_cancel(
     # A failed worker must release exclusion so the next sweep can retry it.
     app.state.worktree_cleanup.clean(repo)
     assert calls == [repo, repo]
-    with TestClient(app, base_url=BASE) as client:
+    with RepoClient(app, base_url=BASE) as client:
         assert (
             client.get(f"/api/backlog/tasks/{B1}").json()["data"]["task"]["status"] == "cancelled"
         )
@@ -92,7 +93,7 @@ def test_other_edits_and_rejected_cancel_do_not_cleanup(
     repo = make_backlog_repo(tmp_path / "repo")
     calls: list[Path] = []
     monkeypatch.setattr(review, "clean_worktrees", calls.append)
-    with TestClient(create_app(repo), base_url=BASE) as client:
+    with RepoClient(repo_app(repo), base_url=BASE) as client:
         assert (
             client.post(f"/api/backlog/tasks/{B1}/edit", json={"title": "New"}).status_code == 200
         )

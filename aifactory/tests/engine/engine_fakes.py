@@ -8,14 +8,12 @@ from __future__ import annotations
 import json
 import signal
 import sqlite3
-import subprocess
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
 import repo_templates
 from aifactory.engine import agent_cc, agent_pi, agents, session
@@ -28,6 +26,7 @@ from aifactory.engine.data_types import (
     SSSFConfig,
 )
 from aifactory.engine.runner import Run
+from gitutil import git as git
 
 FAKE_CHILD_PID = 424242
 
@@ -113,10 +112,6 @@ class FakeHarness:
         return AgentResult(text=text, returncode=0, session_id=request.session_id)
 
 
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-
-
 def build_repo(repo: Path) -> None:
     """A git repo with one commit: ``README.md`` and ``protected.md``."""
     repo_templates.build(repo, "engine", _build_repo)
@@ -124,13 +119,13 @@ def build_repo(repo: Path) -> None:
 
 def _build_repo(repo: Path) -> None:
     repo.mkdir(parents=True, exist_ok=True)
-    _git(repo, "init", "-q")
-    _git(repo, "config", "user.email", "tester@example.com")
-    _git(repo, "config", "user.name", "tester")
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "tester@example.com")
+    git(repo, "config", "user.name", "tester")
     (repo / "README.md").write_text("readme\n", encoding="utf-8", newline="\n")
     (repo / "protected.md").write_text("protected\n", encoding="utf-8", newline="\n")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "init")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "init")
 
 
 @dataclass
@@ -243,7 +238,12 @@ def engine_env_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     }
     roster: list[dict[str, Any]] = []
     for name, writes in agent_writes.items():
-        entry: dict[str, Any] = {"name": name, "model": "sonnet", "prompt_engineering": engineering}
+        entry: dict[str, Any] = {
+            "name": name,
+            "coding_agent": "claude_code",
+            "model": "sonnet",
+            "prompt_engineering": engineering,
+        }
         if writes is not None:
             entry["writes"] = writes
         roster.append(entry)
@@ -256,9 +256,7 @@ def engine_env_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
         "observability": {"db": str(db_path)},
         "agents": roster,
     }
-    config_path = tmp_path / "sssf.config.yaml"
-    config_path.write_text(yaml.safe_dump(config), encoding="utf-8", newline="\n")
-    cfg = agents.load_config(str(config_path))
+    cfg = SSSFConfig.model_validate(config)
 
     script = Script()
     fake = FakeHarness(script)

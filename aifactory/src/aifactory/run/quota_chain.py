@@ -39,7 +39,7 @@ from aifactory.harness import canonical
 
 if TYPE_CHECKING:
     from aifactory.config import RunConfig
-    from aifactory.run.store import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
 SOURCE = "projekt {id} (quota_switch)"
 RETURN = "quota_return"

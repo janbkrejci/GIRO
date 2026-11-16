@@ -19,5 +19,5 @@ Hotovo znamená:
 - `just check` a `just e2e` projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-11 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/8 · náklady $5.64

@@ -45,7 +45,7 @@ def test_normalize_azure_repo_accepts(value: str, expected: AzureRepo) -> None:
     [None, "", "   ", "owner/name", "https://github.com/a/b", "https://dev.azure.com/org/p/r"],
 )
 def test_normalize_azure_repo_rejects(value: str | None) -> None:
-    with pytest.raises(SetupError, match="HAIFA_AZURE_SANDBOX_REPO"):
+    with pytest.raises(SetupError, match="GIRO_AZURE_SANDBOX_REPO"):
         sandbox.normalize_azure_repo(value)
 
 
@@ -74,7 +74,7 @@ def test_credential_helper_prints_the_pat(monkeypatch: pytest.MonkeyPatch) -> No
     out = subprocess.run(
         ["sh", "-c", f"{helper} get"], capture_output=True, text=True, check=True
     ).stdout
-    assert out.splitlines() == ["username=haifa", "password=pat-123"]
+    assert out.splitlines() == ["username=giro", "password=pat-123"]
     other = subprocess.run(["sh", "-c", f"{helper} store"], capture_output=True, text=True)
     assert other.returncode == 0 and other.stdout == ""
 
@@ -100,7 +100,7 @@ def test_azure_without_sandbox_env_is_a_setup_error(
         ]
     )
     assert code == runner.EXIT_SETUP
-    assert "HAIFA_AZURE_SANDBOX_REPO" in capsys.readouterr().err
+    assert "GIRO_AZURE_SANDBOX_REPO" in capsys.readouterr().err
     assert not (tmp_path / "results").exists()
     assert not (tmp_path / "work").exists()
 
@@ -109,7 +109,7 @@ def test_azure_without_sandbox_env_is_a_setup_error(
 
 
 def _config(tmp_path: Path, provider: str, azure: AzureRepo | None = None) -> dict[str, Any]:
-    sandbox.materialize(tmp_path, "haifa-validate/x", provider, azure=azure)
+    sandbox.materialize(tmp_path, "giro-validate/x", provider, azure=azure)
     loaded = yaml.safe_load((tmp_path / ".factory" / "config.yaml").read_text(encoding="utf-8"))
     assert isinstance(loaded, dict)
     return loaded

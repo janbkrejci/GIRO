@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import abc
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -133,6 +134,34 @@ class GitProvider(abc.ABC):
 
     @abc.abstractmethod
     def status(self, pr: PullRequest) -> PrStatus: ...
+
+    def statuses(self, prs: Sequence[PullRequest]) -> dict[str, PrStatus | ProviderError]:
+        """The status of every PR of `prs` by ``PullRequest.id``; a provider error of one PR
+        is its value. Asks ``status`` PR by PR; a hosting overrides it with one list query
+        (``_with_listed``)."""
+        return self._with_listed(prs, {})
+
+    def _with_listed(
+        self, prs: Sequence[PullRequest], listed: Mapping[str, PrStatus]
+    ) -> dict[str, PrStatus | ProviderError]:
+        """`listed` (statuses by PR id from one list query), completed by ``status``.
+
+        A PR the list does not have, or an open one whose mergeability the list leaves
+        ``unknown``, is asked on its own (``status`` waits for its mergeability).
+        """
+        found: dict[str, PrStatus | ProviderError] = {}
+        for pr in prs:
+            if pr.id in found:
+                continue
+            known = listed.get(pr.id)
+            if known is not None and (known.state != OPEN or known.mergeability != UNKNOWN):
+                found[pr.id] = known
+                continue
+            try:
+                found[pr.id] = self.status(pr)
+            except ProviderError as exc:
+                found[pr.id] = exc
+        return found
 
     def checks(self, pr: PullRequest) -> ChecksStatus:
         """CI checks of `pr` on the hosting; providers without checks report ``none``."""

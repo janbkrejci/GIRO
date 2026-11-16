@@ -3,11 +3,11 @@
 ``run_task`` cannot run twice in one process at once: it changes the working
 directory (``os.chdir`` into the worktree), sets environment variables and the
 engine depends on the process's cwd. With ``max_parallel_runs`` above 1,
-``queue.run_chain`` therefore starts every task of the chain as its own process,
+``chain.run_chain`` therefore starts every task of the chain as its own process,
 ``<prefix> task run ID --repo ROOT --json --member``, the same way the dashboard
 starts runs (``web.launcher``): ``start_new_session``, stdin closed, the repository
 root as cwd, stdout (the JSON envelope) and stderr (the narration) in two new files
-with mode 0600 in ``logs/`` of the HAIFA home.
+with mode 0600 in ``logs/`` of the GIRO home.
 
 ``--member`` runs exactly one task (never a chain). With repository-local
 ``auto_merge`` enabled, the member process merges its own PR (only it holds the workflow run with
@@ -44,17 +44,15 @@ from typing import Any, Protocol
 
 from aifactory import home, oscompat
 from aifactory.config import ConfigError
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.run.policy import acceptance
-from aifactory.run.store import (
-    FAILED,
-    STARTED_AUTO_CONTINUE,
-    STARTED_MANUAL,
-    TaskRunRow,
-    TaskRunStore,
-)
-from aifactory.run.task import TaskRunResult, existing_store, task_runs_for
+from aifactory.run.task import TaskRunResult
+from aifactory.runstore.read import existing_store, task_runs_for
+from aifactory.runstore.rows import FAILED, STARTED_AUTO_CONTINUE, STARTED_MANUAL, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
+CLAIM_POLL = 0.25
+"""Least interval (seconds) between checks whether a started member claimed its run."""
 _TAIL_LINES = 20
 _TAIL_CHARS = 2000
 
@@ -134,19 +132,28 @@ def run_ids(repo: Path, task_id: str) -> set[str]:
         return set()
 
 
-def new_row(repo: Path, task_id: str, known: set[str]) -> TaskRunRow | None:
-    """The newest run of `task_id` that is not in `known`."""
+def new_row(
+    repo: Path, task_id: str, known: set[str], store: TaskRunStore | None = None
+) -> TaskRunRow | None:
+    """The newest run of `task_id` that is not in `known`.
+
+    An open `store` of the trace DB of `repo` saves resolving and opening it per call.
+    """
     try:
-        rows = task_runs_for(repo, task_id)  # newest first
+        rows = _runs_of(repo, task_id, store)  # newest first
     except (TaskRunError, sqlite3.Error):
         return None
     return next((r for r in rows if r.run_id not in known), None)
 
 
+def _runs_of(repo: Path, task_id: str, store: TaskRunStore | None) -> list[TaskRunRow]:
+    return store.for_task(task_id) if store is not None else task_runs_for(repo, task_id)
+
+
 def register_operation(repo: Path, task_id: str, action: str, pid: int) -> str:
     """Create the trace DB if needed and record a newly spawned process."""
+    from aifactory import gitops
     from aifactory.config import load_local
-    from aifactory.run import gitops
 
     main = gitops.main_root(repo)
     store = TaskRunStore(load_local(main).trace_db_path(main))
@@ -395,47 +402,58 @@ class ProcessRunner:
             raise
         member = _Member(task_id, process, envelope_path, log_path)
 
+        # The trace DB exists once the operation is registered: resolve the repo root and
+        # open the store once instead of on every check of the loop below.
+        try:
+            store = existing_store(self.repo)
+        except (TaskRunError, ConfigError, sqlite3.Error):
+            store = None
+
         def claimed() -> TaskRunRow | None:
-            row = new_row(self.repo, task_id, known)
+            row = new_row(self.repo, task_id, known, store)
             if row is not None:
                 return row
             # Auto-continue can reclaim an existing run instead of creating a row.
             return next(
                 (
                     r
-                    for r in task_runs_for(self.repo, task_id)
+                    for r in _runs_of(self.repo, task_id, store)
                     if r.pid == process.pid and r.attempt > attempts.get(r.run_id, r.attempt)
                 ),
                 None,
             )
 
-        deadline = time.monotonic() + self.claim_timeout
-        while True:
-            row = claimed()
-            if row is None and process.poll() is not None:
+        try:
+            deadline = time.monotonic() + self.claim_timeout
+            while True:
                 row = claimed()
-                if row is None:
+                if row is None and process.poll() is not None:
+                    row = claimed()
+                    if row is None:
+                        finish_operation(self.repo, operation_id)
+                        error = launch_error(
+                            envelope_path, log_path, process.returncode, f"run {task_id}"
+                        )
+                        raise error or TaskRunError(
+                            "internal_error", f"run {task_id}: exited without a run"
+                        )
+                if row is not None:
                     finish_operation(self.repo, operation_id)
-                    error = launch_error(
-                        envelope_path, log_path, process.returncode, f"run {task_id}"
+                    member.row = row
+                    self._members.append(member)
+                    return row
+                if time.monotonic() >= deadline:
+                    with contextlib.suppress(OSError):
+                        oscompat.kill_group(process.pid, force=False)
+                    process.wait()
+                    finish_operation(self.repo, operation_id)
+                    raise TaskRunError(
+                        "internal_error", f"run {task_id} was not claimed in {self.claim_timeout}s"
                     )
-                    raise error or TaskRunError(
-                        "internal_error", f"run {task_id}: exited without a run"
-                    )
-            if row is not None:
-                finish_operation(self.repo, operation_id)
-                member.row = row
-                self._members.append(member)
-                return row
-            if time.monotonic() >= deadline:
-                with contextlib.suppress(OSError):
-                    oscompat.kill_group(process.pid, force=False)
-                process.wait()
-                finish_operation(self.repo, operation_id)
-                raise TaskRunError(
-                    "internal_error", f"run {task_id} was not claimed in {self.claim_timeout}s"
-                )
-            time.sleep(min(self.poll, 0.05))
+                time.sleep(max(self.poll, CLAIM_POLL))
+        finally:
+            if store is not None:
+                store.close()
 
     def wait_any(self) -> TaskRunResult:
         if not self._members:

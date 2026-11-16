@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 from pathlib import Path
 
 from aifactory.backlog.roots import backlog_roots, owning_root
 from aifactory.config.settings import ProjectSettings, load_local
-from aifactory.database import connect, is_remote
+from aifactory.database import adopt_legacy_table, connect, is_remote
+from aifactory.locks import path_lock
+from aifactory.oscompat import atomic_write
 
 
 def _path(root: Path) -> Path | None:
@@ -19,6 +20,9 @@ def _path(root: Path) -> Path | None:
     path = load_local(root).trace_db_path(root)
     return path if is_remote(path) else None
 
+
+# Trigger name prefix of pre-GIRO shared databases.
+_LEGACY_TRIGGER = "haifa_backlog"
 
 # Protected by the same cross-process/local lock as synchronization.
 _SYNCED: dict[str, tuple[tuple[tuple[str, int, int, int], ...], int]] = {}
@@ -46,7 +50,7 @@ def _stamps(
 
 def _revision(conn: sqlite3.Connection) -> int | None:
     try:
-        row = conn.execute("SELECT revision FROM haifa_backlog_revision WHERE id = 1").fetchone()
+        row = conn.execute("SELECT revision FROM giro_backlog_revision WHERE id = 1").fetchone()
     except sqlite3.OperationalError as exc:
         if "no such table" not in str(exc):
             raise
@@ -54,21 +58,34 @@ def _revision(conn: sqlite3.Connection) -> int | None:
     return int(row[0]) if row is not None else None
 
 
+def _adopt_legacy_tables(conn: sqlite3.Connection) -> None:
+    """Take over the backlog tables of a pre-GIRO shared database; drop its old triggers."""
+    adopt_legacy_table(conn, "giro_backlog")
+    adopt_legacy_table(conn, "giro_backlog_revision")
+    for event in ("insert", "update", "delete"):
+        conn.execute(f"DROP TRIGGER IF EXISTS {_LEGACY_TRIGGER}_{event}")
+
+
+def _create_triggers(conn: sqlite3.Connection) -> None:
+    for event in ("INSERT", "UPDATE", "DELETE"):
+        conn.execute(
+            f"CREATE TRIGGER IF NOT EXISTS giro_backlog_{event.lower()} "
+            f"AFTER {event} ON giro_backlog "
+            "BEGIN UPDATE giro_backlog_revision SET revision = revision + 1 WHERE id = 1; END"
+        )
+
+
 def _snapshot(conn: sqlite3.Connection) -> dict[str, str]:
     if _revision(conn) is None:
-        conn.execute("CREATE TABLE IF NOT EXISTS haifa_backlog (path TEXT PRIMARY KEY, text TEXT)")
+        _adopt_legacy_tables(conn)
+        conn.execute("CREATE TABLE IF NOT EXISTS giro_backlog (path TEXT PRIMARY KEY, text TEXT)")
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS haifa_backlog_revision "
+            "CREATE TABLE IF NOT EXISTS giro_backlog_revision "
             "(id INTEGER PRIMARY KEY, revision INTEGER NOT NULL)"
         )
-        conn.execute("INSERT OR IGNORE INTO haifa_backlog_revision VALUES (1, 0)")
-        for event in ("INSERT", "UPDATE", "DELETE"):
-            conn.execute(
-                f"CREATE TRIGGER IF NOT EXISTS haifa_backlog_{event.lower()} "
-                f"AFTER {event} ON haifa_backlog "
-                "BEGIN UPDATE haifa_backlog_revision SET revision = revision + 1 WHERE id = 1; END"
-            )
-    return dict(conn.execute("SELECT path, text FROM haifa_backlog").fetchall())
+        conn.execute("INSERT OR IGNORE INTO giro_backlog_revision VALUES (1, 0)")
+        _create_triggers(conn)
+    return dict(conn.execute("SELECT path, text FROM giro_backlog").fetchall())
 
 
 def _baseline(path: Path) -> Path:
@@ -77,10 +94,7 @@ def _baseline(path: Path) -> Path:
 
 def _save(path: Path, files: dict[str, str]) -> None:
     target = _baseline(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(f".{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(files, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(target)
+    atomic_write(target, json.dumps(files, ensure_ascii=False))
 
 
 def _synchronize(root: Path, settings: ProjectSettings) -> None:
@@ -88,9 +102,9 @@ def _synchronize(root: Path, settings: ProjectSettings) -> None:
     path = _path(root)
     if path is None:
         return
-    from aifactory.backlog.edit import TaskEditError, _atomic_write, _guard
+    from aifactory import mainwrites
+    from aifactory.backlog.edit.common import TaskEditError, _atomic_write, _guard
     from aifactory.backlog.model import Backlog
-    from aifactory.run import mainwrites
 
     stamps = _stamps(root, settings, path)
     conn = connect(path, isolation_level=None)
@@ -118,10 +132,10 @@ def _synchronize(root: Path, settings: ProjectSettings) -> None:
         remote = _snapshot(conn)
         if not remote:
             for rel, text in local.items():
-                conn.execute("INSERT INTO haifa_backlog VALUES (?, ?)", (rel, text))
+                conn.execute("INSERT INTO giro_backlog VALUES (?, ?)", (rel, text))
             remote = dict(local)
         elif previous is None and any(local.get(rel) != text for rel, text in remote.items()):
-            from aifactory.run.gitops import read_git
+            from aifactory.gitops import read_git
 
             dirty = read_git(
                 root,
@@ -149,7 +163,7 @@ def _synchronize(root: Path, settings: ProjectSettings) -> None:
                         f"backlog conflict in {rel}; preserve your edit and reconcile",
                         path=rel,
                     )
-                conn.execute("INSERT OR REPLACE INTO haifa_backlog VALUES (?, ?)", (rel, here))
+                conn.execute("INSERT OR REPLACE INTO giro_backlog VALUES (?, ?)", (rel, here))
                 remote[rel] = here
         revision = _revision(conn)
         conn.execute("COMMIT")
@@ -198,7 +212,7 @@ def _publish(root: Path, changes: dict[str, str]) -> None:
                 "remote_backlog_conflict", "backlog changed remotely; reload and retry"
             )
         for rel, text in changes.items():
-            conn.execute("INSERT OR REPLACE INTO haifa_backlog VALUES (?, ?)", (rel, text))
+            conn.execute("INSERT OR REPLACE INTO giro_backlog VALUES (?, ?)", (rel, text))
             remote[rel] = text
         conn.execute("COMMIT")
     except BaseException:
@@ -212,11 +226,10 @@ def synchronize(root: Path, settings: ProjectSettings) -> None:
     path = _path(root)
     if path is not None:
         from aifactory.backlog.edit import write_lock
-        from aifactory.run.store import _path_lock
 
         path.parent.mkdir(parents=True, exist_ok=True)
         # Same order as edits: protect their loaded baseline through publication.
-        with write_lock(root), _path_lock(path.with_suffix(".backlog.lock")).hold(30):
+        with write_lock(root), path_lock(path.with_suffix(".backlog.lock")).hold(30):
             _synchronize(root, settings)
 
 
@@ -224,9 +237,8 @@ def publish(root: Path, changes: dict[str, str]) -> None:
     path = _path(root)
     if path is not None:
         from aifactory.backlog.edit import write_lock
-        from aifactory.run.store import _path_lock
 
         path.parent.mkdir(parents=True, exist_ok=True)
         # Same order as edits: protect their loaded baseline through publication.
-        with write_lock(root), _path_lock(path.with_suffix(".backlog.lock")).hold(30):
+        with write_lock(root), path_lock(path.with_suffix(".backlog.lock")).hold(30):
             _publish(root, changes)

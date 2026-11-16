@@ -9,7 +9,8 @@ from threading import Barrier
 
 import pytest
 
-from aifactory.run.store import QueuePrefs, TaskRunStore
+from aifactory.runstore.rows import QueuePrefs
+from aifactory.runstore.store import TaskRunStore
 
 
 def _store(tmp_path: Path) -> TaskRunStore:

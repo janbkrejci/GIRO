@@ -20,11 +20,13 @@ from aifactory.backlog import (
     link_task,
     load_backlog,
 )
+from aifactory.backlog.followup_ids import follow_up_marker
 from aifactory.engine.data_types import FollowUp, PlanOutput
+from aifactory.errors import TaskRunError
 from aifactory.review import ReviewError, approve_task
-from aifactory.run import TaskRunStore, run_task
-from aifactory.run.errors import TaskRunError
-from aifactory.run.followups import collect, follow_up_marker, record
+from aifactory.run import run_task
+from aifactory.run.followups import FollowUpOutcome, collect, record
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import StepRecord, WorkflowRun
 
 TODO_STEP = "M01-TODO"
@@ -574,3 +576,44 @@ def test_approve_refuses_a_blocked_task(repo: Path, script: Script) -> None:
         store.close()
     assert pr is not None and pr.state == "open"
     assert git(repo, "log", "-1", "--format=%s", result.run.branch) != f"{T01}: status done"
+
+
+def test_record_keeps_the_backlog_in_memory_with_constant_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No archive, no backlog copy in a temporary directory, git calls independent of size."""
+    import tempfile
+
+    from aifactory import gitquery
+    from aifactory.backlog import add_task
+    from aifactory.run import followups
+    from gitcount import count_git
+
+    def no_copy(*args: object, **kwargs: object) -> None:
+        pytest.fail("recording follow-ups must not copy the backlog to a temporary directory")
+
+    original = followups._record
+
+    def in_memory(*args: Any, **kwargs: Any) -> FollowUpOutcome:
+        # Publication may still back up the checkout; the backlog edits must not stage.
+        with monkeypatch.context() as mp:
+            mp.setattr(tempfile, "TemporaryDirectory", no_copy)
+            return original(*args, **kwargs)
+
+    monkeypatch.setattr(followups, "_record", in_memory)
+
+    totals = []
+    for n in (0, 8):
+        repo = make_run_repo(tmp_path / f"n{n}")
+        for i in range(n):
+            add_task(repo, "M01-S01", f"Úkol navíc {i}")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "--allow-empty", "-m", "more tasks")
+        gitquery.clear_caches()  # both rounds start cold
+        with count_git(monkeypatch, tmp_path / f"trace{n}") as count:
+            outcome = record(repo, T01, "run-1", workflow_run(follow_ups=[follow_up()]))
+        assert outcome.committed and outcome.warnings == []
+        assert count.commands["archive"] == 0
+        assert len(load_backlog(repo).by_id) > n
+        totals.append(count.commands)
+    assert totals[0] == totals[1], totals

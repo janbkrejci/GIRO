@@ -16,6 +16,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
+from aifactory import gitquery
 from aifactory.backlog import Backlog, check_backlog
 from aifactory.backlog.model import Issue
 from aifactory.backlog.snapshot import load_backlog_at
@@ -114,14 +115,17 @@ class CheckContext:
 
     def base_file(self, rel: str) -> str | None:
         """The text of ``rel`` in the base commit, or None."""
-        if self.commit is None or not self.base_has(rel):
+        if self.commit is None:
             return None
-        return git_try(self.main, "cat-file", "blob", f"{self.commit}:{rel}")
+        name = f"{self.commit}:{rel}"
+        data = gitquery.read_objects(self.main, [name])[name]
+        return None if data is None else data.decode("utf-8", "replace")
 
     def base_has(self, rel: str) -> bool:
         if self.commit is None:
             return False
-        return git_try(self.main, "cat-file", "-e", f"{self.commit}:{rel}") is not None
+        name = f"{self.commit}:{rel}"
+        return gitquery.exists(self.main, [name])[name]
 
     @cached_property
     def state(self) -> RepoState:

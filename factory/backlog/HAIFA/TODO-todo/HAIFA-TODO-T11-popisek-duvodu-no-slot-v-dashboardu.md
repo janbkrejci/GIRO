@@ -18,5 +18,5 @@ Důvod: HAIFA-REFINEMENT-T39 přidal důvod přeskočení `no_slot` (PR čekají
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T39 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/60 · náklady $0.98

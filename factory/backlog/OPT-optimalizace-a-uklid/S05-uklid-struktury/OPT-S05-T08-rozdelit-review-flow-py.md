@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T08
 title: Rozdělit review/flow.py
-status: todo
+status: done
 depends_on: [OPT-S05-T03]
 ---
 
@@ -16,4 +16,4 @@ Hotovo znamená:
 - Testy `tests/review/` a přímých volajících projdou beze změny chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

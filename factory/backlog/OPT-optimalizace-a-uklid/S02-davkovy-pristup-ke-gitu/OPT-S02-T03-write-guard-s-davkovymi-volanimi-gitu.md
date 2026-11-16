@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T03
 title: Write guard s dávkovými voláními gitu
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 
@@ -25,4 +25,4 @@ Hotovo znamená:
 - Nový test ověří, že počet procesů gitu na fázi nezávisí na počtu změněných souborů.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

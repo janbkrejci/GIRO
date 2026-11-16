@@ -20,6 +20,7 @@ from collections.abc import Callable
 from pathlib import Path
 from time import monotonic, sleep
 
+from aifactory import gitops
 from aifactory.config import load_run_config
 from aifactory.providers import (
     CHECKS_FAILING,
@@ -31,11 +32,10 @@ from aifactory.providers import (
     get_provider,
 )
 from aifactory.review.errors import ReviewError
-from aifactory.run import gitops
-from aifactory.run.resolve import CI_FIX_WORKFLOW
-from aifactory.run.store import STARTED_AUTO_CI_FIX
 from aifactory.run.task import TaskRunResult, run_task
+from aifactory.runstore.rows import STARTED_AUTO_CI_FIX
 from aifactory.workflow import CodeRunner
+from aifactory.workflow.parse import CI_FIX_WORKFLOW
 
 AUTO_MERGE_CHECKS_DELAY = 15.0
 """Seconds between two reads of the PR's checks while they run."""

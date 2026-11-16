@@ -1,6 +1,6 @@
 """The run guard and base moves made by factory commands during an agent phase.
 
-The fake harness runs agent effects in-process, where ``HAIFA_RUN_ID`` is the id
+The fake harness runs agent effects in-process, where ``GIRO_RUN_ID`` is the id
 of the run under test. ``foreign()`` drops it to stand for a factory command in
 another process (the operator's terminal, the dashboard, another run).
 """
@@ -18,12 +18,14 @@ from test_auto_continue import T03, build, open_pr, setup_chain
 
 from aifactory.providers import git as pgit
 from aifactory.review import approve_task
-from aifactory.run import TaskRunRow, TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 
 @contextlib.contextmanager
 def foreign() -> Iterator[None]:
-    saved = {key: os.environ.pop(key, None) for key in ("GIRO_RUN_ID", "HAIFA_RUN_ID")}
+    saved = {key: os.environ.pop(key, None) for key in ("GIRO_RUN_ID",)}
     try:
         yield
     finally:

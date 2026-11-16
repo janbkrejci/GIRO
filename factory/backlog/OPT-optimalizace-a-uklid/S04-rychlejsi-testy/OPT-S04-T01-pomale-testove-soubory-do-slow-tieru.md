@@ -1,7 +1,7 @@
 ---
 id: OPT-S04-T01
 title: Pomalé testové soubory do slow tieru
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -16,4 +16,4 @@ Hotovo znamená:
 - `tests/test_tiers.py` projde a `pytest -m 'not slow' --collect-only` uvedené testy nevybere.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

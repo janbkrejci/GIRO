@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
 from backlog_repo import T02, index_md, sample_repo, task_md, write
@@ -13,7 +12,21 @@ from aifactory.backlog import backlog_to_json, check_backlog, load_backlog, load
 from aifactory.backlog.snapshot import load_backlog_at, read_snapshot
 from aifactory.config import ProjectSettings
 from aifactory.config.source import git
-from aifactory.run.gitops import extract_backlog
+
+
+def extract_backlog(root: Path, sha: str, dest: Path) -> None:
+    """The reference: the committed backlog roots written out by ``git archive``."""
+    import io
+    import tarfile
+
+    data = subprocess.run(
+        ["git", "archive", "--format=tar", sha, "--", "backlog"],
+        cwd=root,
+        capture_output=True,
+        check=True,
+    ).stdout
+    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+        tar.extractall(dest, filter="data")
 
 
 def commit(root: Path) -> str:
@@ -41,7 +54,8 @@ def test_snapshot_matches_archive_and_ignores_checkout(tmp_path: Path, malformed
     settings = load_settings(root)
     dest = tmp_path / "archive"
     dest.mkdir()
-    extract_backlog(root, sha, settings.backlog_patterns, dest)
+    assert list(settings.backlog_patterns) == ["backlog"]
+    extract_backlog(root, sha, dest)
     expected = load_backlog(dest, settings)
     write(root, T02, task_md("UNCOMMITTED", "done"))
     write(root, "backlog/M02-ui/S01-list/new.md", task_md("NEW"))
@@ -55,37 +69,6 @@ def test_snapshot_matches_archive_and_ignores_checkout(tmp_path: Path, malformed
     next_sha = commit(root)
     assert "NEW" in load_backlog_at(root, next_sha, settings).by_id
     assert "NEW" not in load_backlog_at(root, sha, settings).by_id
-
-
-def test_1655_files_use_one_batch_and_no_python_file_io(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    root = tmp_path / "repo"
-    write(root, "factory/backlog/P/index.md", index_md("P"))
-    write(root, "factory/backlog/P/S/index.md", index_md("P-S"))
-    for i in range(1653):
-        write(root, f"factory/backlog/P/S/T{i}.md", task_md(f"P-S-T{i}"))
-    write(root, "outside.md", "must not be included")
-    sha = commit(root)
-    calls: list[list[str]] = []
-    run = subprocess.run
-
-    def spy(argv: list[str], **kwargs: Any) -> Any:
-        calls.append(argv)
-        assert "archive" not in argv
-        return run(argv, **kwargs)
-
-    def forbidden(*args: Any, **kwargs: Any) -> Any:
-        pytest.fail("committed backlog must not open or create filesystem paths")
-
-    with monkeypatch.context() as patch:
-        patch.setattr(subprocess, "run", spy)
-        patch.setattr(Path, "open", forbidden)
-        patch.setattr(Path, "mkdir", forbidden)
-        backlog = load_backlog_at(root, sha, ProjectSettings())
-    assert len(backlog.by_id) == 1655
-    assert check_backlog(backlog) == []
-    assert sum(argv == ["git", "cat-file", "--batch"] for argv in calls) == 1
 
 
 @pytest.mark.parametrize("create_missing", [False, True])
@@ -151,14 +134,15 @@ def test_git_failure_does_not_become_an_empty_backlog(
     settings = load_settings(root)
     with pytest.raises(RuntimeError, match="cannot read committed backlog"):
         load_backlog_at(root, "missing-commit", settings)
-    run = subprocess.run
+    from aifactory import gitrun
+    from gitspy import GitCall, spy_git
 
-    def fail_batch(argv: list[str], **kwargs: Any) -> Any:
-        if argv == ["git", "cat-file", "--batch"]:
-            return subprocess.CompletedProcess(argv, 1, b"", b"cannot read objects")
-        return run(argv, **kwargs)
+    def fail_batch(call: GitCall) -> gitrun.Result | None:
+        if call.argv == ["git", "cat-file", "--batch"]:
+            return gitrun.Result(tuple(call.argv), 1, b"", b"cannot read objects")
+        return None
 
-    monkeypatch.setattr(subprocess, "run", fail_batch)
+    spy_git(monkeypatch, fail_batch)
     with pytest.raises(RuntimeError, match="cannot read objects"):
         load_backlog_at(root, sha, settings)
 

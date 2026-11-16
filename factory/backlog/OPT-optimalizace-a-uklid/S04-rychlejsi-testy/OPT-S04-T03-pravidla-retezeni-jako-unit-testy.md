@@ -1,7 +1,7 @@
 ---
 id: OPT-S04-T03
 title: Pravidla řetězení jako unit testy
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - PR obsahuje tabulku odstraněných plných testů a jejich náhrad.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

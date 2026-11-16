@@ -12,7 +12,7 @@ from test_f3_browser import _launch
 from advice_fixture import git
 from advice_server import dashboard
 from aifactory.backlog import Task, load_backlog
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.learn.sources import FACTORY_REPO_ENV
 from aifactory.learn.store import ACCEPTED, LessonStore
 from learn_fixture import fake_learner, make_learn_repo, register_learn_repos
@@ -103,11 +103,11 @@ def test_learn_browser_all_repos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
             ],
         }
     )
-    with dashboard(repos["haifa"], haifa_home()) as (url, identifier), sync_playwright() as p:
+    with dashboard(repos["haifa"], giro_home()) as (url, identifier), sync_playwright() as p:
         assert identifier == "haifa"
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(ASYNC_TIMEOUT_MS)
         try:
             page.goto(f"{url}/#/r/haifa/factory")

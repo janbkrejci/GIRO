@@ -177,8 +177,8 @@ describe('AssistantPanel', () => {
   it('restores the open thread on Intent while blocking sends and proposed actions without HTTP writes', async () => {
     const { sent } = stubApi({ detail: structuredClone(WITH_PROPOSAL) })
     go('#/r/haifa/backlog/intent/P01-S01')
-    sessionStorage.setItem('haifa.assistant.thread', THREAD.id)
-    sessionStorage.setItem('haifa.assistant.open', '1')
+    sessionStorage.setItem('giro.assistant.thread', THREAD.id)
+    sessionStorage.setItem('giro.assistant.open', '1')
     restoreOpen()
     const wrapper = mount(AssistantPanel)
     await flushPromises()
@@ -334,7 +334,7 @@ describe('AssistantPanel', () => {
     expect(links).toEqual(['#/r/haifa/backlog/P01-S01-T01', '#/r/haifa/review'])
   })
 
-  it('shows a placeholder card instead of a haifa-action block still streaming', async () => {
+  it('shows a placeholder card instead of a giro-action block still streaming', async () => {
     stubApi()
     go('#/r/haifa/runs/740183f7')
     const wrapper = await openPanel()
@@ -342,11 +342,11 @@ describe('AssistantPanel', () => {
     await flushPromises()
     const stream = FakeEventSource.latest()
 
-    stream.emit('text', { seq: 2, text: 'Navrhuji změnu.\n\n```haifa-action\n{"kind": "edit_task", "writes": ["src/"' })
+    stream.emit('text', { seq: 2, text: 'Navrhuji změnu.\n\n```giro-action\n{"kind": "edit_task", "writes": ["src/"' })
     await flushPromises()
     const streaming = wrapper.get('[data-test="assistant-streaming"]')
     expect(streaming.text()).toContain('Navrhuji změnu.')
-    expect(streaming.text()).not.toContain('haifa-action')
+    expect(streaming.text()).not.toContain('giro-action')
     expect(streaming.text()).not.toContain('"kind"')
     expect(streaming.find('pre').exists()).toBe(false)
     expect(streaming.get('[data-test="assistant-action-pending"]').text()).toContain('Připravuji návrh akce…')
@@ -464,8 +464,8 @@ describe('AssistantPanel', () => {
     stubApi({ detail })
     const wrapper = await openPanel()
     resetAssistantForTests()
-    sessionStorage.setItem('haifa.assistant.thread', THREAD.id)
-    sessionStorage.setItem('haifa.assistant.open', '1')
+    sessionStorage.setItem('giro.assistant.thread', THREAD.id)
+    sessionStorage.setItem('giro.assistant.open', '1')
     restoreOpen()
     await flushPromises()
     expect(FakeEventSource.latest().url).toBe('/api/assistant/threads/a1b2c3d4e5f6/stream?after=0')
@@ -552,7 +552,7 @@ describe('AssistantPanel', () => {
     await flushPromises()
     expect(deleted).toEqual([`/api/assistant/threads/${THREAD.id}`])
     expect(assistant.thread).toBeNull()
-    expect(window.sessionStorage.getItem('haifa.assistant.thread')).toBeNull()
+    expect(window.sessionStorage.getItem('giro.assistant.thread')).toBeNull()
 
     await wrapper.get('[data-test="assistant-threads"]').trigger('click')
     await flushPromises()
@@ -591,7 +591,7 @@ it('switches panel labels without changing the draft, messages, proposals or str
   const calls = fetchMock.mock.calls.length
   for (const language of ['cs', 'en'] as const) {
     await chooseOption(wrapper, '[data-test="language-select"]', language)
-    expect(localStorage.getItem('haifa.dashboard.locale')).toBe(language)
+    expect(localStorage.getItem('giro.dashboard.locale')).toBe(language)
     expect(wrapper.get('[data-test="assistant-panel"]').element).toBe(panel)
     expect(wrapper.get('[data-test="assistant-panel"]').attributes('aria-label')).toBe(language === 'cs' ? 'AI průvodce' : 'AI guide')
     expect(wrapper.get('[data-test="assistant-send"]').text()).toBe(language === 'cs' ? 'Odeslat' : 'Send')

@@ -19,10 +19,10 @@ from aifactory.library.model import ITEM_TYPES
 from aifactory.providers import git
 from aifactory.providers.base import ProviderError
 from aifactory.providers.publish import PlannedFile
+from aifactory.registry import RepoEntry
 from aifactory.web.backlog import UsageError
 from aifactory.web.factory import Failure
 from aifactory.web.machine import GlobalState
-from aifactory.web.registry import RepoEntry
 
 OPTIONS = {
     "init": ("name", "remote"),
@@ -340,7 +340,7 @@ def plan(home: Path, user_home: Path, req: Request) -> tuple[dict[str, Any], lis
                     )
         # Raw URL participates in identity, but only its redacted form is returned.
         stable = {
-            "domain": "haifa-library-api-plan-v1",
+            "domain": "giro-library-api-plan-v1",
             "action": req.action,
             "options": opts,
             "library": str(root),

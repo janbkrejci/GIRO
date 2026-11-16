@@ -147,3 +147,52 @@ def test_summary_lists_every_change_once() -> None:
     )
     assert two.startswith("2 files")
     assert ".factory/agents.yaml (modified), .factory/workflows/x.yaml (untracked)" in two
+
+
+def _scenario(repo: Path) -> None:
+    write(repo, ".factory/agents.yaml", "agents: []\n")  # modified
+    (repo / ".factory/prompts/builder/user.md").unlink()  # deleted
+    write(repo, ".factory/workflows/new.yaml", "name: new\n")  # untracked
+    write(repo, ".factory/roles.yaml", "roles: {}\n")
+    git(repo, "add", ".factory/roles.yaml")  # added
+    write(repo, ".factory/added-then-gone.yaml", "x: 1\n")
+    git(repo, "add", ".factory/added-then-gone.yaml")
+    (repo / ".factory/added-then-gone.yaml").unlink()  # in neither base nor the tree
+    system = repo / ".factory/prompts/builder/system.md"
+    system.write_text(system.read_text(encoding="utf-8"), encoding="utf-8")
+    os.utime(system, ns=(1, 1))  # stale stat data, same content: not a change
+    write(repo, "src/outside.py", "print(1)\n")  # outside the configuration
+
+
+def test_config_status_from_one_git_status_matches_the_comparison_with_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from aifactory.config.status import config_status
+    from gitcount import count_git
+
+    repo = make_repo(tmp_path / "repo")
+    _scenario(repo)
+    expected = config_changes(repo, _head(repo))
+    with count_git(monkeypatch, tmp_path / "trace.json") as count:
+        status = config_status(repo)
+    assert status.changes == expected
+    assert status.commit == _head(repo)
+    # cold caches: git dirs and base (rev-parse), then one status instead of
+    # diff-index, hash-object and ls-files
+    assert count.commands == {"status": 1, "rev-parse": 2}
+
+
+def test_config_status_compares_with_base_when_head_differs(tmp_path: Path) -> None:
+    from aifactory.config.status import config_status
+
+    repo = make_repo(tmp_path / "repo")
+    base = _head(repo)
+    git(repo, "checkout", "-q", "-b", "side")
+    write(repo, ".factory/roles.yaml", "roles: {}\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "side")
+    _scenario(repo)
+    status = config_status(repo, base)
+    assert status.commit == base
+    assert status.changes == config_changes(repo, base)
+    assert ConfigChange(".factory/roles.yaml", "added") in status.changes

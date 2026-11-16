@@ -18,6 +18,6 @@ Hotovo: změna za běhu funguje bez restartu/commitu u sekvenčního i paraleln�
 
 ## Běhy
 
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-09 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/206 · náklady $0.00
 

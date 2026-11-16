@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 
 from aifactory.library import share, store
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 from aifactory.web.machine import CachedCheck
 
 
@@ -26,9 +26,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     user = tmp_path / "user"
     user.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: user))
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "process-home"))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
-    monkeypatch.delenv("HAIFA_LIBRARY_URL", raising=False)
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "process-home"))
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY_URL", raising=False)
     for role in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{role}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{role}_EMAIL", "ada@example.com")
@@ -124,7 +124,7 @@ def test_init_remote_clone_and_sync(client: TestClient, tmp_path: Path) -> None:
         write(root, "note.txt", "changed\n")
         git(root, "add", "note.txt")
         git(root, "commit", "-m", "advance")
-        git(root, "push", "origin", "main")  # the maintainer, outside HAIFA
+        git(root, "push", "origin", "main")  # the maintainer, outside GIRO
         response(apply(other, "clone", planned, url=str(bare)), 409, "plan_changed")
         planned = preview(other, "clone", url=str(bare), branch="main")
         cloned = response(apply(other, "clone", planned, url=str(bare), branch="main"))
@@ -135,7 +135,7 @@ def test_init_remote_clone_and_sync(client: TestClient, tmp_path: Path) -> None:
         git(target, "commit", "-m", "another commit")
         main = git(bare, "rev-parse", "main")
         sent = response(other.post("/api/library/push"))["pull_request"]
-        assert sent["branch"].startswith("haifa-library/") and sent["url"] is None
+        assert sent["branch"].startswith("giro-library/") and sent["url"] is None
         assert git(bare, "rev-parse", "main") == main
         status = response(other.get("/api/library?items=0"))
         assert status["sync_state"] == "pending" and len(status["pull_requests"]) == 1
@@ -505,15 +505,15 @@ def test_overrides_without_repos(client: TestClient) -> None:
 
 def test_repo_inventory_and_ignore_persistence(client: TestClient) -> None:
     from aifactory.library.load import load_repo_item
+    from aifactory.registry import Registry
     from aifactory.web.library_inventory import inventory
-    from aifactory.web.registry import Registry
 
     registry = state(client).registry
     roots = [state(client).user_home / name for name in ("one", "two")]
-    workflow = ".factory/workflows/haifa-implement-task.yaml"
+    workflow = ".factory/workflows/giro-implement-task.yaml"
     skill = "---\nname: bmad-builder\ndescription: Build with BMAD\n---\nInstructions\n"
     for root in roots:
-        write(root, workflow, "name: haifa-implement-task\nsteps: []\n")
+        write(root, workflow, "name: giro-implement-task\nsteps: []\n")
         write(root, ".claude/skills/bmad-builder/SKILL.md", skill)
         write(root, ".agents/skills/bmad-builder/SKILL.md", "mirror must not duplicate")
         write(root, ".agents/skills/codex-only/SKILL.md", skill)
@@ -527,7 +527,7 @@ def test_repo_inventory_and_ignore_persistence(client: TestClient) -> None:
     assert not registry.add(roots[0])[1]
     data = response(client.get("/api/library/inventory"))
     assert len(data["items"]) == 10
-    assert len([r for r in data["items"] if r["name"] == "haifa-implement-task"]) == 2
+    assert len([r for r in data["items"] if r["name"] == "giro-implement-task"]) == 2
     assert not any(r["path"] == ".agents/skills/bmad-builder" for r in data["items"])
     detail = response(
         client.post(

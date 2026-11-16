@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T04
 title: Rozdělit cli.py na balíček
-status: todo
+status: done
 depends_on: [OPT-S05-T03]
 ---
 
@@ -19,4 +19,4 @@ Hotovo znamená:
 - Test startu CLI z S01-T01 projde.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

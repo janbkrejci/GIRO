@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T01
 title: Jeden git runner s timeoutem
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -23,4 +23,4 @@ Hotovo znamená:
 - Mimo `engine/` a runner žádný kód nevolá `subprocess` s `git`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

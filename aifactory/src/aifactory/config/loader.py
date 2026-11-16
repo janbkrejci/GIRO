@@ -5,7 +5,7 @@ exactly that commit's configuration. ``local.yaml`` is not part of it; see
 ``aifactory.config.settings.load_local``.
 
 Agents and workflows the repo does not have are inherited from the library
-(``aifactory.library.inherit``: HEAD of ``$HAIFA_HOME/library``, else the seed). A copy in
+(``aifactory.library.inherit``: HEAD of ``$GIRO_HOME/library``, else the seed). A copy in
 the repo wins. An agent with prompts in ``.factory/prompts/<name>/`` is the repo's own copy
 and takes nothing from the library. A roster entry in ``agents.yaml`` without prompts there
 overrides only the keys it sets of the library agent of the same name (bindings, writes and
@@ -326,7 +326,7 @@ class _RosterFile:
 
 
 def load_roster_file(path: str | Path) -> SSSFConfig:
-    """Load a HAIFA roster (``.factory/agents.yaml`` format) from ``path``.
+    """Load a GIRO roster (``.factory/agents.yaml`` format) from ``path``.
 
     Raises ``ConfigError`` when the file is missing, unreadable or invalid.
     """

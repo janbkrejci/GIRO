@@ -1,8 +1,8 @@
-"""The HAIFA library in the home directory (AR13, AR14, AR17).
+"""The GIRO library in the home directory (AR13, AR14, AR17).
 
-The library is a git repository at ``$HAIFA_HOME/library`` (``$HAIFA_LIBRARY`` overrides
+The library is a git repository at ``$GIRO_HOME/library`` (``$GIRO_LIBRARY`` overrides
 it). Reads use the tree of HEAD, never the working tree. Every write is a plan (files
-with diffs and a digest) applied under the flock ``$HAIFA_HOME/library.lock``: a library
+with diffs and a digest) applied under the flock ``$GIRO_HOME/library.lock``: a library
 with uncommitted changes is refused (``library_dirty``), the commit is built on HEAD
 without a checkout (``providers.git.commit_tree_with``) and the branch and working tree
 are moved by a fast-forward merge. Nothing is forced and no history is rewritten.
@@ -22,7 +22,6 @@ import hashlib
 import os
 import shutil
 import stat
-import subprocess
 import tempfile
 import uuid
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -32,10 +31,10 @@ from typing import Any
 
 import yaml
 
-from aifactory import __version__, oscompat, yamlload
+from aifactory import __version__, gitrun, oscompat, yamlload
 from aifactory.engine.role_registry import Issue
 from aifactory.environment import value
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.library import history as hist
 from aifactory.library.load import (
     PROMPT_FILES,
@@ -58,7 +57,7 @@ from aifactory.library.tree import (
 from aifactory.providers import git
 from aifactory.providers.publish import PlannedFile, plan_digest
 
-LIBRARY_ENV = "HAIFA_LIBRARY"
+LIBRARY_ENV = "GIRO_LIBRARY"
 LIBRARY_FILE = "library.yaml"
 LOCK_FILE = "library.lock"
 FORMAT = 1
@@ -89,16 +88,16 @@ class LibraryStoreError(Exception):
 
 
 def library_root(environ: Mapping[str, str] | None = None) -> Path:
-    """``$HAIFA_LIBRARY``, else ``$HAIFA_HOME/library``."""
+    """``$GIRO_LIBRARY``, else ``$GIRO_HOME/library``."""
     env = os.environ if environ is None else environ
     explicit = value(LIBRARY_ENV, env)
     if explicit:
         return Path(explicit).expanduser()
-    return haifa_home(environ) / "library"
+    return giro_home(environ) / "library"
 
 
 def _home_dir(environ: Mapping[str, str] | None) -> Path:
-    path = haifa_home(environ)
+    path = giro_home(environ)
     if not path.is_dir():
         path.mkdir(parents=True, exist_ok=True)
         os.chmod(path, 0o700)
@@ -107,7 +106,7 @@ def _home_dir(environ: Mapping[str, str] | None) -> Path:
 
 @contextlib.contextmanager
 def write_lock(environ: Mapping[str, str] | None = None) -> Iterator[None]:
-    """Hold the flock ``$HAIFA_HOME/library.lock`` (blocks until it is free)."""
+    """Hold the flock ``$GIRO_HOME/library.lock`` (blocks until it is free)."""
     path = _home_dir(environ) / LOCK_FILE
     fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
     try:
@@ -149,10 +148,8 @@ def _dirty(root: Path) -> list[str]:
 def _identity_value(cwd: Path, key: str, envs: tuple[str, str]) -> bool:
     if all(os.environ.get(e) for e in envs):
         return True
-    proc = subprocess.run(
-        ["git", "config", "--get", key], cwd=cwd, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.returncode == 0 and bool(proc.stdout.strip())
+    proc = gitrun.run(cwd, "config", "--get", key)
+    return proc.ok and bool(proc.out)
 
 
 def check_identity(cwd: Path) -> None:
@@ -360,7 +357,7 @@ def current_branch(root: Path) -> str:
     return name if proc.returncode == 0 and name else BRANCH
 
 
-def _git_detail(proc: subprocess.CompletedProcess[bytes], url: str | None = None) -> str:
+def _git_detail(proc: gitrun.Result, url: str | None = None) -> str:
     detail = proc.stderr.decode("utf-8", "replace").strip() or "failed"
     return detail.replace(url, git.redact_url(url)) if url else detail
 

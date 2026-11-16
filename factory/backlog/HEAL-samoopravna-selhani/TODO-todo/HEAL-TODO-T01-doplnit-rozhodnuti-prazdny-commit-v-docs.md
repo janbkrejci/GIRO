@@ -20,5 +20,5 @@ Důvod: HEAL-S02-T02 rozšířilo chování popsané rozhodnutím „Prázdný c
 <!-- factory: follow-up-of=HEAL-S02-T02 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/79 · náklady $0.32

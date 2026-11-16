@@ -11,7 +11,7 @@ from backlog_fixture import git, make_backlog_repo
 from starlette.testclient import TestClient
 
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 M01_INDEX = "backlog/M01-core/index.md"
@@ -48,7 +48,7 @@ def test_project_archive_rejects_invalid_writes(tmp_path: Path, node: str, value
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _check(response: Any, status: int) -> Any:

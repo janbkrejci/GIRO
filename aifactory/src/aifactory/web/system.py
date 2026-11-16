@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from aifactory import review
-from aifactory.web.registry import RepoEntry
+from aifactory.registry import RepoEntry
 from aifactory.workflow import adaptive
 
 DISK_MIN_FREE = 10 * 1024**3

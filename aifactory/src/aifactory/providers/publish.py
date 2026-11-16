@@ -33,18 +33,41 @@ import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal, Protocol
 
+from aifactory import basemoves, gitops, gitquery, gitrun
 from aifactory.config.settings import ProjectSettings
 from aifactory.providers import git
 from aifactory.providers.base import GitProvider, ProviderError, PullRequest
 
-if TYPE_CHECKING:
-    from aifactory.run.store import TaskRunRow, TaskRunStore
-
 DIRECT, PR = "direct", "pr"
 Action = Literal["create", "modify", "delete"]
 _READ_ENV = {"GIT_OPTIONAL_LOCKS": "0"}
+
+
+class LiveRun(Protocol):
+    """A running task run as publishing reports it (``runstore.rows.TaskRunRow``)."""
+
+    @property
+    def run_id(self) -> str: ...
+
+    @property
+    def task_id(self) -> str: ...
+
+    @property
+    def pid(self) -> int | None: ...
+
+
+class RunStore(Protocol):
+    """What publishing needs of the trace store (``runstore.store.TaskRunStore``)."""
+
+    def serialized(self) -> contextlib.AbstractContextManager[None]: ...
+
+    def live_runs_locked(self) -> Sequence[LiveRun]: ...
+
+    def live_runs(self) -> Sequence[LiveRun]: ...
+
+    def close(self) -> None: ...
 
 
 def _file_mode(path: Path, base_mode: str | None = None) -> str:
@@ -169,18 +192,41 @@ def plan_digest(base: str, base_sha: str, files: Sequence[PlannedFile]) -> str:
     return h.hexdigest()
 
 
+def _blobs_at(root: Path, base_sha: str, paths: Sequence[str]) -> dict[str, tuple[str, str]]:
+    """(mode, blob) of each path that is a file in `base_sha` (``git.blob_at`` for many)."""
+    try:
+        entries = gitquery.ls_tree(root, base_sha, paths)
+    except gitrun.GitCommandFailed as exc:
+        raise ProviderError("commit_failed", str(exc)) from exc
+    return {p: (e.mode, e.sha) for p, e in entries.items() if e.type == "blob"}
+
+
+def _with_old_content(root: Path, files: list[PlannedFile]) -> list[PlannedFile]:
+    """`files` with ``old_content`` read from their old blobs in one process."""
+    try:
+        blobs = gitquery.read_objects(root, [f.old_blob for f in files if f.old_blob])
+    except gitrun.GitCommandFailed as exc:
+        raise ProviderError("commit_failed", str(exc)) from exc
+    return [replace(f, old_content=blobs.get(f.old_blob) if f.old_blob else None) for f in files]
+
+
 def plan_files(root: Path, base_sha: str, paths: Iterable[str]) -> list[PlannedFile]:
-    """The planned change of each path: working-tree bytes against the blob in `base_sha`."""
+    """The planned change of each path: working-tree bytes against the blob in `base_sha`.
+
+    A constant number of git processes, whatever the number of paths.
+    """
+    wanted = sorted(set(paths))
+    olds = _blobs_at(root, base_sha, wanted)
     files: list[PlannedFile] = []
-    for path in sorted(set(paths)):
-        old = git.blob_at(root, base_sha, path)
+    for path in wanted:
+        old = olds.get(path)
         disk = root / path
         content = disk.read_bytes() if disk.is_file() else None
         mode = _file_mode(disk, old[0] if old else None) if content is not None else None
         if old is None and content is None:
             continue
         if old is not None and content is not None:
-            if mode == old[0] and git.hash_blob(root, content, write=False) == old[1]:
+            if mode == old[0] and gitquery.blob_id(content, like=old[1]) == old[1]:
                 continue
         action: Action = "create" if old is None else "delete" if content is None else "modify"
         files.append(
@@ -191,10 +237,10 @@ def plan_files(root: Path, base_sha: str, paths: Iterable[str]) -> list[PlannedF
                 old_blob=old[1] if old else None,
                 mode=mode,
                 content=content,
-                old_content=git.read_blob(root, old[1]) if old else None,
+                old_content=None,
             )
         )
-    return files
+    return _with_old_content(root, files)
 
 
 def plan_contents(root: Path, base_sha: str, contents: Mapping[str, bytes]) -> list[PlannedFile]:
@@ -203,11 +249,12 @@ def plan_contents(root: Path, base_sha: str, contents: Mapping[str, bytes]) -> l
     Paths whose blob in base already has these bytes are left out.
     """
     files: list[PlannedFile] = []
+    olds = _blobs_at(root, base_sha, sorted(contents))
     for path in sorted(contents):
         content = contents[path]
-        old = git.blob_at(root, base_sha, path)
+        old = olds.get(path)
         if old is not None and old[0] == "100644":
-            if git.hash_blob(root, content, write=False) == old[1]:
+            if gitquery.blob_id(content, like=old[1]) == old[1]:
                 continue
         files.append(
             PlannedFile(
@@ -217,10 +264,10 @@ def plan_contents(root: Path, base_sha: str, contents: Mapping[str, bytes]) -> l
                 old_blob=old[1] if old else None,
                 mode="100644",
                 content=content,
-                old_content=git.read_blob(root, old[1]) if old else None,
+                old_content=None,
             )
         )
-    return files
+    return _with_old_content(root, files)
 
 
 def remote_state(
@@ -257,13 +304,12 @@ def direct_blockers(
     remote: str,
     base: str,
     base_sha: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     check_remote: bool,
 ) -> tuple[list[Blocker], list[str]]:
     """Blockers of a direct commit to base: ``not_on_base``, ``run_in_progress`` and,
     with `check_remote` and a remote, ``base_behind``/``base_diverged`` (raises
     ``fetch_failed``). Without a store no run can be in progress."""
-    from aifactory.run import gitops
 
     blockers: list[Blocker] = []
     warnings: list[str] = []
@@ -283,11 +329,11 @@ def direct_blockers(
     return blockers, warnings
 
 
-def _run_message(row: TaskRunRow) -> str:
+def _run_message(row: LiveRun) -> str:
     return f"run {row.run_id} of {row.task_id} (pid {row.pid}) is running"
 
 
-def run_blocker(store: TaskRunStore) -> Blocker | None:
+def run_blocker(store: RunStore) -> Blocker | None:
     """``run_in_progress`` when a run with a live process is in progress."""
     live = store.live_runs()
     if not live:
@@ -328,11 +374,11 @@ def finish_pr(
     plan: PublishPlan,
     result: PublishResult,
     message: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     materialize: bool = False,
     command: str = "config commit",
 ) -> PublishResult:
-    from aifactory.run.followups import publication_lock
+    from aifactory.backlog.followup_ids import publication_lock
 
     with publication_lock(root):
         return _finish_pr(
@@ -356,7 +402,7 @@ def _finish_pr(
     plan: PublishPlan,
     result: PublishResult,
     message: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     materialize: bool,
     command: str,
 ) -> PublishResult:
@@ -376,7 +422,7 @@ def _finish_pr(
     local_base = git.rev_parse(root, f"refs/heads/{base}")
     repaired = False
     try:
-        from aifactory.run.followups import advance_pr, reconcile_ids
+        from aifactory.backlog.followup_ids import advance_pr, reconcile_ids
 
         head, renamed = reconcile_ids(root, result.commit, base, settings)
         if head != result.commit:
@@ -423,13 +469,15 @@ def _finish_pr(
 
 
 def _changes(root: Path, files: Sequence[PlannedFile]) -> list[git.TreeChange]:
-    out: list[git.TreeChange] = []
-    for f in files:
-        if f.content is None:
-            out.append((f.path, None, None))
-        else:
-            out.append((f.path, f.mode, git.hash_blob(root, f.content)))
-    return out
+    written = [(f.path, f.content) for f in files if f.content is not None]
+    try:
+        stored = gitquery.write_blobs(root, [content for _, content in written])
+    except gitrun.GitCommandFailed as exc:
+        raise ProviderError("commit_failed", str(exc)) from exc
+    ids = dict(zip((path for path, _ in written), stored, strict=True))
+    return [
+        (f.path, None, None) if f.content is None else (f.path, f.mode, ids[f.path]) for f in files
+    ]
 
 
 def _prune_dirs(checkout: Path, folder: Path) -> None:
@@ -488,7 +536,7 @@ def _advance(
     sha: str,
     old: str,
     files: Sequence[PlannedFile],
-    store: TaskRunStore | None,
+    store: RunStore | None,
     *,
     materialize: bool = False,
     command: str = "config commit",
@@ -509,7 +557,6 @@ def _advance(
         if where is not None:
             _stage_matching(where, files, warnings, materialize=materialize)
         git.git(root, "update-ref", f"refs/heads/{base}", sha, old)
-        from aifactory.run import basemoves
 
         basemoves.record(root, f"refs/heads/{base}", old, sha, checkout=where, command=command)
     return warnings
@@ -521,7 +568,7 @@ def publish_direct(
     settings: ProjectSettings,
     plan: PublishPlan,
     message: str,
-    store: TaskRunStore | None,
+    store: RunStore | None,
     materialize: bool = False,
     command: str = "config commit",
 ) -> PublishResult:
@@ -777,7 +824,7 @@ def _stage_brought(checkout: Path, files: Sequence[PlannedFile]) -> None:
         git.git(checkout, "update-index", "--force-remove", "--", *remove)
 
 
-def plan_pull_base(root: Path, *, settings: ProjectSettings, store: TaskRunStore) -> dict[str, Any]:
+def plan_pull_base(root: Path, *, settings: ProjectSettings, store: RunStore) -> dict[str, Any]:
     """Fetch and review a fast-forward without moving a checkout or local branch."""
     base, remote = settings.base, settings.remote
     blockers: list[Blocker] = []
@@ -820,7 +867,7 @@ def plan_pull_base(root: Path, *, settings: ProjectSettings, store: TaskRunStore
 
 
 def pull_base(
-    root: Path, *, settings: ProjectSettings, store: TaskRunStore, expect: str | None = None
+    root: Path, *, settings: ProjectSettings, store: RunStore, expect: str | None = None
 ) -> PullResult:
     """Fast-forward local base to the remote one, when nothing runs; else change nothing."""
     if expect is not None:

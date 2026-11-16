@@ -13,11 +13,11 @@ from overview_fixture import T_RUN, make_installed_repo, make_overview_repo
 
 from aifactory import database
 from aifactory.backlog.edit import load_for_edit
+from aifactory.registry import Registry, RepoEntry
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.store import TaskRunStore
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web import overview
 from aifactory.web.overview import Overview
-from aifactory.web.registry import Registry, RepoEntry
 
 
 def entry(root: Path) -> RepoEntry:
@@ -73,19 +73,19 @@ def test_foreign_pid_is_never_probed_and_still_holds_capacity(
 ) -> None:
     store = TaskRunStore(tmp_path / "trace.db")
     try:
-        store.conn.execute("CREATE TABLE haifa_owners(id TEXT PRIMARY KEY, machine TEXT)")
+        store.conn.execute("CREATE TABLE giro_owners(id TEXT PRIMARY KEY, machine TEXT)")
         store.conn.execute(
             "INSERT INTO task_runs(run_id,task_id,state,started_at,pid,branch,worktree,"
             "base,base_sha) "
             "VALUES ('foreign','T1','running','2026-01-01',99999999,'b','/tmp/worktree','main','a')"
         )
-        store.conn.execute("INSERT INTO haifa_owners VALUES ('foreign','other-machine')")
+        store.conn.execute("INSERT INTO giro_owners VALUES ('foreign','other-machine')")
         monkeypatch.setattr(overview, "_process", lambda _: pytest.fail("foreign PID probed"))
         trace = overview._read_trace(store.conn)
         assert len(overview._active_runs(trace)) == 1
         assert overview._row_process(trace.runs[0]) == "unknown"
         assert not trace.runs[0]["owned_here"]
-        store.conn.execute("UPDATE haifa_owners SET machine = ?", (database.MACHINE,))
+        store.conn.execute("UPDATE giro_owners SET machine = ?", (database.MACHINE,))
         monkeypatch.setattr(overview, "_process", lambda _: "ended")
         assert overview._active_runs(overview._read_trace(store.conn)) == []
     finally:

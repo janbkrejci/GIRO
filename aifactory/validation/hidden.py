@@ -2,7 +2,7 @@
 
 ``write_hidden(workdir)`` writes ``<workdir>/hidden/test_text_hidden_slugify.py``:
 outside the sandbox repo and every worktree. ``Context`` points
-``HAIFA_VALIDATE_HIDDEN`` at that directory for every ``factory`` command, but
+``GIRO_VALIDATE_HIDDEN`` at that directory for every ``factory`` command, but
 the variable is only a channel into ``validation.worker``: the worker pops it
 from ``os.environ`` (agents inherit ``os.environ`` through ``operator_env`` and
 so never see it) and ``install``s a wrapper around the engine's code test step
@@ -85,7 +85,7 @@ def wrap_test(original: Callable[[Any, Any], Any], source: Path) -> Callable[[An
         with placed(Path(run.repo_root), source):
             return original(run, plan)
 
-    execute._haifa_hidden = True  # type: ignore[attr-defined]
+    execute._giro_hidden = True  # type: ignore[attr-defined]
     return execute
 
 
@@ -94,7 +94,7 @@ def install(source: Path) -> None:
     hidden test."""
     from aifactory.testing import executor
 
-    if getattr(executor.execute, "_haifa_hidden", False):
+    if getattr(executor.execute, "_giro_hidden", False):
         return
     executor.execute = wrap_test(executor.execute, source)  # type: ignore[assignment]
 

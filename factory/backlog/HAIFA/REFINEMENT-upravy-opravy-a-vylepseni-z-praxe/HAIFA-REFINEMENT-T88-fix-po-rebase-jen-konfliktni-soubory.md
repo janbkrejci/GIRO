@@ -29,5 +29,5 @@ Retry po rebase se zablokuje, když rebase rozbije chování v souboru, který n
 - Test pokrývá rebase bez konfliktu v souboru, který oprava potřebuje změnit.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-26 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/177 · náklady $0.00

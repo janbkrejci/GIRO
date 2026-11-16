@@ -66,15 +66,15 @@ def test_prompt_output_naming_meets_the_write_guard(tmp_path: Path, naming: str)
         json.dumps(fake_scripts.script_for(TASK, repo=repo)), encoding="utf-8", newline="\n"
     )
     env = dict(os.environ)
-    for key in ("HAIFA_SANDBOX_REPO", "HAIFA_AZURE_SANDBOX_REPO", "HAIFA_VALIDATE_HIDDEN"):
+    for key in ("GIRO_SANDBOX_REPO", "GIRO_AZURE_SANDBOX_REPO", "GIRO_VALIDATE_HIDDEN"):
         env.pop(key, None)
     env.update(
         {
             "PYTHONPATH": os.pathsep.join(
                 p for p in (str(AIFACTORY_DIR), env.get("PYTHONPATH", "")) if p
             ),
-            "HAIFA_VALIDATE_FAKE": str(script),
-            "AIFACTORY_GH": str(tripwire),
+            "GIRO_VALIDATE_FAKE": str(script),
+            "GIRO_GH": str(tripwire),
             "CODEX_PATH": str(tripwire),
             "CLAUDE_CODE_PATH": str(tripwire),
             "PI_PATH": str(tripwire),

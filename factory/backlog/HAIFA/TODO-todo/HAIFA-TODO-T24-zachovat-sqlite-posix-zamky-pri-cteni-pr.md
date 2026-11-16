@@ -20,5 +20,5 @@ Doplň deterministickou POSIX regresi, která před opravou selže: proces drž�
 Hotovo: prokázaná regrese a oprava zámků, původní testy Přehledu a oba retry browser scénáře projdou. Povinné just lint, just typecheck, cílené pytest přímých volajících a relevantní browser testy; celou suite ponech CI. Testy jsou bez živých modelů a služeb. Čti /tmp CI diagnostiku, přidej vysvětlení do dokumentace tasku.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-21 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/138 · náklady $0.00

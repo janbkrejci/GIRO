@@ -11,7 +11,7 @@ import aifactory.engine.runner
 from aifactory.engine import loader
 
 MODULES = (
-    "runner agents session tracer permissions gates data_types chain changes quality cli "
+    "runner agents session tracer permissions gates data_types changes quality "
     "models console prompts utils git_helper roles agent_cc agent_pi loader role_registry"
 ).split()
 

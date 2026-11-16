@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from aifactory.gitops import git
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.gitops import git
 from cli_json import run_json
 
 
@@ -18,7 +18,7 @@ def test_show_set_and_persist(
     repo.mkdir()
     git(repo, "init")
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     args = ["--repo", str(repo), "--json"]
     rc, result = run_json(capsys, ["config", "local", "show", *args])
     assert rc == 0
@@ -63,7 +63,7 @@ def test_errors_are_enveloped_and_do_not_overwrite(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     git(tmp_path, "init")
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     args = ["--repo", str(tmp_path), "--json"]
     rc, result = run_json(capsys, ["config", "local", "set", *args])
     assert rc == 2 and result["error"]["code"] == "invalid_value"
@@ -81,7 +81,7 @@ def test_errors_are_enveloped_and_do_not_overwrite(
     def fail(*args: object) -> None:
         raise OSError("cannot save")
 
-    monkeypatch.setattr("aifactory.repo_settings.os.replace", fail)
+    monkeypatch.setattr("aifactory.oscompat.os.replace", fail)
     rc, result = run_json(capsys, ["config", "local", "set", "--auto-merge", "on", *args])
     assert rc == 2 and result["error"]["code"] == "repo_settings_io"
     assert not service.path.exists()
@@ -98,7 +98,7 @@ def test_explicit_harness_ignores_broken_machine_settings(
     repo.mkdir()
     git(repo, "init")
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     service = RepositorySettings(repo)
     service.update({"auto_continue": True, "harness": None if select_harness else "codex"})
     (home / "harnesses.json").write_text("broken", encoding="utf-8")
@@ -129,7 +129,7 @@ def test_inheriting_broken_machine_settings_fails_before_save(
     repo.mkdir()
     git(repo, "init")
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     service = RepositorySettings(repo)
     home.mkdir()
     (home / "harnesses.json").write_text("broken", encoding="utf-8")

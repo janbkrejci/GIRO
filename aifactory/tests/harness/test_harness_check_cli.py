@@ -147,7 +147,7 @@ def test_harness_check_bad_config(
     assert calls == []
 
 
-def test_harness_check_haifa_roster_relative_path(
+def test_harness_check_giro_roster_relative_path(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     from factory_check_repo import make_check_repo

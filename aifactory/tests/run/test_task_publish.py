@@ -18,7 +18,8 @@ from run_repo import SPEC, T01, Script, commit_all, fake_env, git, make_run_repo
 
 from aifactory.providers import git as pgit
 from aifactory.review import ReviewError, publish_task
-from aifactory.run import TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))
@@ -361,14 +362,13 @@ def test_dashboard_shows_pr_error_and_publishes(
     monkeypatch: pytest.MonkeyPatch,
     sleeps: list[float],
 ) -> None:
-    from starlette.testclient import TestClient
 
     from aifactory.skill import envelope_problems
-    from aifactory.web import create_app
+    from single_repo import RepoClient, repo_app
 
     _, log, _ = failed_publish_run(repo, script, tmp_path, monkeypatch)
-    client = TestClient(
-        create_app(repo, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
+    client = RepoClient(
+        repo_app(repo, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
     )
     listed = client.get("/api/runs").json()
     run = listed["data"]["runs"][0]
@@ -413,7 +413,7 @@ def test_publish_finishes_merge_and_continues(
     build(script, "two")
     review(script)
     # Parallel children normally run as processes; keep this test's fake harness local.
-    from aifactory.run import queue
+    from aifactory.run import chain
 
     if parallel == 1:
         result = publish_task(repo, T01)
@@ -424,8 +424,8 @@ def test_publish_finishes_merge_and_continues(
     else:
         # The first publication/merge runs in-process even for a parallel chain.
         # Stop automatic selection so no fake harness must cross process boundaries.
-        monkeypatch.setattr(queue, "_max_parallel", lambda repo: 2)
-        monkeypatch.setattr(queue, "auto_continue_enabled", lambda task: False)
+        monkeypatch.setattr(chain, "_max_parallel", lambda repo: 2)
+        monkeypatch.setattr(chain, "auto_continue_enabled", lambda task: False)
         result = publish_task(repo, T01)
         assert result.chain is not None and result.chain.max_parallel == 2
     assert result.chain.runs[0].run.run_id == first.run.run_id
@@ -535,13 +535,12 @@ def test_dashboard_publish_merges_after_response(
 ) -> None:
     import threading
 
-    from starlette.testclient import TestClient
     from test_auto_merge import build, review, setup
 
     from aifactory.providers import ProviderError
     from aifactory.providers.local import LocalProvider
     from aifactory.review import automerge
-    from aifactory.web import create_app
+    from single_repo import RepoClient, repo_app
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
     from thread_launcher import ThreadLauncher
@@ -572,7 +571,7 @@ def test_dashboard_publish_merges_after_response(
             super().start_publish(repo, task_id, timeout=0.05)
 
     launcher = Launcher()
-    client = TestClient(create_app(repo, launcher=launcher), base_url="http://127.0.0.1:4700")
+    client = RepoClient(repo_app(repo, launcher=launcher), base_url="http://127.0.0.1:4700")
     try:
         response = client.post(f"/api/runs/{first.run.run_id}/publish")
         assert response.status_code == 200, response.json()
@@ -686,11 +685,9 @@ def test_publish_without_auto_merge_does_not_continue(
     calls_before = len(script.calls)
 
     if dashboard:
-        from starlette.testclient import TestClient
+        from single_repo import RepoClient, repo_app
 
-        from aifactory.web import create_app
-
-        client = TestClient(create_app(repo), base_url="http://127.0.0.1:4700")
+        client = RepoClient(repo_app(repo), base_url="http://127.0.0.1:4700")
         response = client.post(f"/api/runs/{first.run.run_id}/publish")
         assert response.status_code == 200, response.json()
         data = response.json()["data"]

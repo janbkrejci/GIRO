@@ -20,7 +20,7 @@ def test_pull_many_files_uses_constant_git_processes(
 ) -> None:
     from aifactory.config.settings import ProjectSettings
     from aifactory.providers.publish import plan_pull_base, pull_base
-    from aifactory.run import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
     isolate_git(monkeypatch)
     repo = make_repo(tmp_path, with_remote=True)
@@ -32,15 +32,16 @@ def test_pull_many_files_uses_constant_git_processes(
     git(repo, "push", "-q", "origin", "HEAD:main")
     git(repo, "checkout", "-q", "main")
 
+    from aifactory import gitrun
+
     calls: list[list[str]] = []
-    run = subprocess.run
+    run = gitrun.run
 
-    def counted(args: list[str], **kwargs: Any) -> Any:
-        if args[0] == "git":
-            calls.append(args[1:])
-        return run(args, **kwargs)
+    def counted(cwd: Any, *args: str, **kwargs: Any) -> Any:
+        calls.append(list(args))
+        return run(cwd, *args, **kwargs)
 
-    monkeypatch.setattr(subprocess, "run", counted)
+    monkeypatch.setattr(gitrun, "run", counted)
     settings = ProjectSettings(base="main", git_provider="local")
     store = TaskRunStore(tmp_path / "trace.db")
     try:
@@ -100,7 +101,7 @@ def test_pull_reads_only_dirty_paths_and_preserves_conflicting_work(
 ) -> None:
     from aifactory.config.settings import ProjectSettings
     from aifactory.providers.publish import pull_base
-    from aifactory.run import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
     isolate_git(monkeypatch)
     repo = make_repo(tmp_path, with_remote=True)
@@ -236,7 +237,7 @@ def test_pull_accepts_local_deletions_and_both_sides_of_renames(
 ) -> None:
     from aifactory.config.settings import ProjectSettings
     from aifactory.providers.publish import pull_base
-    from aifactory.run import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
     isolate_git(monkeypatch)
     repo = make_repo(tmp_path, with_remote=True)
@@ -272,7 +273,7 @@ def test_pull_digest_rejects_remote_movement_before_writing(
 ) -> None:
     from aifactory.config.settings import ProjectSettings
     from aifactory.providers.publish import plan_pull_base, pull_base
-    from aifactory.run import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
     isolate_git(monkeypatch)
     repo = make_repo(tmp_path, with_remote=True)

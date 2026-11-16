@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
-from aifactory.config import ProjectSettings
+if TYPE_CHECKING:
+    from aifactory.config.settings import ProjectSettings
 
 VALID_STATUSES: tuple[str, ...] = ("todo", "done", "cancelled")
 # computed from `depends_on`, never stored in a file
 DERIVED_STATES: tuple[str, ...] = ("ready", "blocked", "human")
+# values of `backlog list --status`
+STATUS_FILTERS: tuple[str, ...] = ("todo", "done", "cancelled", "ready", "blocked", "human")
 INHERITED_KEYS: tuple[str, ...] = (
     "harness",
     "model",
@@ -24,6 +27,19 @@ INHERITED_KEYS: tuple[str, ...] = (
     "quota_switch",
     "quota_switch_back",
     "assignee",
+)
+# keys of a container's index.md that ``edit_container`` sets or removes
+CONTAINER_KEYS: tuple[str, ...] = (
+    "archived",
+    "harness",
+    "model",
+    "thinking",
+    "workflow",
+    "writes",
+    "auto_continue",
+    "auto_heal",
+    "quota_switch",
+    "quota_switch_back",
 )
 # who does a task: an agent run (the default) or a person; a person's task never runs
 ASSIGNEES: tuple[str, ...] = ("agent", "human")

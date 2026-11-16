@@ -827,7 +827,7 @@ export function newRun<T extends { run_id: string; state?: string }>(
 // unfolded (localStorage).
 
 /** localStorage key of the unfolded tree nodes (a JSON list of node keys). */
-export const TREE_EXPANDED_KEY = 'haifa.backlog.expanded'
+export const TREE_EXPANDED_KEY = 'giro.backlog.expanded'
 
 /** Key of a container in the folding state: its id, else its path. */
 export function nodeKey(node: Pick<ContainerNode, 'id' | 'path'>): string {
@@ -1012,7 +1012,7 @@ export function stepOptions(steps: readonly StepRef[] | undefined, project?: str
 /** Read the selected backlog project for one repository; undefined means all. */
 export function backlogProject(repoId: string): string | undefined {
   try {
-    return localStorage.getItem(`haifa.backlog.project.${repoId}`) || undefined
+    return localStorage.getItem(`giro.backlog.project.${repoId}`) || undefined
   } catch {
     return undefined
   }
@@ -1021,7 +1021,7 @@ export function backlogProject(repoId: string): string | undefined {
 /** Save the shared tree/kanban project filter for one repository. */
 export function setBacklogProject(repoId: string, project: string | undefined): void {
   try {
-    const key = `haifa.backlog.project.${repoId}`
+    const key = `giro.backlog.project.${repoId}`
     if (project) localStorage.setItem(key, project)
     else localStorage.removeItem(key)
   } catch {
@@ -1034,7 +1034,7 @@ export function setBacklogProject(repoId: string, project: string | undefined): 
 // the graph. Off by default; the browser remembers the choice (localStorage).
 
 /** localStorage key of the „Skrýt hotové“ switch ('1' on, '0' off). */
-export const HIDE_DONE_KEY = 'haifa.backlog.hideDone'
+export const HIDE_DONE_KEY = 'giro.backlog.hideDone'
 
 function loadHideDone(): boolean {
   try {
@@ -1069,8 +1069,8 @@ export function resetHideDoneForTests(): void {
 
 /** Browser preferences for archived cards, independent for each terminal column. */
 export const SHOW_ARCHIVED_KEYS = {
-  done: 'haifa.backlog.showArchived.done',
-  cancelled: 'haifa.backlog.showArchived.cancelled',
+  done: 'giro.backlog.showArchived.done',
+  cancelled: 'giro.backlog.showArchived.cancelled',
 } as const
 
 type ArchiveColumn = keyof typeof SHOW_ARCHIVED_KEYS

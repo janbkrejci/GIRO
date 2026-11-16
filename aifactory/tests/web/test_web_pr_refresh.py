@@ -21,7 +21,8 @@ from overview_fixture import (
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import ReviewError, SyncResult
 from aifactory.review import sync as review_sync
-from aifactory.run.store import TaskChainRow, TaskRunStore
+from aifactory.runstore.rows import TaskChainRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web.backlog import _runtime
 from aifactory.web.launcher import Launcher
 from aifactory.web.overview import Overview

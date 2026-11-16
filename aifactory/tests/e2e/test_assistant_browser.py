@@ -21,8 +21,8 @@ from advice_fixture import git, make_repo
 from aifactory.codeprint import CodeWatch
 from aifactory.engine import agent_cc
 from aifactory.engine.data_types import AgentResult
+from aifactory.registry import Registry
 from aifactory.web.app import create_multi_app
-from aifactory.web.registry import Registry
 
 pytestmark = [pytest.mark.browser, pytest.mark.xdist_group("e2e")]
 
@@ -76,7 +76,7 @@ def test_assistant_conversation_browser(tmp_path: Path, monkeypatch: pytest.Monk
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             page.goto(f"{url}/#/r/{identifier}/runs")
@@ -162,7 +162,7 @@ def test_assistant_conversation_browser(tmp_path: Path, monkeypatch: pytest.Monk
 def test_assistant_unavailable_on_intent_browser(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, intent_path: str
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     repo = make_repo(tmp_path / "repo")
     release = threading.Event()
     fake_harness(monkeypatch, release)
@@ -170,7 +170,7 @@ def test_assistant_unavailable_on_intent_browser(
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         writes: list[Any] = []
         page.on(
@@ -253,7 +253,7 @@ def test_assistant_select_harness_for_pi_repo_browser(
 
     repo = make_repo(tmp_path / "repo")
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     RepositorySettings(repo).update({"harness": "pi"})
     release = threading.Event()
     release.set()
@@ -261,7 +261,7 @@ def test_assistant_select_harness_for_pi_repo_browser(
     with dashboard(repo, home) as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             page.goto(f"{url}/#/r/{identifier}/runs")
@@ -329,14 +329,14 @@ def test_assistant_proposed_action_browser(tmp_path: Path, monkeypatch: pytest.M
                 "reason": "Task mění i dokumentaci.",
             }
         )
-        text = f"Navrhuji rozšířit writes.\n\n```haifa-action\n{proposal}\n```\n"
+        text = f"Navrhuji rozšířit writes.\n\n```giro-action\n{proposal}\n```\n"
         return AgentResult(text=text, returncode=0, tokens=10, cost=0.01)
 
     monkeypatch.setattr(agent_cc, "run", run)
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             repo_id.append(identifier)
@@ -393,14 +393,14 @@ def test_assistant_follow_up_browser(tmp_path: Path, monkeypatch: pytest.MonkeyP
                 "reason": "Task je hotový, chybí docs.",
             }
         )
-        text = f"Navrhuji navázat.\n\n```haifa-action\n{proposal}\n```\n"
+        text = f"Navrhuji navázat.\n\n```giro-action\n{proposal}\n```\n"
         return AgentResult(text=text, returncode=0, tokens=10, cost=0.01)
 
     monkeypatch.setattr(agent_cc, "run", run)
     with dashboard(repo, tmp_path / "home") as (url, identifier), sync_playwright() as p:
         browser = _launch(p)
         page = browser.new_page()
-        page.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        page.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         page.set_default_timeout(15000)
         try:
             repo_id.append(identifier)

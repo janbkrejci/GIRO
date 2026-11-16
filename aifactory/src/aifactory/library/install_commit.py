@@ -3,7 +3,7 @@
 ``plan_init`` renders the same files as the working-tree ``init`` (``config.yaml``; the
 backlog ``.gitkeep`` only when the backlog directory does not exist; the ``.gitignore``
 lines) and turns them into a ``PublishPlan`` against base. Nothing is written anywhere:
-not to the repo, not to the library, not to ``$HAIFA_HOME``. The plan carries what was
+not to the repo, not to the library, not to ``$GIRO_HOME``. The plan carries what was
 detected (remote, base, provider, harness CLIs; ``library.detect``), blockers, warnings
 and a ``digest``. Agents and workflows come from the library at run time
 (``aifactory.library.inherit``).
@@ -18,7 +18,7 @@ commit goes to ``factory-init/<n>`` with a pull request; base and the checkout s
 
 Blockers (``data.blockers``; the commit refuses with the first, exit 2):
 ``already_installed`` (``config.yaml`` in base), ``existing_config`` (an sssf installation;
-HAIFA does not take it over), ``config_not_committed`` (``config.yaml`` only in the working
+GIRO does not take it over), ``config_not_committed`` (``config.yaml`` only in the working
 tree; ``giro config commit``), ``dirty_paths`` (a planned path on disk with other
 content), ``invalid_plan`` (the planned configuration does not load) and, for the direct
 target, ``not_on_base``, ``run_in_progress``, ``base_behind``, ``base_diverged``.
@@ -40,10 +40,11 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from aifactory import yamlload
+from aifactory import gitops, yamlload
 from aifactory.config.errors import ConfigError
 from aifactory.config.settings import CONFIG_FILE, ProjectSettings, load_local
 from aifactory.engine.role_registry import Issue
+from aifactory.errors import TaskRunError
 from aifactory.library.detect import Detected, detect
 from aifactory.library.install import (
     GITIGNORE_LINES,
@@ -73,7 +74,7 @@ from aifactory.providers.publish import (
 if TYPE_CHECKING:
     from aifactory.config.source import ConfigSource
     from aifactory.library.inherit import LibrarySnapshot
-    from aifactory.run.store import TaskRunStore
+    from aifactory.providers.publish import RunStore
 
 INIT_BRANCH_PREFIX = "factory-init/"
 EXCLUDE_PSEUDO_PATH = ":info/exclude"
@@ -179,7 +180,7 @@ def _disk_files(root: Path, rel_dir: str) -> list[str]:
     ]
 
 
-def _store(root: Path) -> TaskRunStore | None:
+def _store(root: Path) -> RunStore | None:
     """The trace DB when it exists; opening it otherwise would create it in the repo."""
     try:
         path = load_local(root).trace_db_path(root)
@@ -187,8 +188,7 @@ def _store(root: Path) -> TaskRunStore | None:
         return None
     if not path.exists():
         return None
-    from aifactory.run.errors import TaskRunError
-    from aifactory.run.store import TaskRunStore
+    from aifactory.runstore.store import TaskRunStore
 
     try:
         return TaskRunStore(path)
@@ -197,7 +197,6 @@ def _store(root: Path) -> TaskRunStore | None:
 
 
 def _exclude_file(root: Path) -> Path | None:
-    from aifactory.run import gitops
 
     common = gitops.common_dir(root)
     return None if common is None else common / "info" / "exclude"
@@ -588,7 +587,6 @@ def commit_init(
 ) -> InitCommitResult:
     """Preview (`dry_run`) or commit the install plan to base in one commit (or a PR)."""
     from aifactory.providers import get_provider, publish
-    from aifactory.run import gitops
 
     plan = plan_init(path, pr=pr, **options)
     if dry_run:

@@ -1,7 +1,7 @@
 """The run guard and backlog writes made through the factory during an agent phase.
 
 Like ``test_guard_base_moves``: the fake harness runs agent effects in-process with
-``HAIFA_RUN_ID`` of the run under test; ``foreign()`` stands for a factory command
+``GIRO_RUN_ID`` of the run under test; ``foreign()`` stands for a factory command
 of another process (the operator's terminal, the dashboard).
 """
 
@@ -12,13 +12,12 @@ from pathlib import Path
 
 import pytest
 from run_repo import SPEC, T01, T02, Script, commit_all, fake_env, git, make_run_repo, ok, write
-from starlette.testclient import TestClient
 from test_guard_base_moves import foreign
 
 from aifactory.backlog import add_task, commit_backlog, edit_task, set_auto_continue
 from aifactory.cli import main
 from aifactory.run import run_task
-from aifactory.web import create_app
+from single_repo import RepoClient, repo_app
 
 STEP = "M01-S01"
 T02_PATH = "backlog/M01-core/S01-model/M01-S01-T02-loader.md"
@@ -160,8 +159,8 @@ def test_cli_and_dashboard_writes_during_phase(repo: Path, script: Script, tmp_p
         with foreign():
             assert main(["task", "add", STEP, "Nový task", "--repo", str(repo)]) == 0
             assert main(["task", "link", T02, "--related", T01, "--repo", str(repo)]) == 0
-            app = create_app(repo, static_dir=tmp_path / "nostatic")
-            client = TestClient(app, base_url="http://127.0.0.1:4700")
+            app = repo_app(repo, static_dir=tmp_path / "nostatic")
+            client = RepoClient(app, base_url="http://127.0.0.1:4700")
             url = f"/api/backlog/containers/{STEP}/auto-continue"
             assert client.post(url, json={"mode": "on"}).status_code == 200
             url = f"/api/backlog/tasks/{T02}/edit"
@@ -193,8 +192,8 @@ def test_dashboard_archive_crlf_during_phase(
 
     def effect(wt: Path) -> None:
         with foreign():
-            client = TestClient(
-                create_app(repo, static_dir=tmp_path / "nostatic"),
+            client = RepoClient(
+                repo_app(repo, static_dir=tmp_path / "nostatic"),
                 base_url="http://127.0.0.1:4700",
             )
             response = client.post(f"/api/backlog/tasks/{T02}/archive", json={"archived": True})

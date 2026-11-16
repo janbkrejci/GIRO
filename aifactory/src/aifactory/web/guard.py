@@ -9,14 +9,11 @@ and ``Sec-Fetch-Site`` (CLI, curl) and a POST without a body pass; GET is not ch
 
 from __future__ import annotations
 
-from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from aifactory.migration_guard import check_home
 from aifactory.skill.envelope import envelope_fail
-from aifactory.upgrade import UpgradeError
 
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
@@ -83,32 +80,10 @@ STALE_MESSAGE = (
 )
 
 
-def _existing_terminal_io(scope: Scope) -> bool:
-    """Transport for an already validated shell, without opening another process.
-
-    The dashboard's process lease prevents migration while its shells exist.
-    Rewalking the retained backup per keystroke does not protect that running
-    process (which can already write without input), but adds seconds of latency.
-    Creation and one-shot exec still require the full migration check.
-    """
-    prefix = "/api/terminal/sessions/"
-    if not scope["path"].startswith(prefix):
-        return False
-    parts = scope["path"][len(prefix) :].split("/")
-    if not (
-        (scope["method"] == "POST" and len(parts) == 2 and parts[1] in {"input", "resize"})
-        or (scope["method"] == "DELETE" and len(parts) == 1)
-    ):
-        return False
-    state = getattr(scope.get("app"), "state", None)
-    session = getattr(state, "terminal_sessions", {}).get(parts[0])
-    return session is not None and not session.closed
-
-
 class StaleCodeMiddleware:
     """Reject writes under ``/api/`` while the dashboard runs code older than the package on disk.
 
-    HAIFA builds itself: a merge can replace the package under a running dashboard, whose code
+    GIRO builds itself: a merge can replace the package under a running dashboard, whose code
     in memory would then write by stale rules. Every POST, PUT, PATCH and DELETE under ``/api/``
     except ``/api/restart`` gets HTTP 409 ``stale_code``
     until the dashboard restarts; reads keep working. The watch is ``app.state.code``
@@ -133,14 +108,6 @@ class StaleCodeMiddleware:
                     ),
                     status_code=409,
                 )
-                await response(scope, receive, send)
-                return
-            home = getattr(getattr(scope.get("app"), "state", None), "home", None)
-            try:
-                if home is not None and not _existing_terminal_io(scope):
-                    await run_in_threadpool(check_home, home, writing=True)
-            except UpgradeError as exc:
-                response = JSONResponse(envelope_fail(exc.code, exc.message), status_code=409)
                 await response(scope, receive, send)
                 return
             if watch is not None and not is_restart_path(scope["path"]) and watch.stale():

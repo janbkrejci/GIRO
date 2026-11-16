@@ -16,7 +16,9 @@ from aifactory.config import load_run_config
 from aifactory.providers import ProviderError, PrStatus, PullRequest
 from aifactory.providers.local import LocalProvider
 from aifactory.review import refresh_prs
-from aifactory.run import SyncPrRow, TaskPrRow, TaskRunStore, run_task
+from aifactory.run import run_task
+from aifactory.runstore.rows import SyncPrRow, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json
 
 Capsys = pytest.CaptureFixture[str]

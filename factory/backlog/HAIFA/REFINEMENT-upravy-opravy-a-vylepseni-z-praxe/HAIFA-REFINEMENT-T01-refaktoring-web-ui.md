@@ -43,5 +43,5 @@ Plus oprava nalezených drobných chyb, např. aktuálně nezobrazujeme Claude l
 - `just check-scoped` prochází. Změněné chování pokrývají frontendové i backendové testy.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-08 · workflow simple-sdlc · PR https://github.com/janbkrejci/HAIFA/pull/99 · náklady $43.23

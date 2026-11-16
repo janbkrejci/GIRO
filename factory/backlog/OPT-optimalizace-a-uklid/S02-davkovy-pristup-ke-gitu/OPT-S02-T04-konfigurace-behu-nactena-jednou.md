@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T04
 title: Konfigurace běhu načtená jednou
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - Test ověří, že jedno naplánování fronty a jedna kontrola allow_writes načtou konfiguraci jednou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

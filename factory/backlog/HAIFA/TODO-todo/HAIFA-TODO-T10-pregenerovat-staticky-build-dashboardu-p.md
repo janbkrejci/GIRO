@@ -18,5 +18,5 @@ Důvod: T38 changed the Vue source of the Overview (aifactory/web/src), but aifa
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T38 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-test-review · bez změn, běh f39d90bc · náklady $0.53

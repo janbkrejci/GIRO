@@ -22,8 +22,6 @@ from aifactory.backlog.derived import (
 from aifactory.backlog.loader import iter_containers, iter_tasks
 from aifactory.backlog.model import Backlog, Container, Issue, Task
 
-STATUS_FILTERS: tuple[str, ...] = ("todo", "done", "cancelled", "ready", "blocked", "human")
-
 
 def _jsonable(value: object) -> object:
     if value is None or isinstance(value, str | int | float | bool):

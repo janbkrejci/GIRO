@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T03
 title: Převzetí běhu bez gitu každých 50 ms
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - Testy selhání (podproces skončí bez řádku, vypršení `claim_timeout`, převzetí existujícího běhu přes auto-continue) projdou beze změny chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

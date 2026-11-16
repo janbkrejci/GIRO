@@ -7,9 +7,10 @@ import pytest
 
 from aifactory import oscompat
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import store as store_module
-from aifactory.run.queue import Slots
-from aifactory.run.store import TaskRunRow, TaskRunStore
+from aifactory.run.queue_select import Slots
+from aifactory.runstore import runs as store_module
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.mark.parametrize("finished", [False, True])
@@ -116,8 +117,8 @@ def test_member_failure_before_claim_removes_operation(
 
     from run_repo import make_run_repo
 
+    from aifactory.errors import TaskRunError
     from aifactory.run import members
-    from aifactory.run.errors import TaskRunError
 
     repo = make_run_repo(tmp_path / "repo")
 
@@ -155,7 +156,7 @@ def test_publish_keeps_previous_error_while_operation_is_live(
 ) -> None:
     from types import SimpleNamespace
 
-    from aifactory.review import flow
+    from aifactory.review import rework
     from aifactory.review.errors import ReviewError
     from aifactory.review.publish import PublishResult
 
@@ -176,7 +177,7 @@ def test_publish_keeps_previous_error_while_operation_is_live(
     )
     store.finish("r1", "succeeded", None, None)
     store.set_pr_error("r1", "previous push failed")
-    monkeypatch.setattr(flow, "_context", lambda *args: SimpleNamespace(store=store))
+    monkeypatch.setattr(rework, "_context", lambda *args: SimpleNamespace(store=store))
 
     def publishing(*args: object) -> PublishResult:
         assert [(r.task_id, r.workflow) for r in store.live_operations()] == [("T01", "publish")]
@@ -187,12 +188,12 @@ def test_publish_keeps_previous_error_while_operation_is_live(
         store.set_pr_error("r1", "new publication failed")
         return PublishResult(run=row, pr=None, pr_error="new publication failed")
 
-    monkeypatch.setattr(flow, "_publish", publishing)
+    monkeypatch.setattr(rework, "_publish", publishing)
     if failure == "interrupted":
         with pytest.raises(ReviewError, match="publication interrupted"):
-            flow.publish_task(tmp_path, "T01")
+            rework.publish_task(tmp_path, "T01")
     else:
-        assert flow.publish_task(tmp_path, "T01").pr_error == "new publication failed"
+        assert rework.publish_task(tmp_path, "T01").pr_error == "new publication failed"
     reopened = TaskRunStore(tmp_path / "trace.db")
     try:
         assert reopened.conn.execute("SELECT COUNT(*) FROM task_operations").fetchone()[0] == 0
@@ -211,8 +212,8 @@ def test_member_operation_handoff_and_timeout(
 
     from run_repo import make_run_repo
 
+    from aifactory.errors import TaskRunError
     from aifactory.run import members
-    from aifactory.run.errors import TaskRunError
 
     repo = make_run_repo(tmp_path / "repo")
     events: list[str] = []
@@ -290,3 +291,67 @@ def test_member_operation_handoff_and_timeout(
         assert store.conn.execute("SELECT COUNT(*) FROM task_operations").fetchone()[0] == 0
     finally:
         store.close()
+
+
+def test_member_claim_loop_does_not_run_git_per_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    from run_repo import make_run_repo
+
+    from aifactory.run import members
+
+    repo = make_run_repo(tmp_path / "repo")
+    row = TaskRunRow(
+        run_id="claimed",
+        task_id="T01",
+        branch="b",
+        worktree="",
+        base="main",
+        base_sha="a",
+        head_sha=None,
+        state="running",
+        started_at="2026-01-01",
+        pid=os.getpid(),
+    )
+
+    class Process:
+        pid = os.getpid()
+
+        def poll(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        members, "subprocess", SimpleNamespace(Popen=lambda *args, **kwargs: Process(), DEVNULL=-3)
+    )
+    real_run = subprocess.run
+    git_calls: list[tuple[str, ...]] = []
+
+    def counting_run(args: list[str], *rest: object, **kwargs: object) -> object:
+        if args and args[0] == "git":
+            git_calls.append(tuple(args))
+        return real_run(args, *rest, **kwargs)  # type: ignore[call-overload]
+
+    monkeypatch.setattr(subprocess, "run", counting_run)
+    sleeps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        if len(sleeps) == 20:
+            store = TaskRunStore(repo / ".factory" / "trace.db")
+            try:
+                store.claim(row)
+            finally:
+                store.close()
+
+    monkeypatch.setattr(
+        members,
+        "time",
+        SimpleNamespace(strftime=lambda *args: "clock", monotonic=lambda: 0.0, sleep=sleep),
+    )
+    assert members.ProcessRunner(repo, poll=0.01).start("T01").run_id == "claimed"
+    # Starting resolves the repository a fixed number of times, never once per check.
+    assert len(git_calls) < 10, len(git_calls)
+    assert sleeps == [members.CLAIM_POLL] * 20

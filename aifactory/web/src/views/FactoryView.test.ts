@@ -249,7 +249,7 @@ describe('FactoryView', () => {
     expect(wrapper.text()).not.toMatch(/Onboard|Adopt/i)
   })
 
-  it('labels an unsupported repo as not taken over by HAIFA', async () => {
+  it('labels an unsupported repo as not taken over by GIRO', async () => {
     stub(ok(report({ state: 'unsupported' })))
     const wrapper = mount(FactoryView)
     await flushPromises()

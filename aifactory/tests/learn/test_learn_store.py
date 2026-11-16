@@ -1,4 +1,4 @@
-"""``LessonStore`` on a trace DB of an older HAIFA: ``learn_lessons`` without ``task_id``
+"""``LessonStore`` on a trace DB of an older GIRO: ``learn_lessons`` without ``task_id``
 or ``origin``."""
 
 from __future__ import annotations

@@ -12,7 +12,8 @@ import pytest
 from config_repo import AGENTS_YAML, commit_all, git, make_repo, write
 
 from aifactory.config import load_local
-from aifactory.run.store import ABORTED, RUNNING, TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import ABORTED, RUNNING, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))

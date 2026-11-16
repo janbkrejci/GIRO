@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -11,7 +10,10 @@ from typing import Any
 import pytest
 
 from aifactory.testing import executor
+from gitutil import git_raw
 from validation import hidden, worker
+
+git = git_raw
 
 
 def _source(tmp_path: Path) -> Path:
@@ -77,7 +79,7 @@ def test_install_wraps_the_executor_once(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(executor, "execute", lambda run, plan: calls.append(run))
     hidden.install(_source(tmp_path))
     first = executor.execute
-    assert getattr(first, "_haifa_hidden", False)
+    assert getattr(first, "_giro_hidden", False)
     hidden.install(_source(tmp_path))
     assert executor.execute is first
 
@@ -103,21 +105,15 @@ def test_worker_consumes_the_hidden_env(tmp_path: Path, monkeypatch: pytest.Monk
     assert hidden.HIDDEN_ENV not in os.environ
 
 
-def _git(repo: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8"
-    ).stdout
-
-
 def test_exclude_hides_the_test_from_git(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _git(repo, "init", "-q", "-b", "main")
+    git(repo, "init", "-q", "-b", "main")
     hidden.exclude(repo)
     hidden.exclude(repo)
-    info = Path(_git(repo, "rev-parse", "--absolute-git-dir").strip()) / "info" / "exclude"
+    info = Path(git(repo, "rev-parse", "--absolute-git-dir").strip()) / "info" / "exclude"
     lines = info.read_text(encoding="utf-8").splitlines()
     assert lines.count("/" + hidden.HIDDEN_TARGET) == 1
     (repo / "tests").mkdir()
     (repo / hidden.HIDDEN_TARGET).write_text("x\n", encoding="utf-8", newline="\n")
-    assert _git(repo, "status", "--porcelain", "--untracked-files=all") == ""
+    assert git(repo, "status", "--porcelain", "--untracked-files=all") == ""

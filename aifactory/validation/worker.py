@@ -1,8 +1,8 @@
 """``python -m validation.worker <factory argv>``: the CLI, optionally over the fake harness.
 
-With ``HAIFA_VALIDATE_FAKE=<script.json>`` in the environment the fake harness
+With ``GIRO_VALIDATE_FAKE=<script.json>`` in the environment the fake harness
 (``validation.fake``) is installed first; without it the real harnesses run.
-With ``HAIFA_VALIDATE_HIDDEN=<dir>`` the variable is popped from ``os.environ``
+With ``GIRO_VALIDATE_HIDDEN=<dir>`` the variable is popped from ``os.environ``
 (so no agent inherits it) and the hidden test gate of ``validation.hidden`` is
 installed around the engine's test step. Then ``aifactory.cli.main`` gets the arguments unchanged.
 
@@ -37,16 +37,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     hidden_dir = value("VALIDATE_HIDDEN")
     os.environ.pop("GIRO_VALIDATE_HIDDEN", None)
-    os.environ.pop("HAIFA_VALIDATE_HIDDEN", None)
     if hidden_dir:
         from validation import hidden
 
         hidden.install(Path(hidden_dir))
     script = value("VALIDATE_FAKE")
     os.environ.pop("GIRO_VALIDATE_FAKE", None)
-    os.environ.pop("HAIFA_VALIDATE_FAKE", None)
     if script:
-        os.environ["GIRO_VALIDATE_FAKE"] = os.environ["HAIFA_VALIDATE_FAKE"] = script
+        os.environ["GIRO_VALIDATE_FAKE"] = script
         from validation import fake
 
         fake.install(Path(script))

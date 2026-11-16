@@ -32,26 +32,30 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aifactory import backlog as core
-from aifactory import failure
+from aifactory import failure, gitops
 from aifactory.backlog import Backlog, Container, Task
-from aifactory.backlog.edit import _atomic_write, serialized_write, task_revision, write_lock
+from aifactory.backlog.edit.common import (
+    _atomic_write,
+    serialized_write,
+    task_revision,
+    write_lock,
+)
 from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.backlog.taskfile import has_entry
 from aifactory.config import ConfigError, load_local, load_run_config
 from aifactory.config.loader import WORKFLOWS_DIR
-from aifactory.config.run import worktree_base
-from aifactory.config.source import git, resolve_commit
+from aifactory.config.source import repo_root
+from aifactory.errors import TaskRunError
 from aifactory.errors import UsageError as UsageError
-from aifactory.harness import canonical
-from aifactory.harness.override import THINKING_LEVELS
-from aifactory.run import gitops, task_prs_for, task_runs_for
-from aifactory.run.errors import TaskRunError
-from aifactory.run.queue import priority_map
-from aifactory.run.scope import effective_task_writes, output_paths
+from aifactory.harness import THINKING_LEVELS, canonical
+from aifactory.run.queue_select import priority_map
 from aifactory.run.stack import stack_point
-from aifactory.run.store import QueuePrefs, TaskRunStore, is_db_busy
-from aifactory.run.task import existing_store
 from aifactory.run.unchanged import COMPLETION_ERROR_PREFIX
+from aifactory.runstore.base import is_db_busy
+from aifactory.runstore.read import existing_store, task_prs_for, task_runs_for
+from aifactory.runstore.rows import QueuePrefs
+from aifactory.runstore.store import TaskRunStore
+from aifactory.scope import effective_task_writes, output_paths
 from aifactory.web.launcher import Launcher
 from aifactory.web.settings import config_status
 from aifactory.workflow import DEFAULT_WORKFLOWS_DIR
@@ -173,8 +177,8 @@ def _runtime(repo: Path) -> tuple[_Runtime, list[str]]:
     """Running tasks, tasks with an open PR and the state of each task's newest run."""
     # Use the same read-only snapshot as Overview; all_runs() would reap dead rows
     # while merely displaying the board.
+    from aifactory.repo_vet import trace_db_of
     from aifactory.web.overview import _trace_view
-    from aifactory.web.repos import trace_db_of
 
     trace, trace_warnings = _trace_view(trace_db_of(repo))
     warnings = [warning["message"] for warning in trace_warnings]
@@ -845,11 +849,11 @@ def _follow_up(
     data["run"] = None
     data["pending"] = False
     if run:
-        from aifactory.home import haifa_home
+        from aifactory.home import giro_home
 
         new_id = result.task.id
         key = hashlib.sha256(f"{repo.resolve()}:{new_id}".encode()).hexdigest()
-        journal = haifa_home() / "follow-ups" / f"{key}.json"
+        journal = giro_home() / "follow-ups" / f"{key}.json"
         if request_id and journal.is_file():
             saved = json.loads(journal.read_text(encoding="utf-8"))
             if saved.get("stage") != "commit":
@@ -909,18 +913,20 @@ def status(repo: Path) -> tuple[JsonDict, list[str]]:
     """Backlog changes in the main checkout not committed to base: runs read base (D4).
 
     Cheap on purpose (the dashboard asks after every backlog write): the base, its commit
-    and the backlog roots of the working tree's config.yaml, no run config.
+    and the backlog roots of the working tree's config.yaml, no run config. Read from the
+    repository snapshot shared with the overview (``web.repostate``).
     """
+    from aifactory.web.repostate import snapshot
+
     try:
-        main = Path(git(repo, "rev-parse", "--show-toplevel").strip()).resolve()
-        base = worktree_base(main)
-        sha = resolve_commit(main, base)
-        changes = core.backlog_changes(main, sha, core.load_settings(main))
+        snap = snapshot(repo_root(repo))
+        tree = snap.require_tree()
+        changes = snap.backlog_changes()
     except ConfigError as exc:  # git failures included (GitError)
         raise TaskRunError("invalid_config", str(exc)) from exc
     data: JsonDict = {
-        "base": base,
-        "commit": sha,
+        "base": tree.base,
+        "commit": tree.commit,
         "clean": not changes,
         "changes": [c.to_dict() for c in changes],
     }

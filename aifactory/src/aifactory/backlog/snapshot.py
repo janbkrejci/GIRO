@@ -11,6 +11,7 @@ from aifactory.backlog.model import Backlog
 from aifactory.backlog.roots import is_glob
 from aifactory.config import ConfigError, ProjectSettings
 from aifactory.config.source import _read_blobs, git, resolve_commit
+from aifactory.gitops import _commit_dirs
 
 
 class _Snapshot(_Loader):
@@ -112,7 +113,6 @@ def read_snapshot(
     no temporary files, index updates, remote mirror synchronization or global cache.
     ``create_missing`` preserves the disk loader's empty-root behavior in memory only.
     """
-    from aifactory.run.gitops import _commit_dirs
 
     try:
         sha = resolve_commit(root, sha)

@@ -9,15 +9,15 @@ from unittest.mock import patch
 
 import pytest
 from backlog_fixture import _task, git, make_backlog_repo
-from starlette.testclient import TestClient
 
 from aifactory import repo_settings
 from aifactory.check.context import CheckContext
+from aifactory.errors import TaskRunError
 from aifactory.harness.config import SSSFConfig
 from aifactory.library.install import init_repo
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run.errors import TaskRunError
-from aifactory.web import backlog, create_app, machine
+from aifactory.web import backlog, machine
+from single_repo import RepoClient, repo_app
 
 
 def _tree_tasks(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -121,8 +121,8 @@ def test_summary_counts_archived_projects_without_runtime_or_policy(tmp_path: Pa
     with (
         patch.object(backlog, "_runtime", side_effect=AssertionError("runtime read")),
         patch.object(backlog, "_merge_policy", side_effect=AssertionError("policy read")),
-        TestClient(
-            create_app(root, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
+        RepoClient(
+            repo_app(root, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
         ) as client,
     ):
         response = client.get("/api/backlog/summary")
@@ -135,8 +135,8 @@ def test_summary_counts_archived_projects_without_runtime_or_policy(tmp_path: Pa
             path.unlink()
     assert backlog.summary(root)[0] == {"projects": 0}
     (root / ".factory/config.yaml").write_text("levels: [invalid", encoding="utf-8")
-    with TestClient(
-        create_app(root, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
+    with RepoClient(
+        repo_app(root, static_dir=tmp_path / "nostatic"), base_url="http://127.0.0.1:4700"
     ) as client:
         assert client.get("/api/backlog/summary").status_code == 500
 
@@ -191,7 +191,7 @@ def test_roster_cache_follows_config_base_library_and_registry(
         library.mkdir()
         git(library, "init", "-b", "main")
         git(library, "commit", "--allow-empty", "-m", "library")
-        monkeypatch.setenv("HAIFA_LIBRARY", str(library))
+        monkeypatch.setenv("GIRO_LIBRARY", str(library))
         assert counts()["codex"] == 0
         assert len(reads) == 5
         git(library, "commit", "--allow-empty", "-m", "advance")

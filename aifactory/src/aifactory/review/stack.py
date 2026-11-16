@@ -12,17 +12,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from aifactory import gitops
 from aifactory.backlog import Task, load_backlog
 from aifactory.config import ConfigError, load_run_config
+from aifactory.errors import TaskRunError
 from aifactory.providers import GitProvider
 from aifactory.review.errors import ReviewError
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
-from aifactory.run.queue import auto_merge_enabled
-from aifactory.run.resolve import RESOLVE_WORKFLOW
+from aifactory.run.queue_select import auto_merge_enabled
 from aifactory.run.stack import open_stack, stacked_on
-from aifactory.run.store import STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow, TaskRunStore
+from aifactory.runstore.rows import STARTED_AUTO_RESOLVE, SUCCEEDED, TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import CodeRunner
+from aifactory.workflow.parse import RESOLVE_WORKFLOW
 
 
 def _dependents(store: TaskRunStore, merged_branch: str) -> list[TaskPrRow]:
@@ -43,9 +44,9 @@ def restack_dependents(
     code: CodeRunner | None = None,
 ) -> list[str]:
     """Rebase the PRs stacked on `merged_branch` onto base and auto-merge them; warnings."""
-    # Local imports: review.flow and review.automerge import this module's callers.
+    # Local imports: review.rework and review.automerge import this module's callers.
     from aifactory.review.automerge import _hosting_and_merge, _record_error
-    from aifactory.review.flow import resolve_task
+    from aifactory.review.rework import resolve_task
 
     store = TaskRunStore(trace_db)
     try:

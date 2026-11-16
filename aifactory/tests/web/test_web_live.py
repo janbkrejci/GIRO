@@ -19,8 +19,8 @@ from starlette.testclient import TestClient
 from trace_fixture import T1, T2, make_repo, make_trace_db
 
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
 from aifactory.web.live import LiveWatcher
+from single_repo import RepoClient, repo_app, repo_url
 
 BASE = "http://127.0.0.1:4700"
 TASK_FILE = "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
@@ -83,6 +83,29 @@ def test_file_change_is_an_event(repo: Path) -> None:
         (repo / TASK_FILE).unlink()
         [event] = watcher.poll()
         assert event.data["paths"] == [TASK_FILE]
+    finally:
+        watcher.close()
+
+
+def test_added_and_removed_files_are_events(repo: Path) -> None:
+    added_task = "backlog/M01-core/S02-new/M01-S02-T01-new.md"
+    added_factory = ".factory/prompts/extra.md"
+    watcher = LiveWatcher(repo)
+    try:
+        assert watcher.poll() == []
+        _append(repo / added_task, "# New\n")
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["backlog"], "paths": [added_task], "truncated": False}
+        _append(repo / added_factory, "prompt\n")
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["factory"], "paths": [added_factory], "truncated": False}
+        (repo / added_factory).unlink()
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["factory"], "paths": [added_factory], "truncated": False}
+        (repo / added_task).unlink()
+        [event] = watcher.poll()
+        assert event.data == {"areas": ["backlog"], "paths": [added_task], "truncated": False}
+        assert watcher.poll() == []
     finally:
         watcher.close()
 
@@ -173,7 +196,7 @@ def test_trace_db_created_later(tmp_path: Path) -> None:
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _get(client: TestClient, url: str, status: int = 200) -> Any:
@@ -297,7 +320,7 @@ def _read_event(response: http.client.HTTPResponse, kind: str, deadline: float) 
 @pytest.mark.xdist_group("live")
 def test_sse_stream_reports_file_change(repo: Path, tmp_path: Path) -> None:
     port = _free_port()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", live_interval=0.1)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", live_interval=0.1)
     server = uvicorn.Server(
         uvicorn.Config(
             app, host="127.0.0.1", port=port, log_level="warning", timeout_graceful_shutdown=1
@@ -311,7 +334,9 @@ def test_sse_stream_reports_file_change(repo: Path, tmp_path: Path) -> None:
             assert time.monotonic() < deadline, "server did not start"
             time.sleep(0.02)
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-        conn.request("GET", "/api/live", headers={"Host": "127.0.0.1"})
+        conn.request(
+            "GET", repo_url(app.state.test_repo, "/api/live"), headers={"Host": "127.0.0.1"}
+        )
         response = conn.getresponse()
         assert response.status == 200
         assert response.getheader("content-type", "").startswith("text/event-stream")

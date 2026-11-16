@@ -1,4 +1,4 @@
-"""Cached checks of published HAIFA bundles and one installation at a time."""
+"""Cached checks of published GIRO bundles and one installation at a time."""
 
 from __future__ import annotations
 
@@ -9,16 +9,14 @@ import threading
 import time
 import urllib.request
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 from aifactory import __version__
-from aifactory.library.remote import version_key
-from aifactory.upgrade import UpgradeError, editable_install, run_upgrade
+from aifactory.upgrade import editable_install, run_upgrade
+from aifactory.versioning import UpgradeError, version_key
 from aifactory.web.server import RESTART_ENV, exit_process, restart_command
 
 UPDATE_REPOSITORY = "janbkrejci/GIRO"
-MIGRATION_REPOSITORY = "janbkrejci/GIRO"
 
 
 def latest_release(repository: str) -> dict[str, Any]:
@@ -43,22 +41,15 @@ class Updates:
         current: str = __version__,
         fetch: Callable[[str], dict[str, Any]] = latest_release,
         clock: Callable[[], float] = time.monotonic,
-        home: Path | None = None,
     ) -> None:
         from aifactory.environment import resolve
 
-        env = resolve(os.environ) if current.startswith("1.") else os.environ
         self.repository = (
             repository
             if repository is not None
-            else (
-                (env.get("GIRO_UPDATE_REPO") or UPDATE_REPOSITORY)
-                if current.startswith("1.")
-                else (env.get("HAIFA_UPDATE_REPO") or "janbkrejci/HAIFA")
-            )
+            else (resolve(os.environ).get("GIRO_UPDATE_REPO") or UPDATE_REPOSITORY)
         )
         self.current = current
-        self.home = home
         self.fetch = fetch
         self.clock = clock
         self._lock = threading.RLock()
@@ -66,30 +57,15 @@ class Updates:
         self._state: dict[str, Any] = {"status": "checking", "current_version": current}
         self.installing = False
 
-    def check(self, fresh: bool = False, *, migration: bool = False) -> dict[str, Any]:
+    def check(self, fresh: bool = False) -> dict[str, Any]:
         with self._lock:
             if self.installing:
                 return dict(self._state)
-            if self.home is not None and not fresh:
-                from aifactory.transition import ERROR_FILE
-
-                error_file = self.home / ERROR_FILE
-                if error_file.exists():
-                    try:
-                        detail = json.loads(error_file.read_text("utf-8"))["error"]
-                    except (OSError, ValueError, KeyError, TypeError) as exc:
-                        detail = f"Cannot read transition recovery diagnostic: {exc}"
-                    self._state = {
-                        "status": "error",
-                        "current_version": self.current,
-                        "error": detail,
-                    }
-                    return dict(self._state)
             ttl = 300 if self._state["status"] == "error" else 1800
             if not fresh and self.clock() - self._checked < ttl:
                 return dict(self._state)
             try:
-                repository = MIGRATION_REPOSITORY if migration else self.repository
+                repository = self.repository
                 release = self.fetch(repository)
                 target = str(release.get("tag_name", "")).removeprefix("v")
                 if (
@@ -98,10 +74,7 @@ class Updates:
                     or release.get("prerelease")
                 ):
                     raise ValueError("Vydání nemá platnou stabilní verzi.")
-                if migration and not target.startswith("1."):
-                    raise ValueError("Přechod vyžaduje stabilní GIRO řady 1.x.")
-                brand = "giro" if migration or self.current.startswith("1.") else "haifa"
-                filename = f"{brand}-{target}.zip"
+                filename = f"giro-{target}.zip"
                 urls = [
                     a.get("browser_download_url")
                     for a in release.get("assets", [])
@@ -118,7 +91,6 @@ class Updates:
                     "target_version": target,
                     "bundle": urls[0],
                     "error": None,
-                    "migration": migration,
                 }
             except Exception as exc:
                 self._state = {
@@ -129,15 +101,11 @@ class Updates:
             self._checked = self.clock()
             return dict(self._state)
 
-    def begin(self, migration: bool = False) -> dict[str, Any]:
+    def begin(self) -> dict[str, Any]:
         with self._lock:
             if self.installing:
                 raise UpgradeError("update_busy", "Aktualizace již probíhá.")
-            if migration and not self.current.startswith("0.1."):
-                raise UpgradeError(
-                    "update_unavailable", "Přechod je dostupný pouze z poslední HAIFA řady 0.1."
-                )
-            state = self.check(fresh=True, migration=migration)
+            state = self.check(fresh=True)
             if state["status"] != "available":
                 raise UpgradeError(
                     "update_unavailable", state.get("error") or "Nová aktualizace není k dispozici."
@@ -162,23 +130,13 @@ class Updates:
         with the same command line again.
         """
         try:
-            if self._state.get("migration"):
-                from aifactory.transition import prepare
-
-                if self.home is None:
-                    raise UpgradeError("migration_unsafe", "Dashboard home is unavailable.")
-                prepare(
-                    self.home, self._state["bundle"], self.current, self._state["target_version"]
-                )
-                leave()
-                return
             result = run_upgrade(
                 self._state["bundle"],
                 current=self.current,
                 expected_version=self._state["target_version"],
                 environ={**os.environ, RESTART_ENV: "1"},
                 restart=restart_command(),
-                bundle_brand="giro" if self.current.startswith("1.") else None,
+                bundle_brand="giro",
             )
             if result.handed_off:
                 leave()

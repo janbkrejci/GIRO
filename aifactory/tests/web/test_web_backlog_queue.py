@@ -11,15 +11,15 @@ from backlog_fixture import A1, A2, A3, A4, B1, B2, B3, make_backlog_repo
 from starlette.testclient import TestClient
 
 from aifactory.backlog import parse_frontmatter
-from aifactory.run.store import TaskRunStore
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _check(response: Any, status: int) -> Any:

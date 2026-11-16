@@ -8,21 +8,23 @@ import secrets
 import subprocess
 import sys
 import threading
+from collections.abc import Iterator, Mapping
 from concurrent.futures import Future
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-# aifactory: no load_dotenv() at import; `factory` loads $HAIFA_HOME/env at start (home.py)
+# No load_dotenv() at import; `factory` loads $GIRO_HOME/env at start (home.py)
 
 
-# aifactory 3.6: drain stderr while stdout streams, or a full stderr pipe stalls both sides.
-def read_stderr(process) -> Future[str]:
+# Drain stderr while stdout streams, or a full stderr pipe stalls both sides.
+def read_stderr(process: subprocess.Popen[Any]) -> Future[str]:
     """Read concurrently, preserving the complete diagnostics and any read error."""
     result: Future[str] = Future()
 
-    def read():
+    def read() -> None:
         try:
             result.set_result(process.stderr.read() if process.stderr else "")
         except BaseException as exc:
@@ -32,10 +34,10 @@ def read_stderr(process) -> Future[str]:
     return result
 
 
-# aifactory 3.1: prompts travel through stdin and files, never argv. Windows caps
+# Prompts travel through stdin and files, never argv. Windows caps
 # a CreateProcess command line at 32 767 characters (WinError 206), and a
 # dashboard advice payload or a long task prompt passes that easily.
-def send_stdin(process, text):
+def send_stdin(process: subprocess.Popen[Any], text: str) -> threading.Thread:
     """Write `text` to the child's stdin as UTF-8 and close it, off-thread.
 
     A thread, because a child that writes a lot of output before it has read
@@ -43,7 +45,7 @@ def send_stdin(process, text):
     because a text-mode pipe on Windows turns every newline into CRLF.
     """
 
-    def write():
+    def write() -> None:
         stream = process.stdin
         if stream is None:
             return
@@ -66,7 +68,7 @@ def send_stdin(process, text):
     return thread
 
 
-def prompt_file(directory, name, text):
+def prompt_file(directory: str | Path, name: str, text: str) -> str:
     """Write a prompt to `<directory>/<name>` and return its absolute path.
 
     Characters a file name cannot hold become `_`.
@@ -77,12 +79,14 @@ def prompt_file(directory, name, text):
     return str(path)
 
 
-# aifactory 2.15: per-call subprocess settings, isolated across dashboard worker threads.
-_agent_environment = ContextVar("agent_environment", default={})
+# Per-call subprocess settings, isolated across dashboard worker threads.
+_agent_environment: ContextVar[dict[str, str] | None] = ContextVar(
+    "agent_environment", default=None
+)
 
 
 @contextmanager
-def agent_environment(values):
+def agent_environment(values: Mapping[str, str]) -> Iterator[None]:
     from aifactory.environment import child_environment
 
     token = _agent_environment.set(child_environment({}, **values))
@@ -107,15 +111,10 @@ def operator_env() -> dict[str, str]:
     same `python3` the engineer gets in their terminal. The ADW's own imports
     are unaffected; this env is only ever handed to child processes.
     """
-    from aifactory.environment import child_environment
+    from aifactory.environment import canonical, child_environment
 
-    env = child_environment(os.environ, **_agent_environment.get())
-    for channel in (
-        "GIRO_VALIDATE_FAKE",
-        "HAIFA_VALIDATE_FAKE",
-        "GIRO_VALIDATE_HIDDEN",
-        "HAIFA_VALIDATE_HIDDEN",
-    ):
+    env = child_environment(os.environ, **_agent_environment.get() or {})
+    for channel in (canonical("VALIDATE_FAKE"), canonical("VALIDATE_HIDDEN")):
         env.pop(channel, None)
     venv = env.pop("VIRTUAL_ENV", "")
     if not venv:
@@ -135,7 +134,7 @@ def operator_env() -> dict[str, str]:
     return env
 
 
-# aifactory: *_SAFE_MODE switches are read at call time so a test (or an
+# *_SAFE_MODE switches are read at call time so a test (or an
 # operator's env) flips them without re-importing; default off = native repo
 # loading.
 def flag_value(value: str | None) -> bool:
@@ -144,8 +143,8 @@ def flag_value(value: str | None) -> bool:
 
 
 def env_flag(name: str) -> bool:
-    """aifactory: whether the environment switch ``name`` is on."""
-    return flag_value(_agent_environment.get().get(name, os.environ.get(name)))
+    """Whether the environment switch ``name`` is on."""
+    return flag_value((_agent_environment.get() or {}).get(name, os.environ.get(name)))
 
 
 def new_id(length: int = 8) -> str:
@@ -153,7 +152,7 @@ def new_id(length: int = 8) -> str:
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
 def ensure_dir(path: str | Path) -> Path:

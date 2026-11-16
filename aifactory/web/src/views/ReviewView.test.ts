@@ -414,12 +414,12 @@ describe('ReviewView', () => {
     await wrapper.find('[data-test="show-done"]').setValue(true)
     await flushPromises()
     expect(fetchMock.mock.calls.map(([u]) => u)).toEqual(['/api/repos/haifa/review', '/api/repos/haifa/review?done=1'])
-    expect(window.localStorage.getItem('haifa.review.showDone')).toBe('1')
+    expect(window.localStorage.getItem('giro.review.showDone')).toBe('1')
     expect(wrapper.find('[data-test="done"]').exists()).toBe(true)
     expect(wrapper.findAll('tr[data-done-pr]').map((r) => r.attributes('data-done-pr'))).toEqual(['M03-S01-T01'])
     await wrapper.find('[data-test="show-done"]').setValue(false)
     await flushPromises()
-    expect(window.localStorage.getItem('haifa.review.showDone')).toBe('0')
+    expect(window.localStorage.getItem('giro.review.showDone')).toBe('0')
     expect(fetchMock).toHaveBeenLastCalledWith('/api/repos/haifa/review', expect.objectContaining({ signal: expect.any(AbortSignal) }))
     expect(wrapper.find('[data-test="done"]').exists()).toBe(false)
     wrapper.unmount()
@@ -427,7 +427,7 @@ describe('ReviewView', () => {
 
   it('starts with the remembered choice', async () => {
     go('#/r/haifa/review')
-    window.localStorage.setItem('haifa.review.showDone', '1')
+    window.localStorage.setItem('giro.review.showDone', '1')
     const fetchMock = vi.fn(async (_url: string) => ok(reviewList({ done: [donePr()] })))
     vi.stubGlobal('fetch', fetchMock)
     const wrapper = mount(ReviewView)

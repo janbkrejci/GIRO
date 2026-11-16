@@ -103,7 +103,7 @@ def test_internal_error_json(capsys: Capsys, monkeypatch: pytest.MonkeyPatch) ->
     def boom(args: argparse.Namespace) -> int:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(cli, "_task", boom)
+    monkeypatch.setitem(cli.COMMANDS, "task", boom)
     rc, obj = run_json(capsys, ["task", "list", "--json"])
     assert rc == 2
     assert obj["error"]["code"] == "internal_error"

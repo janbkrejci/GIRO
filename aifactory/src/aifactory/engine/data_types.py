@@ -9,11 +9,12 @@ that its final JSON response is parsed against. No untyped handoffs.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Type
+from collections.abc import Callable
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
-# aifactory 3.0: the tester agent's checks and the evidence of what the test step ran.
+# The tester agent's checks and the evidence of what the test step ran.
 from aifactory.testing.model import Check, Coverage, Dropped, Evidence, plan_problems
 
 PhaseKind = Literal["engineer", "agent", "code"]
@@ -22,14 +23,15 @@ PhaseStatus = Literal["queued", "running", "success", "fail"]
 
 # ── Phases ────────────────────────────────────────────────────────────────────
 
+
 class PhaseParams(BaseModel):
     """Everything run.phase() needs. Passed as one object, never loose params."""
 
-    name: str                       # short id, unique within the run: "plan", "build"
-    kind: PhaseKind                 # which lane the block renders in
-    owner: str                      # engineer's name, "git", or an agent name from config
-    description: str                # REQUIRED: what this phase does and why — see below
-    retries: int = 0                # agent phases: gate-failure retries via continue
+    name: str  # short id, unique within the run: "plan", "build"
+    kind: PhaseKind  # which lane the block renders in
+    owner: str  # engineer's name, "git", or an agent name from config
+    description: str  # REQUIRED: what this phase does and why — see below
+    retries: int = 0  # agent phases: gate-failure retries via continue
 
     @field_validator("description")
     @classmethod
@@ -48,11 +50,13 @@ class PhaseParams(BaseModel):
         if not text:
             raise ValueError(
                 f"phase {name!r}: description is required — one sentence on what this "
-                f"phase does and why. It is what the trace and the UI show.")
+                f"phase does and why. It is what the trace and the UI show."
+            )
         if text.rstrip(".").casefold() == name.replace("_", " ").casefold():
             raise ValueError(
                 f"phase {name!r}: description {text!r} only restates the phase name — "
-                f"say what it does and why instead.")
+                f"say what it does and why instead."
+            )
         return text
 
 
@@ -63,54 +67,55 @@ class Phase(BaseModel):
     adw_id: str
     seq: int
     params: PhaseParams
-    status: PhaseStatus = "fail"    # success must be earned
+    status: PhaseStatus = "fail"  # success must be earned
     attempt: int = 0
-    error: Optional[str] = None
-    started_at: Optional[str] = None
-    ended_at: Optional[str] = None
+    error: str | None = None
+    started_at: str | None = None
+    ended_at: str | None = None
 
 
 # ── Envelopes (agent output types) ───────────────────────────────────────────
 
-# aifactory 3.2: work a run found but does not finish; the factory files it as a task in
+
+# Work a run found but does not finish; the factory files it as a task in
 # the project's TODO step (run/followups.py). `blocks_task`: this task cannot be done
 # before the new one, so the run fails as blocked and the task gets `depends_on` on it.
-# aifactory 3.3: `writes` becomes the new task's own `writes` (it replaces the inherited
+# `writes` becomes the new task's own `writes` (it replaces the inherited
 # value), for work outside this task's allowed paths; None inherits. `for_human`: only a
 # person can do it (the task gets `assignee: human`). `workflow`: the new task's own
 # workflow, e.g. `build-review` for a change that needs no tests; None uses the project's
 # severity mapping, then inherits. `severity` describes impact independently of blocks_task.
 class FollowUp(BaseModel):
     title: str = Field(min_length=1)
-    reason: str = Field(min_length=1)   # what was found, where, and why it is not done here
-    details: str = ""                   # what the new task must do (its task text)
+    reason: str = Field(min_length=1)  # what was found, where, and why it is not done here
+    details: str = ""  # what the new task must do (its task text)
     blocks_task: bool = False
-    writes: Optional[list[str]] = None
+    writes: list[str] | None = None
     for_human: bool = False
-    workflow: Optional[str] = None
+    workflow: str | None = None
     severity: Literal["blocker", "defect", "minor", "cosmetic"] | None = None
 
 
-# aifactory 3.2: the summary of the whole PR for the person who approves it, written by
+# The summary of the whole PR for the person who approves it, written by
 # the agents (review/prbody.py puts the latest one at the top of the PR body).
 class PrSummary(BaseModel):
-    goal: str = ""                                        # why the task exists, 1-2 sentences
-    done: list[str] = Field(default_factory=list)         # outcomes, not file lists
-    not_done: list[str] = Field(default_factory=list)     # omissions, deviations from the ask
-    notes: list[str] = Field(default_factory=list)        # risks, behaviour changes, manual checks
+    goal: str = ""  # why the task exists, 1-2 sentences
+    done: list[str] = Field(default_factory=list)  # outcomes, not file lists
+    not_done: list[str] = Field(default_factory=list)  # omissions, deviations from the ask
+    notes: list[str] = Field(default_factory=list)  # risks, behaviour changes, manual checks
 
     @property
     def empty(self) -> bool:
         return not (self.goal.strip() or any(d.strip() for d in self.done))
 
 
-# aifactory 3.6: a path this task must change that its `writes` do not cover (a test the
+# A path this task must change that its `writes` do not cover (a test the
 # new behaviour breaks, a registry, a test the review asks for). Reported with
 # `status: fail` and `fail_kind: needs_writes`; the run fails as `writes_needed` and
 # `factory task retry --allow-writes` adds the paths to the task's writes.
 class NeedsWrite(BaseModel):
     path: str = Field(min_length=1)
-    reason: str = ""                    # why this task must change it
+    reason: str = ""  # why this task must change it
 
 
 class EnvelopeBase(BaseModel):
@@ -120,20 +125,20 @@ class EnvelopeBase(BaseModel):
     summary: str = ""
     artifacts: list[str] = Field(default_factory=list)
     notes_for_next_agent: str = ""
-    # aifactory 3.2: new work and blockers the agent reports (see FollowUp), the ids of
+    # New work and blockers the agent reports (see FollowUp), the ids of
     # existing backlog tasks that block this one, and the PR summary (see PrSummary).
     follow_ups: list[FollowUp] = Field(default_factory=list)
     blocked_by: list[str] = Field(default_factory=list)
-    pr_summary: Optional[PrSummary] = None
-    # aifactory 3.4: why an agent reports status=fail; "nothing_to_do" (the work is done
+    pr_summary: PrSummary | None = None
+    # Why an agent reports status=fail; "nothing_to_do" (the work is done
     # already or the task asks for no change) becomes the run's failure_kind.
-    # aifactory 3.6: "needs_writes" with `needs_writes` becomes `writes_needed`.
-    fail_kind: Optional[str] = None
+    # "needs_writes" with `needs_writes` becomes `writes_needed`.
+    fail_kind: str | None = None
     needs_writes: list[NeedsWrite] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _needs_writes_has_paths(self) -> "EnvelopeBase":
-        # aifactory 3.6: fail_kind needs_writes without a path cannot be allowed
+    def _needs_writes_has_paths(self) -> EnvelopeBase:
+        # Fail_kind needs_writes without a path cannot be allowed
         if self.fail_kind == "needs_writes" and not any(n.path.strip() for n in self.needs_writes):
             raise ValueError("fail_kind 'needs_writes' needs the paths in needs_writes")
         return self
@@ -151,11 +156,11 @@ class PlanOutput(EnvelopeBase):
     commit_message: str = ""
 
 
-# aifactory 3.5: the builder found the task's work done already (another task did it).
+# The builder found the task's work done already (another task did it).
 # `evidence` names where the change is: commits (sha or subject) or files of the repo.
 class AlreadyDone(BaseModel):
     evidence: list[str] = Field(min_length=1)
-    reason: str = ""                # why the work is done, in one sentence
+    reason: str = ""  # why the work is done, in one sentence
 
     @field_validator("evidence")
     @classmethod
@@ -168,13 +173,13 @@ class AlreadyDone(BaseModel):
 
 class BuildOutput(EnvelopeBase):
     changed_files: list[str] = Field(default_factory=list)
-    commit_message: str = ""        # consumed by the git commit phase
-    # aifactory 3.5: set with status=success when there is nothing to build; the first
+    commit_message: str = ""  # consumed by the git commit phase
+    # Set with status=success when there is nothing to build; the first
     # build of a run then ends the workflow and the task is done without changes.
-    already_done: Optional[AlreadyDone] = None
+    already_done: AlreadyDone | None = None
 
     @model_validator(mode="after")
-    def _already_done_is_success(self) -> "BuildOutput":
+    def _already_done_is_success(self) -> BuildOutput:
         if self.already_done is not None and self.status != "success":
             raise ValueError("already_done is reported with status 'success'")
         return self
@@ -192,9 +197,9 @@ class ScoutOutput(EnvelopeBase):
 class ReviewFinding(BaseModel):
     """One thing the request (or plan) asked for, and whether it is there."""
 
-    requirement: str                # the ask, in the requester's words
+    requirement: str  # the ask, in the requester's words
     met: bool
-    evidence: str = ""              # where it lives, or what is missing
+    evidence: str = ""  # where it lives, or what is missing
 
 
 class ReviewOutput(EnvelopeBase):
@@ -202,13 +207,13 @@ class ReviewOutput(EnvelopeBase):
 
     approved: bool = False
     findings: list[ReviewFinding] = Field(default_factory=list)
-    blocking: list[str] = Field(default_factory=list)   # what must change before approval
+    blocking: list[str] = Field(default_factory=list)  # what must change before approval
 
 
 class DocumentOutput(EnvelopeBase):
     """Where the write-up of a completed change landed."""
 
-    document_path: str = ""         # the doc in the repo, e.g. app_docs/<task-id>-<slug>.md
+    document_path: str = ""  # the doc in the repo, e.g. app_docs/<task-id>-<slug>.md
     documented_files: list[str] = Field(default_factory=list)
     commit_message: str = ""
 
@@ -251,7 +256,7 @@ class QualityCheckResult(BaseModel):
 class QualityResult(BaseModel):
     """Aggregate result from a quality block: every check it ran, and the verdict."""
 
-    # aifactory 3.0: which checks of the tester's plan ran.
+    # Which checks of the tester's plan ran.
     test_plan: Evidence | None = None
     passed: bool
     checks: list[QualityCheckResult] = Field(default_factory=list)
@@ -261,11 +266,12 @@ class QualityResult(BaseModel):
 
 # ── Change capture (git diff, deterministic) ─────────────────────────────────
 
+
 class ChangeCapture(BaseModel):
     """Everything documentation.capture() needs. One object, never loose params."""
 
-    base: str = "main"              # the ref the work is measured against
-    max_diff_lines: int = 2000      # the diff artifact is truncated past this
+    base: str = "main"  # the ref the work is measured against
+    max_diff_lines: int = 2000  # the diff artifact is truncated past this
     include_untracked: bool = True  # a brand-new file is part of the change
 
 
@@ -277,8 +283,8 @@ class BaseRef(BaseModel):
     leaving the reader to infer it.
     """
 
-    ref: str                        # what was asked for: "main", or a pinned sha
-    commit: str                     # the commit actually diffed against
+    ref: str  # what was asked for: "main", or a pinned sha
+    commit: str  # the commit actually diffed against
     reason: str = ""
 
     @property
@@ -297,8 +303,8 @@ class ChangeSet(BaseModel):
     untracked: list[str] = Field(default_factory=list)
     insertions: int = 0
     deletions: int = 0
-    stat: str = ""                  # `git diff --stat` output, verbatim
-    diff_path: str = ""             # the full diff, written into context_handoff/
+    stat: str = ""  # `git diff --stat` output, verbatim
+    diff_path: str = ""  # the full diff, written into context_handoff/
     truncated: bool = False
 
     @property
@@ -313,12 +319,12 @@ class ChangesOutput(EnvelopeBase):
     consumes it through the one door every agent handoff uses.
     """
 
-    base: str = ""                  # "<ref> @ <commit> — <reason>"
+    base: str = ""  # "<ref> @ <commit> — <reason>"
     changed_files: list[str] = Field(default_factory=list)
     insertions: int = 0
     deletions: int = 0
     stat: str = ""
-    diff_path: str = ""             # read this for the full diff
+    diff_path: str = ""  # read this for the full diff
 
 
 class VerifyOutput(EnvelopeBase):
@@ -330,7 +336,7 @@ class VerifyOutput(EnvelopeBase):
     the ADW script is the only thing that knows the difference.
     """
 
-    # aifactory 3.0: what the test step ran from the tester's plan; `coverage` repeats
+    # What the test step ran from the tester's plan; `coverage` repeats
     # the plan's coverage for conditions (`test.coverage == "full"`), "" for a command.
     test_plan: Evidence | None = None
     coverage: str = ""
@@ -338,7 +344,7 @@ class VerifyOutput(EnvelopeBase):
     failures: list[str] = Field(default_factory=list)
 
 
-# aifactory 3.0: the tester agent picks the checks; the `test` step runs exactly these.
+# The tester agent picks the checks; the `test` step runs exactly these.
 class TestPlanOutput(EnvelopeBase):
     """The checks that verify this change: enough to trust it, nothing beyond.
 
@@ -353,15 +359,15 @@ class TestPlanOutput(EnvelopeBase):
     reason: str = Field(min_length=1)
     checks: list[Check] = Field(default_factory=list)
     dropped: list[Dropped] = Field(default_factory=list)
-    # aifactory 3.7: reusable project knowledge, not the checks of this particular diff.
+    # Reusable project knowledge, not the checks of this particular diff.
     testing_profile: str = Field(default="", max_length=12_000)
-    # aifactory 3.7: legacy fields retained for stored envelopes and custom prompts.
+    # Legacy fields retained for stored envelopes and custom prompts.
     # New workflows send failures to the builder without implicit test triage/review.
     failure_cause: Literal["", "code", "plan"] = ""
     missing_tests: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def coherent(self) -> "TestPlanOutput":
+    def coherent(self) -> TestPlanOutput:
         problems = plan_problems(self.coverage, self.checks)
         if problems:
             raise ValueError("; ".join(problems))
@@ -370,6 +376,7 @@ class TestPlanOutput(EnvelopeBase):
 
 # ── Agent calls ──────────────────────────────────────────────────────────────
 
+
 class GateCheck(BaseModel):
     """One thing a gate looked at, and what it found.
 
@@ -377,7 +384,7 @@ class GateCheck(BaseModel):
     failed check it doubles as the reason, so it is what the agent is told.
     """
 
-    item: str                       # what was checked: a path, a command, a test
+    item: str  # what was checked: a path, a command, a test
     ok: bool
     note: str = ""
 
@@ -391,7 +398,7 @@ class GateReport(BaseModel):
 
     checks: list[GateCheck] = Field(default_factory=list)
 
-    def check(self, item: str, ok: bool, note: str = "") -> "GateReport":
+    def check(self, item: str, ok: bool, note: str = "") -> GateReport:
         self.checks.append(GateCheck(item=item, ok=ok, note=note))
         return self
 
@@ -409,10 +416,12 @@ class AgentCall(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    output_type: Type[EnvelopeBase]
+    output_type: type[EnvelopeBase]
     prompt: str
-    previous: Optional[EnvelopeBase] = None
-    gates: list[Callable] = Field(default_factory=list)   # gate(envelope, run) -> list[str]
+    previous: EnvelopeBase | None = None
+    gates: list[Callable[..., Any]] = Field(
+        default_factory=list
+    )  # gate(envelope, run) -> list[str]
     # Extra `{{name}}` prompt variables of this call (HAIFA-S03-T12: a workflow
     # step with several inputs). The engine's own variables win on a clash.
     variables: dict[str, str] = Field(default_factory=dict)
@@ -420,23 +429,24 @@ class AgentCall(BaseModel):
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
+
 class PromptEngineering(BaseModel):
-    system: str                     # path to system.md
-    user: str                       # path to user.md
+    system: str  # path to system.md
+    user: str  # path to user.md
 
 
 class AgentConfig(BaseModel):
     name: str
     coding_agent: Literal["pi", "claude_code"] = "pi"
     model: str = "google/gemini-3.6-flash"
-    thinking: str = "medium"        # off | minimal | low | medium | high | xhigh | max
-    color: str = ""                 # hex swatch for this agent's lane in the UI
+    thinking: str = "medium"  # off | minimal | low | medium | high | xhigh | max
+    color: str = ""  # hex swatch for this agent's lane in the UI
     purpose: str = ""
     prompt_engineering: PromptEngineering
     harness_engineering: list[str] = Field(default_factory=list)
-    # aifactory 2.10: library skills bound to this agent, indexed in its prompt.
+    # Library skills bound to this agent, indexed in its prompt.
     skills: list[str] = Field(default_factory=list)
-    tools: Optional[list[str]] = None    # allowlist; None = all tools usable
+    tools: list[str] | None = None  # allowlist; None = all tools usable
     # What this agent may MODIFY in the repo, enforced in code after every call
     # (see adw_modules/permissions.py). `tools` cannot express this: `bash` runs
     # anything and `write` reaches any path, so an agent's capability list is a
@@ -445,7 +455,7 @@ class AgentConfig(BaseModel):
     #   []    -> read-only: may modify nothing tracked
     #   [...] -> only these. A trailing "/" means a directory prefix; a "*"
     #            makes it a glob; anything else is an exact path.
-    writes: Optional[list[str]] = None
+    writes: list[str] | None = None
     # Shell commands the agent must not run (HAIFA-S03-T12), e.g. `just test` or
     # `pytest` without a path. Written as the command pattern the harness matches
     # (`*` is a wildcard); harnesses that cannot enforce it are reported, never
@@ -460,15 +470,17 @@ class ChainStep(BaseModel):
     trace and a saved recipe all show the chain back in their own words, and
     reconstructing it from the parsed fields would quietly rewrite them.
     """
-    name: str                       # a key in roles.ROLES or roles.CODE_STEPS
-    kind: PhaseKind                 # "agent" or "code"
-    model: str = ""                 # as typed after @, before resolution
-    thinking: str = ""              # as typed after ~
+
+    name: str  # a key in roles.ROLES or roles.CODE_STEPS
+    kind: PhaseKind  # "agent" or "code"
+    model: str = ""  # as typed after @, before resolution
+    thinking: str = ""  # as typed after ~
     raw: str = ""
 
 
 class Recipe(BaseModel):
     """A chain worth running again, saved under adws/adw_recipes/."""
+
     name: str
     description: str = ""
     steps: list[ChainStep] = Field(default_factory=list)
@@ -482,6 +494,7 @@ class ModelOverrides(BaseModel):
     builder=opus` pins one lane (which is how the expensive agent is bought
     only where it earns its keep). Per-agent wins over the blanket value.
     """
+
     every_agent: str = ""
     per_agent: dict[str, str] = Field(default_factory=dict)
 
@@ -492,14 +505,18 @@ class ConfigDefaults(BaseModel):
     thinking: str = "medium"
     color: str = ""
     harness_engineering: list[str] = Field(default_factory=list)
-    tools: Optional[list[str]] = None    # roster-wide allowlist; None = all tools usable
+    tools: list[str] | None = None  # roster-wide allowlist; None = all tools usable
     disallowed_commands: list[str] = Field(default_factory=list)  # roster-wide default
     # Off-limits to every agent that has not named them in its own `writes`.
     # The factory's own code is the default: an agent must not be able to edit
     # the machinery that decides whether its work passed.
-    protected_files: list[str] = Field(default_factory=lambda: [
-        "adws/adw_modules/", "adws/adw_sssf_config/", "adws/adw_*.py",
-    ])
+    protected_files: list[str] = Field(
+        default_factory=lambda: [
+            "adws/adw_modules/",
+            "adws/adw_sssf_config/",
+            "adws/adw_*.py",
+        ]
+    )
     data_dir: str = "adws/adw_data"
 
 
@@ -516,40 +533,46 @@ class SSSFConfig(BaseModel):
 
 # ── Tracing ──────────────────────────────────────────────────────────────────
 
+
 class EventRecord(BaseModel):
     """One traced event, always logged against adw_id + phase."""
 
     adw_id: str
     phase_id: str = ""
-    type: str                       # phase_start | agent_start | tool_start | tool_call | handoff | gate_pass | gate_fail | log | agent_end | phase_end | error
+    # phase_start | agent_start | tool_start | tool_call | handoff | gate_pass | gate_fail
+    # | log | agent_end | phase_end | error
+    type: str
     name: str = ""
     payload: dict[str, Any] = Field(default_factory=dict)
     parent_id: str = ""
-    tokens: Optional[int] = None
+    tokens: int | None = None
     # Spans: set both when an event covers real elapsed time (a tool call), so
     # the UI lays it out on a time axis without parsing payload JSON. Left unset,
     # the tracer stamps started_at with the moment the event was recorded.
-    started_at: Optional[str] = None
-    ended_at: Optional[str] = None
+    started_at: str | None = None
+    ended_at: str | None = None
 
 
 # ── Pi coding agent interface ────────────────────────────────────────────────
+
 
 class PiRequest(BaseModel):
     """Everything one non-interactive pi run needs."""
 
     prompt: str
     system_prompt: str
-    model: str                      # registry pattern, resolved to provider + id
+    model: str  # registry pattern, resolved to provider + id
     thinking: str = "medium"
-    session_id: str                 # pi --session-id: creates or continues
+    session_id: str  # pi --session-id: creates or continues
     session_dir: str
-    raw_output_path: str            # JSONL stream lands here
-    tools: Optional[list[str]] = None
+    raw_output_path: str  # JSONL stream lands here
+    tools: list[str] | None = None
     extensions: list[str] = Field(default_factory=list)
-    disallowed_commands: list[str] = Field(default_factory=list)  # shell commands the agent may not run
-    cwd: str = "."                  # set from run.repo_root — the codebase root agents work in
-    # aifactory 3.5: non-empty = a read-only agent that may run only these shell commands
+    disallowed_commands: list[str] = Field(
+        default_factory=list
+    )  # shell commands the agent may not run
+    cwd: str = "."  # set from run.repo_root — the codebase root agents work in
+    # Non-empty = a read-only agent that may run only these shell commands
     # (claude: --permission-mode dontAsk with allow rules; codex: read-only sandbox).
     allowed_commands: list[str] = Field(default_factory=list)
 
@@ -561,6 +584,7 @@ class UsageBreakdown(BaseModel):
     pi itself reports: `input` EXCLUDES cache reads, which bill at their own
     (cheaper) rate — add them to learn the size of the prompt that was sent.
     """
+
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
@@ -577,7 +601,7 @@ class UsageBreakdown(BaseModel):
     cache_write_cost: float = 0.0
     total_cost: float = 0.0
 
-    def add_turn(self, usage: dict, total_tokens: int) -> None:
+    def add_turn(self, usage: dict[str, Any], total_tokens: int) -> None:
         """Fold in one pi `message_end` usage object.
 
         `total_tokens` is passed in rather than re-derived: the caller already
@@ -596,7 +620,7 @@ class UsageBreakdown(BaseModel):
         self.cache_write_cost += cost.get("cacheWrite") or 0.0
         self.total_cost += cost.get("total") or 0.0
 
-    def merge(self, other: "UsageBreakdown") -> None:
+    def merge(self, other: UsageBreakdown) -> None:
         """Add another call's usage — a phase that retries spends more than once."""
         for field in self.model_fields:
             setattr(self, field, getattr(self, field) + getattr(other, field))
@@ -613,7 +637,7 @@ class PiResult(BaseModel):
     # turn; this is how full the window is right now, which is what the
     # visualizer's context bar measures against `context_window`.
     context_tokens: int = 0
-    context_window: int = 0         # 0 when the registry declares no ceiling
+    context_window: int = 0  # 0 when the registry declares no ceiling
 
 
 # The transport every coding-agent interface speaks — pi and Claude Code alike.

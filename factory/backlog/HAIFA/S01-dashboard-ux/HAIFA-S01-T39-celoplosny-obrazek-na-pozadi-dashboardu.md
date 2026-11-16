@@ -22,4 +22,4 @@ Mimo rozsah: volba obrázku uživatelem v nastavení, různé obrázky pro jedno
 Tvrdá omezení: neměnit backend API ani Python mimo vygenerovaný `web/static`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

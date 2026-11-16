@@ -2,7 +2,7 @@
 merged from the dashboard alone, with no terminal.
 
 ``factory obs`` runs over a temporary repo (provider ``local``, fake harness, see
-``f3_repo``); Playwright drives the system Google Chrome (``HAIFA_E2E_CHANNEL``
+``f3_repo``); Playwright drives the system Google Chrome (``GIRO_E2E_CHANNEL``
 overrides it, an empty value uses Playwright's bundled chromium, ``just e2e-install``).
 Once the server is up the test never changes the repo itself: it only reads git for
 the final checks, so every change on ``main`` comes from the dashboard. Requests to
@@ -60,7 +60,7 @@ from playwright.sync_api import Error as PlaywrightError
 
 pytestmark = pytest.mark.xdist_group("e2e")
 
-CHANNEL_ENV = "HAIFA_E2E_CHANNEL"
+CHANNEL_ENV = "GIRO_E2E_CHANNEL"
 # pure UI: navigation, forms, dropdowns
 DEFAULT_TIMEOUT_MS = 15_000
 # the UI waits for the server's work with git (backlog commit, run check, merge, lists)
@@ -129,7 +129,7 @@ def server_fixture(tmp_path: Path) -> Iterator[Server]:
     script = fake_script(tmp_path / "script.json")
     wire, marker = tripwire(tmp_path / "wire")
     log = tmp_path / "obs.log"
-    home = tmp_path / "haifa-home"
+    home = tmp_path / "giro-home"
     init = git(repo, "rev-parse", "HEAD")
     with obs_server(repo, script, wire, log, home) as obs:
         yield Server(repo, obs.url, log, script, marker, init, home, obs.repo_id)
@@ -145,7 +145,7 @@ def page_fixture(server: Server, net: Net) -> Iterator[Page]:
     with sync_playwright() as p:
         browser = _launch(p)
         context: BrowserContext = browser.new_context(base_url=server.url)
-        context.add_init_script("localStorage.setItem('haifa.dashboard.locale', 'cs')")
+        context.add_init_script("localStorage.setItem('giro.dashboard.locale', 'cs')")
         context.set_default_timeout(DEFAULT_TIMEOUT_MS)
         expect.set_options(timeout=DEFAULT_TIMEOUT_MS)
 
@@ -616,7 +616,7 @@ def test_f3_task_lifecycle_in_browser(page: Page, server: Server, net: Net) -> N
     assert net.dialogs == []
 
     # both runs were separate processes; their envelopes and output are private files in
-    # the server's HAIFA home, none in the repo
+    # the server's GIRO home, none in the repo
     envelopes = sorted((server.home / "logs").glob("*.json"))
     assert len(envelopes) == 2, envelopes
     if sys.platform != "win32":  # Windows has no POSIX file modes

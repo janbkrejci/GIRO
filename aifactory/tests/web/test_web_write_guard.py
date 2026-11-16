@@ -9,10 +9,10 @@ import pytest
 from starlette.testclient import TestClient
 from web_repo import git_repo
 
-from aifactory.run.errors import TaskRunError
+from aifactory.errors import TaskRunError
 from aifactory.skill import envelope_problems
 from aifactory.skill.codes import ERROR_CODES
-from aifactory.web import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 EVIL = "http://evil.example"
@@ -43,7 +43,7 @@ def calls_fixture(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 @pytest.fixture(name="client")
 def client_fixture(tmp_path: Path) -> TestClient:
     root = git_repo(tmp_path / "repo")
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _rejected(response: Any, status: int, code: str) -> None:
@@ -168,7 +168,7 @@ def test_writes_outside_api_are_not_checked(client: TestClient) -> None:
 
 def test_host_check_stays(tmp_path: Path) -> None:
     root = git_repo(tmp_path / "repo")
-    client = TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=EVIL)
+    client = RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=EVIL)
     assert client.post("/api/runs/x/stop", headers={"Origin": EVIL}).status_code == 400
 
 

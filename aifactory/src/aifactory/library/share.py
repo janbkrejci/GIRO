@@ -1,16 +1,16 @@
 """Library changes reach the remote only as pull requests (HAIFA-S05-T17).
 
-The default team library is ``DEFAULT_LIBRARY_URL``; ``$HAIFA_LIBRARY_URL`` overrides it
-(a company install, like ``HAIFA_UPDATE_REPO``). A change that would go to the remote
+The default team library is ``DEFAULT_LIBRARY_URL``; ``$GIRO_LIBRARY_URL`` overrides it
+(a company install, like ``GIRO_UPDATE_REPO``). A change that would go to the remote
 (``library push``, ``library seed``, import, the move into the library) is committed to
-the local library at once and proposed on a new branch ``haifa-library/...``, never pushed
+the local library at once and proposed on a new branch ``giro-library/...``, never pushed
 to the library branch itself. On GitHub the branch goes to the library repo when the user
 may write to it, else to the user's fork (``gh repo fork``), and ``gh pr create`` opens
-the pull request against the library branch. HAIFA never merges it, never approves it and
+the pull request against the library branch. GIRO never merges it, never approves it and
 never uses ``--admin``: merging is the library maintainer's job. Other remotes get only
 the branch; the pull request is opened by hand.
 
-Sent changes are recorded in ``.git/haifa-pull-requests.json`` of the library by their
+Sent changes are recorded in ``.git/giro-pull-requests.json`` of the library by their
 ``git patch-id``, so they stay recognised after ``library pull`` rebases the local commits
 onto the merged remote.
 """
@@ -29,13 +29,14 @@ from typing import Any
 
 from aifactory.environment import value
 from aifactory.library.store import REMOTE, LibraryStoreError, _git_detail
+from aifactory.oscompat import atomic_write
 from aifactory.providers import git
 from aifactory.providers.base import ProviderError
 
 DEFAULT_LIBRARY_URL = "https://github.com/janbkrejci/GIRO-LIBRARY.git"
-LIBRARY_URL_ENV = "HAIFA_LIBRARY_URL"
-PR_PREFIX = "haifa-library/"
-STATE_FILE = "haifa-pull-requests.json"
+LIBRARY_URL_ENV = "GIRO_LIBRARY_URL"
+PR_PREFIX = "giro-library/"
+STATE_FILE = "giro-pull-requests.json"
 WRITE_PERMISSIONS = ("ADMIN", "MAINTAIN", "WRITE")
 OPEN = "OPEN"
 DONE = "DONE"
@@ -51,7 +52,7 @@ _GITHUB = re.compile(
 
 
 def default_library_url(environ: Mapping[str, str] | None = None) -> str:
-    """``$GIRO_LIBRARY_URL`` (legacy ``$HAIFA_LIBRARY_URL``), else GIRO-LIBRARY."""
+    """``$GIRO_LIBRARY_URL``, else GIRO-LIBRARY."""
     env = os.environ if environ is None else environ
     selected = value(LIBRARY_URL_ENV, env)
     if selected is None:
@@ -123,9 +124,7 @@ def read_proposals(root: Path) -> list[Proposal]:
 
 def write_proposals(root: Path, proposals: Sequence[Proposal]) -> None:
     path = _state_path(root)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps([asdict(p) for p in proposals], indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    atomic_write(path, json.dumps([asdict(p) for p in proposals], indent=2) + "\n")
 
 
 # ── commits and patch ids ─────────────────────────────────────────────────────
@@ -222,7 +221,7 @@ def _gh_call(fn: Any, *args: str) -> Any:
 
 def push_branch(root: Path, target: str, sha: str, branch: str) -> None:
     """Push `sha` to the new branch `branch` of `target`, never forced and never to the
-    library branch: only ``haifa-library/`` branches are pushed."""
+    library branch: only ``giro-library/`` branches are pushed."""
     if not branch.startswith(PR_PREFIX):
         raise LibraryStoreError(
             "push_failed", f"refusing to push {branch}: not a {PR_PREFIX} branch"

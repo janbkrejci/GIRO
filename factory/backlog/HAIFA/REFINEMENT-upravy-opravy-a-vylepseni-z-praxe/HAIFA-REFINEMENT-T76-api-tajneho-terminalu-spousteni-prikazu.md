@@ -37,5 +37,5 @@ Hotovo znamená:
 - Docstring `app.py` a `docs/decisions.md` popisují endpointy a omezení na loopback.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-25 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/165 · náklady $0.00

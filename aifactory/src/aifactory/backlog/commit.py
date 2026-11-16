@@ -7,9 +7,9 @@ staged and committed (other staged or
 unstaged changes stay as they are), and only when the main checkout is on ``base``
 and the backlog is valid. With a configured ``remote`` the commit is pushed.
 
-The move of ``base`` is recorded in the base-move journal (``run/basemoves.py``), so
+The move of ``base`` is recorded in the base-move journal (``aifactory/basemoves.py``), so
 a task run whose agent phase is going on meanwhile does not take it (nor the task
-files it commits, journaled by ``run/mainwrites.py``) for a write of its agent.
+files it commits, journaled by ``aifactory/mainwrites.py``) for a write of its agent.
 
 Error codes (``TaskEditError.code``): ``invalid_config`` (2), ``missing_backlog_dir`` (2),
 ``backlog_invalid`` (1, ``errors()`` lists the problems), ``not_on_base`` (2),
@@ -20,13 +20,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from aifactory import basemoves, gitops
 from aifactory.backlog.edit import TaskEditError, load_for_edit
 from aifactory.backlog.roots import is_glob, owning_root
 from aifactory.backlog.validate import check_backlog
 from aifactory.config import ProjectSettings
 from aifactory.config.status import ConfigChange, working_tree_changes
+from aifactory.errors import TaskRunError
+
+if TYPE_CHECKING:
+    from aifactory.config import RunConfig
 
 BACKLOG_BRANCH_PREFIX = "factory-backlog/"
 
@@ -104,17 +109,21 @@ def _status_paths(root: Path, settings: ProjectSettings) -> tuple[list[str], lis
     return paths, sorted(roots)
 
 
-def commit_backlog(repo: Path, message: str | None = None) -> BacklogCommit:
-    """Commit every change under the backlog roots to ``base``; push it when a remote exists."""
+def commit_backlog(
+    repo: Path, message: str | None = None, *, rc: RunConfig | None = None
+) -> BacklogCommit:
+    """Commit every change under the backlog roots to ``base``; push it when a remote exists.
+
+    `rc` is the caller's already loaded run configuration of `repo` (loaded when None).
+    """
     from aifactory.config import ConfigError, load_run_config
     from aifactory.providers import ProviderError
     from aifactory.providers import git as provider_git
-    from aifactory.run import gitops
-    from aifactory.run.errors import TaskRunError
 
     try:
         main = gitops.main_root(repo)
-        rc = load_run_config(main)
+        if rc is None:
+            rc = load_run_config(main)
     except TaskRunError as exc:
         raise TaskEditError("invalid_config", exc.message) from exc
     except ConfigError as exc:
@@ -159,8 +168,6 @@ def commit_backlog(repo: Path, message: str | None = None) -> BacklogCommit:
     except RuntimeError as exc:
         raise TaskEditError("commit_failed", str(exc)) from exc
     if old is not None:
-        from aifactory.run import basemoves
-
         basemoves.record(
             main, f"refs/heads/{base}", old, sha, checkout=main, command="backlog commit"
         )

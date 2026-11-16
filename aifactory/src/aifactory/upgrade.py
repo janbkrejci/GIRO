@@ -44,7 +44,7 @@ from typing import Any
 
 from aifactory import __version__
 from aifactory.environment import child_environment
-from aifactory.library.remote import library_min_factory_version, version_key
+from aifactory.versioning import UpgradeError, version_key
 
 SUMS_FILE = "SHA256SUMS"
 CONSTRAINTS_FILE = "constraints.txt"
@@ -55,19 +55,6 @@ RESTART_HINT = "restart a running dashboard (factory obs) to load the new versio
 HANDOFF_SCRIPT = Path(__file__).resolve().parent / "upgrade_handoff.ps1"
 HANDOFF_LOG = "giro-upgrade.log"
 HANDOFF_HINT = "the installation finishes after this process exits"
-
-
-class UpgradeError(Exception):
-    """An expected failure of `factory upgrade` with a stable ``code`` and exit code."""
-
-    def __init__(
-        self, code: str, message: str, exit_code: int = 2, data: Mapping[str, Any] | None = None
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.exit_code = exit_code
-        self.data = dict(data) if data is not None else None
 
 
 @dataclass
@@ -433,6 +420,8 @@ def run_upgrade(
                 "bundle_invalid",
                 "The bundle version does not match the published release; nothing installed.",
             )
+        from aifactory.library.remote import library_min_factory_version
+
         minimum = library_min_factory_version(environ)
         versions = {"current_version": current, "target_version": target}
         if version_key(target) <= version_key(current):
@@ -492,8 +481,8 @@ def run_upgrade(
                 data={**result.to_json(), "returncode": proc.returncode},
             )
         result.installed = True
-        # The transition coordinator preserves the library verbatim. GIRO subsequently
-        # offers its non-destructive seed plan; --all would destroy local customizations.
+        # The refresh offers the non-destructive seed plan; --all would destroy local
+        # customizations.
         if not refresh:
             return result
         warning = refresh_library(uv, environ)

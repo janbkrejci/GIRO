@@ -21,5 +21,5 @@ Dodat konkrétní, již rozpracované zlepšení diagnostiky a regresního pokry
 Hotovo znamená: just lint, just typecheck, cílené testy přímých volajících a oba původní retry browser scénáře projdou. Nové regrese výše procházejí. Změny projdou Linux CI; případné další selhání poskytne konkrétní diagnostiku k opravě. Celou suite neprovádět uvnitř tasku.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-21 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/137 · náklady $0.00

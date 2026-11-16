@@ -33,11 +33,11 @@ describe('api', () => {
   it('returns data of an ok envelope', async () => {
     const fetchMock = stubFetch({
       ok: true,
-      data: { app: 'haifa-dashboard', version: '0.1.0', home: '/home/.haifa' },
+      data: { app: 'giro-dashboard', version: '0.1.0', home: '/home/.giro' },
       error: null,
       warnings: [],
     })
-    await expect(fetchHealth()).resolves.toEqual({ app: 'haifa-dashboard', version: '0.1.0', home: '/home/.haifa' })
+    await expect(fetchHealth()).resolves.toEqual({ app: 'giro-dashboard', version: '0.1.0', home: '/home/.giro' })
     expect(fetchMock).toHaveBeenCalledWith('/api/health', expect.objectContaining({ signal: expect.any(AbortSignal) }))
   })
 

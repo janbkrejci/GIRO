@@ -10,8 +10,8 @@ from backlog_fixture import A1, A2, git, make_backlog_repo
 from starlette.testclient import TestClient
 
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
 from cli_json import run_json
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
@@ -34,8 +34,8 @@ class RecordingLauncher:
 
 
 def _client(root: Path, tmp_path: Path, launcher: RecordingLauncher) -> TestClient:
-    app = create_app(root, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    return TestClient(app, base_url=BASE)
+    app = repo_app(root, static_dir=tmp_path / "nostatic", launcher=launcher)
+    return RepoClient(app, base_url=BASE)
 
 
 def _check(response: Any, status: int) -> Any:
@@ -199,7 +199,7 @@ def test_follow_up_partial_failure_returns_existing_task(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stage: str
 ) -> None:
     from aifactory import backlog as core
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
 
     root = make_backlog_repo(tmp_path / "repo")
     git(root, "branch", "-M", "main")

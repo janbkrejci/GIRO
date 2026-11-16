@@ -22,5 +22,5 @@ Hotovo znamená:
 - Stávající testy příručky a jejího souladu s UI a CLI projdou beze změny.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-24 · workflow build-test · PR https://github.com/janbkrejci/HAIFA/pull/156 · náklady $0.00

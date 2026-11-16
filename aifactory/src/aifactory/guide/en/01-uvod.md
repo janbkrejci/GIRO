@@ -4,7 +4,7 @@ Goal in. Release out.
 
 GIRO is a local dashboard and the `giro` tool, which runs coding agents (Claude Code, Codex, pi) on backlog tasks in your Git repositories. **Search the guide** searches all chapters, with or without diacritics.
 
-## How GIRO works <!-- section:jak-haifa-funguje -->
+## How GIRO works <!-- section:jak-giro-funguje -->
 
 1. The **Backlog** is a tree of markdown files in the repository (`factory/backlog/<project>/<step>/<task>.md`) containing task descriptions and parameters.
 2. A **Run** creates a worktree and branch for a task and executes its **workflow**: agent roles (planner, builder, tester, reviewer…) and code steps (tests, commit).

@@ -23,8 +23,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from aifactory.run.errors import TaskRunError
-from aifactory.run.store import PAUSED, PAUSING, RUNNING, TaskRunRow, TaskRunStore
+from aifactory.errors import TaskRunError
+from aifactory.runstore.read import existing_store
+from aifactory.runstore.rows import PAUSED, PAUSING, RUNNING, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 POLL_SECONDS = 1.0
 
@@ -72,7 +74,6 @@ def _running_row(store: TaskRunStore, run_id: str) -> TaskRunRow:
 
 
 def _open(repo: Path, run_id: str) -> TaskRunStore:
-    from aifactory.run.task import existing_store  # task.py imports this module
 
     store = existing_store(repo)
     if store is None:

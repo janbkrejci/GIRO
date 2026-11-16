@@ -9,4 +9,4 @@ depends_on: []
 auto update factory samotné z dashboardu
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

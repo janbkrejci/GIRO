@@ -3,10 +3,12 @@
 Every ``factory`` command goes through ``python -m validation.worker`` in a
 subprocess with ``cwd`` in the main checkout, ``--repo`` and ``--json``: the
 JSON envelope (``{ok, data, error, warnings}``) on stdout, the narration in a
-log file. In ``--remote local`` every command gets a fake script, so a real
+log file. With ``Context.in_process`` (the validation tests) a command over the fake
+harness calls the worker in this process instead (``validation.inprocess``).
+In ``--remote local`` every command gets a fake script, so a real
 harness can never be reached there; in ``--remote github`` and ``--remote
 azure`` only the commands
-asked for with ``fake=True`` (B1) do. Every command gets ``HAIFA_VALIDATE_HIDDEN``
+asked for with ``fake=True`` (B1) do. Every command gets ``GIRO_VALIDATE_HIDDEN``
 (the hidden test of ``validation.hidden``), which only the worker reads.
 """
 
@@ -25,7 +27,7 @@ from typing import Any
 
 import yaml
 
-from validation import f2_backlog, fake_scripts, hidden
+from validation import f2_backlog, fake_scripts, hidden, inprocess
 from validation.hidden import HIDDEN_ENV
 from validation.results import ScenarioResult
 from validation.safety import Owned, check_inside, safe_rmtree
@@ -133,12 +135,7 @@ class Pending:
 
     def wait(self) -> Cmd:
         out, err = self.proc.communicate()
-        self.log.write_text(err or "", encoding="utf-8", newline="\n")
-        cmd = Cmd(self.argv, self.proc.returncode, parse_stdout(out or ""), self.log, self.script)
-        self.ctx.commands.append(
-            {"argv": self.argv, "exit": cmd.code, "log": self.log.name, "brief": cmd.brief()}
-        )
-        return cmd
+        return self.ctx.finish(self.argv, self.proc.returncode, out, err, self.log, self.script)
 
 
 @dataclass
@@ -148,7 +145,7 @@ class Context:
     workdir: Path
     owned: Owned
     r5_samples: int = 3
-    # the directory of the hidden test; passed to validation.worker as HAIFA_VALIDATE_HIDDEN,
+    # the directory of the hidden test; passed to validation.worker as GIRO_VALIDATE_HIDDEN,
     # which the worker consumes (agents never get it) to place the test for code test steps
     hidden: Path | None = None
     harnesses: dict[str, str] = field(default_factory=dict)  # effective harness per step
@@ -156,6 +153,9 @@ class Context:
     referenced_runs: list[str] = field(default_factory=list)
     commands: list[dict[str, Any]] = field(default_factory=list)
     selected: list[str] = field(default_factory=list)  # the scenarios of this run
+    # run commands over the fake harness in this process (validation.inprocess), not in a
+    # worker subprocess; concurrent commands (``giro_async``) always get a subprocess
+    in_process: bool = False
     _n: int = 0
 
     @property
@@ -181,11 +181,12 @@ class Context:
         """``local``, ``github`` or ``azure``."""
         return self.remote
 
-    # -- HAIFA commands --
+    # -- GIRO commands --
 
-    def _spawn(
+    def _prepare(
         self, argv: list[str], task: str | None, variant: str, fake: bool, repo_args: bool
-    ) -> Pending:
+    ) -> tuple[list[str], dict[str, str], Path, Path | None]:
+        """The full argv, environment, log path and fake script of one command."""
         self._n += 1
         name = "-".join(a for a in argv[:2] if not a.startswith("-"))
         label = f"{self._n:02d}-{name}" + (f"-{task}" if task else "")
@@ -210,6 +211,12 @@ class Context:
             env[FAKE_ENV] = str(path)
             script_path = path
         full = [*argv, "--repo", str(self.repo), "--json"] if repo_args else [*argv, "--json"]
+        return full, env, self.logs / f"{label}.log", script_path
+
+    def _spawn(
+        self, argv: list[str], task: str | None, variant: str, fake: bool, repo_args: bool
+    ) -> Pending:
+        full, env, log, script = self._prepare(argv, task, variant, fake, repo_args)
         proc = subprocess.Popen(
             [sys.executable, "-m", "validation.worker", *full],
             cwd=self.repo,
@@ -219,25 +226,46 @@ class Context:
             text=True,
             encoding="utf-8",
         )
-        return Pending(self, full, proc, self.logs / f"{label}.log", script_path)
+        return Pending(self, full, proc, log, script)
 
-    def haifa(
+    def _command(
+        self, argv: list[str], task: str | None, variant: str, fake: bool, repo_args: bool
+    ) -> Cmd:
+        """One finished command: in this process over the fake harness when `in_process`."""
+        if not (self.in_process and (self.local or fake)):
+            return self._spawn(argv, task, variant, fake, repo_args).wait()
+        full, env, log, script = self._prepare(argv, task, variant, fake, repo_args)
+        code, out, err = inprocess.call(full, env, self.repo)
+        return self.finish(full, code, out, err, log, script)
+
+    def finish(
+        self, argv: list[str], code: int, out: str, err: str, log: Path, script: Path | None
+    ) -> Cmd:
+        """Record a finished command: stderr into its log, the envelope from stdout."""
+        log.write_text(err or "", encoding="utf-8", newline="\n")
+        cmd = Cmd(argv, code, parse_stdout(out or ""), log, script)
+        self.commands.append(
+            {"argv": argv, "exit": cmd.code, "log": log.name, "brief": cmd.brief()}
+        )
+        return cmd
+
+    def giro(
         self, *argv: str, task: str | None = None, variant: str = "happy", fake: bool = False
     ) -> Cmd:
         """Run one ``factory`` command; `task` picks the fake script (local mode or `fake`)."""
-        return self._spawn(list(argv), task, variant, fake, True).wait()
+        return self._command(list(argv), task, variant, fake, True)
 
     def factory_plain(self, *argv: str) -> Cmd:
         """A ``factory`` command without ``--repo`` (e.g. ``workflow check``), still in the repo."""
-        return self._spawn(list(argv), None, "happy", False, False).wait()
+        return self._command(list(argv), None, "happy", False, False)
 
-    def haifa_async(self, *argv: str, task: str | None = None, variant: str = "happy") -> Pending:
+    def giro_async(self, *argv: str, task: str | None = None, variant: str = "happy") -> Pending:
         return self._spawn(list(argv), task, variant, False, True)
 
     def run_task(
         self, task_id: str, *extra: str, variant: str = "happy", fake: bool = False
     ) -> Cmd:
-        return self.haifa("task", "run", task_id, *extra, task=task_id, variant=variant, fake=fake)
+        return self.giro("task", "run", task_id, *extra, task=task_id, variant=variant, fake=fake)
 
     # -- git and base --
 
@@ -247,7 +275,7 @@ class Context:
         return sha or None
 
     def catch_up_base(self) -> None:
-        """Fast-forward the main checkout's base to origin (github: HAIFA does not do it)."""
+        """Fast-forward the main checkout's base to origin (github: GIRO does not do it)."""
         if self.fetch_base() is None:
             return
         git_ok(self.repo, "merge", "--ff-only", "-q", f"origin/{self.base}")

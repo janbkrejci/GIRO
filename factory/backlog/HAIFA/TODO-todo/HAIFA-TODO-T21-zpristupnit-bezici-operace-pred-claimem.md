@@ -19,5 +19,5 @@ Důvod: RunLauncher eviduje procesy pouze v paměti a ProcessRunner zveřejní �
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T58 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-20 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/134 · náklady $0.00

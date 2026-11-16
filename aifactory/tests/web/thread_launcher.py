@@ -18,10 +18,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 import aifactory.review as review_core
+from aifactory.errors import TaskRunError
 from aifactory.review.errors import ReviewError
-from aifactory.run import queue as run_queue
-from aifactory.run.errors import TaskRunError
-from aifactory.run.store import TaskRunRow
+from aifactory.run import chain as run_chain_mod
+from aifactory.runstore.rows import TaskRunRow
 from aifactory.web.launcher import LaunchedRun, _new_row, _run_ids, retried_row
 
 _POLL = 0.05
@@ -70,7 +70,7 @@ class ThreadLauncher:
         return self._start(
             repo,
             task_id,
-            lambda: run_queue.run_chain(
+            lambda: run_chain_mod.run_chain(
                 repo,
                 task_id,
                 note=note,

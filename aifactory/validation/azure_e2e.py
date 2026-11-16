@@ -1,4 +1,4 @@
-"""``just validate-azure-e2e``: HAIFA end to end on a new, temporary Azure DevOps repo.
+"""``just validate-azure-e2e``: GIRO end to end on a new, temporary Azure DevOps repo.
 
 The operator runs it by hand, never CI. The repo is created for this run only
 (``HAIFA-E2E-<date>-<time>-<hex>``) in the given project; ``main`` gets a branch
@@ -7,7 +7,7 @@ so the only way into base is a pull request with an approval. The scenario then:
 
 1. creates the repo with an initial commit on ``main``;
 2. sets the policy and checks that a direct push to ``main`` is refused;
-3. clones it and adds it to HAIFA the way ``POST /api/repos`` does (``add_repo``)
+3. clones it and adds it to GIRO the way ``POST /api/repos`` does (``add_repo``)
    with ``base_changes: pr`` and ``base_pr_merge: auto``: the install goes through
    ``factory-init/<n>``, which factory approves with its own vote and merges;
 4. writes a backlog of two dependent tasks with ``auto_merge``
@@ -26,7 +26,7 @@ the reviewers' votes, the creator's vote and whether a policy bypass was used.
 
 Cleanup runs in ``finally``, also after a failure or Ctrl+C: the repo is removed
 from the dashboard registry, its policies are deleted, the repo is deleted and purged
-from the project's recycle bin, and the local workdir (clone, worktrees, HAIFA home)
+from the project's recycle bin, and the local workdir (clone, worktrees, GIRO home)
 is deleted unless ``--keep-workdir``. Then the repo and the policies are looked up
 again; anything left makes the cleanup (and the run) fail. Only the repo this run
 created (by its id) is ever deleted, and the name must start with ``HAIFA-E2E-``.
@@ -310,15 +310,15 @@ def pr_accepted(ev: dict[str, Any]) -> tuple[bool, str]:
 
 
 def isolated_home(workdir: Path) -> Path:
-    """A HAIFA home with the operator's library, without dashboard and harness choices.
+    """A GIRO home with the operator's library, without dashboard and harness choices.
 
     The dashboard registry (``dashboard.yaml``) is the run's own, so registering and
     unregistering the temporary repo never touches the operator's dashboard.
     """
-    from aifactory.web.registry import LOCK_FILE, REGISTRY_FILE
-    from validation.runner import isolated_haifa_home
+    from aifactory.registry import LOCK_FILE, REGISTRY_FILE
+    from validation.runner import isolated_giro_home
 
-    home = isolated_haifa_home(workdir)
+    home = isolated_giro_home(workdir)
     for name in (REGISTRY_FILE, LOCK_FILE):
         link = home / name
         if link.is_symlink() or link.is_file():
@@ -533,7 +533,7 @@ class E2E:
         git(self.workdir, "init", "-q", "-b", BASE, str(seed))
         self._identity(seed)
         (seed / "README.md").write_text(
-            f"# {self.name}\n\nTemporary repo of the HAIFA Azure E2E validation.\n",
+            f"# {self.name}\n\nTemporary repo of the GIRO Azure E2E validation.\n",
             encoding="utf-8",
             newline="\n",
         )
@@ -613,7 +613,7 @@ class E2E:
             raise Stop("main accepts direct pushes; the policy does not protect it")
 
     def install(self) -> None:
-        from aifactory.web.registry import Registry
+        from aifactory.registry import Registry
         from aifactory.web.repos import add_repo
 
         assert self.remote_url is not None
@@ -832,7 +832,7 @@ class E2E:
         report = self.report
         if self.registry_id is not None:
             try:
-                from aifactory.web.registry import Registry
+                from aifactory.registry import Registry
                 from aifactory.web.repos import remove_repo
 
                 remove_repo(Registry(self.home), self.registry_id)
@@ -956,7 +956,7 @@ def _task_prs(repo: Path) -> dict[str, dict[str, Any]]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="just validate-azure-e2e",
-        description="HAIFA end to end on a new temporary Azure DevOps repo with a required "
+        description="GIRO end to end on a new temporary Azure DevOps repo with a required "
         "reviewer policy: own approval, merge, base changes by PR, auto-continue; the repo "
         "is deleted at the end.",
     )
@@ -993,17 +993,17 @@ def main(argv: list[str] | None = None, *, steps: Callable[[E2E], None] | None =
         return EXIT_SETUP
 
     owned = Owned()
-    workdir = owned.add(Path(tempfile.mkdtemp(prefix="haifa-azure-e2e-")))
+    workdir = owned.add(Path(tempfile.mkdtemp(prefix="giro-azure-e2e-")))
     out = results_mod.output_dir(args.results_dir.resolve(), "azure-e2e", moment)
     report = Report(organization, args.project, name)
-    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME", "HAIFA_HOME")}
-    os.environ["GIRO_HOME"] = os.environ["HAIFA_HOME"] = str(isolated_home(workdir))
+    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME",)}
+    os.environ["GIRO_HOME"] = str(isolated_home(workdir))
     e2e = E2E(
         Azure(organization, args.project, workdir, report.commands),
         report,
         workdir,
         owned,
-        Path(os.environ["HAIFA_HOME"]),
+        Path(os.environ["GIRO_HOME"]),
         name,
     )
     print(f"[azure-e2e] {organization}/{args.project}: repo {name}", file=sys.stderr)

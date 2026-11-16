@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -20,22 +19,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 from run_repo import Script, commit_all, fake_env, ok, write  # noqa: E402
 from workflow_fakes import plan_envelope  # noqa: E402
 
+from gitutil import git
+
 Capsys = pytest.CaptureFixture[str]
-
-
-def _git(cwd: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
 
 
 @pytest.fixture
 def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """``$HAIFA_HOME`` with the library at its default place and a git identity."""
-    path = tmp_path / "haifa-home"
-    monkeypatch.setenv("HAIFA_HOME", str(path))
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    """``$GIRO_HOME`` with the library at its default place and a git identity."""
+    path = tmp_path / "giro-home"
+    monkeypatch.setenv("GIRO_HOME", str(path))
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for kind in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
         monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")
@@ -46,13 +40,13 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def repo(tmp_path: Path, home: Path) -> Path:
     path = tmp_path / "repo"
     path.mkdir()
-    _git(path, "init", "-q", "-b", "main")
-    _git(path, "config", "user.name", "Test")
-    _git(path, "config", "user.email", "test@example.com")
-    _git(path, "config", "commit.gpgsign", "false")
+    git(path, "init", "-q", "-b", "main")
+    git(path, "config", "user.name", "Test")
+    git(path, "config", "user.email", "test@example.com")
+    git(path, "config", "commit.gpgsign", "false")
     (path / "README.md").write_text("readme\n", encoding="utf-8", newline="\n")
-    _git(path, "add", "-A")
-    _git(path, "commit", "-q", "-m", "init")
+    git(path, "add", "-A")
+    git(path, "commit", "-q", "-m", "init")
     return path.resolve()
 
 
@@ -85,7 +79,7 @@ def test_init_writes_only_config_backlog_and_gitignore(repo: Path, capsys: Capsy
     assert sorted(factory_files(repo)) == [".factory/config.yaml", ".gitignore"]
     config = yaml.safe_load((repo / ".factory/config.yaml").read_text(encoding="utf-8"))
     assert config == {"base": "main", "git_provider": "local", "docs_root": "factory"}
-    assert _git(repo, "log", "--oneline").count("\n") == 0  # nothing committed
+    assert git(repo, "log", "--oneline").count("\n") == 0  # nothing committed
 
 
 def test_second_run_skips_everything(repo: Path, capsys: Capsys) -> None:
@@ -139,7 +133,7 @@ def test_installed_repo_is_refused(repo: Path, capsys: Capsys, force: bool) -> N
 
     assert rc == 2
     assert env["error"]["code"] == "already_installed"
-    assert _git(repo, "status", "--porcelain") == ""
+    assert git(repo, "status", "--porcelain") == ""
 
 
 def test_sssf_is_refused(repo: Path, capsys: Capsys) -> None:
@@ -171,7 +165,7 @@ def test_result_is_valid(repo: Path, capsys: Capsys, monkeypatch: pytest.MonkeyP
 
 
 def test_init_refuses_detached_head_without_base(repo: Path) -> None:
-    _git(repo, "checkout", "-q", "--detach")
+    git(repo, "checkout", "-q", "--detach")
     with pytest.raises(store.LibraryStoreError) as caught:
         init_repo(repo)
     assert caught.value.code == "invalid_value"
@@ -219,5 +213,5 @@ def test_task_runs_in_an_installed_repo(repo: Path, capsys: Capsys, script: Scri
     row = result.run
     assert row.state == "succeeded", row.error
     assert result.workflow_run is not None and result.workflow_run.exit_code == 0
-    assert _git(repo, "show", f"{row.branch}:src/app/model.py") == "x = 1"
-    assert _git(repo, "show", f"{row.branch}:{DOC}") == "# doc"
+    assert git(repo, "show", f"{row.branch}:src/app/model.py") == "x = 1"
+    assert git(repo, "show", f"{row.branch}:{DOC}") == "# doc"

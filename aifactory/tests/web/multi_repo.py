@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import shutil
 import stat
-import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -14,34 +13,16 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from aifactory.web import create_multi_app
+import repo_templates
+from aifactory.web.app import create_multi_app
+from gitutil import commit_all as commit_all
+from gitutil import git as git
+from gitutil import write as write
 
 BASE = "http://127.0.0.1:4700"
 CONFIG = "base: main\ndocs_root: .\n"
 AGENTS = "defaults:\n  harness: claude\nagents:\n  - name: builder\n    purpose: Build.\n"
 SSSF_ROSTER = "adws/adw_sssf_config/sssf.config.yaml"
-
-
-def git(root: Path, *args: str) -> str:
-    result = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(root),
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@t",
-            "-c",
-            "commit.gpgsign=false",
-            *args,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return result.stdout.strip()
 
 
 def _clear_readonly(func: Callable[[str], Any], path: str, _exc: object) -> None:
@@ -67,27 +48,18 @@ def symlink(link: Path, target: Path) -> None:
         raise
 
 
-def write(root: Path, rel: str, text: str) -> Path:
-    path = root / rel
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
-    return path
-
-
-def commit_all(root: Path, message: str = "commit") -> str:
-    git(root, "add", "-A")
-    git(root, "commit", "-q", "--allow-empty", "-m", message)
-    return git(root, "rev-parse", "HEAD")
-
-
 def init_repo(path: Path, *, commit: bool = True) -> Path:
     """A git repo on ``main`` at ``path`` (with one commit unless ``commit`` is False)."""
+    repo_templates.build(path, f"multi-{commit}", lambda root: _build_repo(root, commit))
+    return path.resolve()
+
+
+def _build_repo(path: Path, commit: bool) -> None:
     path.mkdir(parents=True, exist_ok=True)
     git(path, "init", "-q", "-b", "main")
     if commit:
         write(path, "README.md", "readme\n")
         commit_all(path, "readme")
-    return path.resolve()
 
 
 def install(root: Path) -> None:
@@ -105,7 +77,8 @@ def multi_client(home: Path, tmp_path: Path, **kwargs: Any) -> TestClient:
 def register(client: TestClient, path: Path) -> dict[str, Any]:
     """Register ``path`` in the client's registry without installing factory (what
     ``POST /api/repos`` did before it installed); returns the ``repo_status`` item."""
-    from aifactory.web.repos import register_repo, repo_status
+    from aifactory.repo_vet import register_repo
+    from aifactory.web.repos import repo_status
 
     entry, _created, _warnings = register_repo(client.app.state.registry, str(path))  # type: ignore[attr-defined]
     return repo_status(entry)

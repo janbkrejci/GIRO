@@ -1,7 +1,7 @@
 ---
 id: OPT-S04-T02
 title: Validační scénáře v jednom procesu
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - Testy validace projdou a PR uvádí čas `tests/validation` před a po.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

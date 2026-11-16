@@ -28,7 +28,6 @@ from __future__ import annotations
 import contextlib
 import json
 import sqlite3
-import subprocess
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,20 +35,20 @@ from typing import Any
 
 import aifactory.review as review_core
 from aifactory import backlog as core
-from aifactory import database
+from aifactory import database, gitops, gitrun
 from aifactory.backlog import Backlog, Container, Task
 from aifactory.config import ConfigError, RunConfig, load_run_config
 from aifactory.engine.tracer import BUSY_TIMEOUT
+from aifactory.errors import TaskRunError
 from aifactory.providers import OPEN, UNKNOWN, GitProvider, ProviderError, get_provider
 from aifactory.review import ci
 from aifactory.review.errors import ReviewError
 from aifactory.review.prbody import branch_cost, run_checks, run_cost
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
 from aifactory.run.stack import open_stack
-from aifactory.run.store import SUCCEEDED, TaskPrRow, TaskRunRow, TaskRunStore
-from aifactory.run.task import existing_store
-from aifactory.web.backlog import UsageError, waits_for_automerge
+from aifactory.runstore.read import existing_store
+from aifactory.runstore.rows import SUCCEEDED, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
+from aifactory.web.backlog import UsageError
 from aifactory.web.launcher import Launcher
 
 JsonDict = dict[str, Any]
@@ -78,6 +77,19 @@ class _Ctx:
     provider: GitProvider | None
     backlog: Backlog | None
     warnings: list[str] = field(default_factory=list)
+    # ``run.policy.merge_enabled``, read once per request (see ``_waits_for_automerge``)
+    merge: bool | None = None
+
+
+def _waits_for_automerge(ctx: _Ctx, task: Task | None, auto_merge_error: str | None) -> bool:
+    """``web.backlog.waits_for_automerge`` with the repository setting read once per request."""
+    if task is None or auto_merge_error:
+        return False
+    if ctx.merge is None:
+        from aifactory.run.policy import merge_enabled
+
+        ctx.merge = merge_enabled(ctx.main)
+    return ctx.merge
 
 
 @contextlib.contextmanager
@@ -167,9 +179,7 @@ def _pr_summary(ctx: _Ctx, store: TaskRunStore, row: TaskPrRow) -> JsonDict:
     last = runs[0] if runs else None
     waiting = status.state == OPEN and running is None
     approved = waiting and bool(row.approved_at) and not row.auto_merge_error
-    automerge = (
-        waiting and not approved and waits_for_automerge(ctx.main, task, row.auto_merge_error)
-    )
+    automerge = waiting and not approved and _waits_for_automerge(ctx, task, row.auto_merge_error)
     return {
         "task_id": row.task_id,
         "task_title": None if task is None else task.title,
@@ -262,18 +272,7 @@ def review_list(repo: Path, include_done: bool = False) -> tuple[JsonDict, list[
 
 
 def _git(main: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=main,
-        capture_output=True,
-        text=True,
-        errors="replace",
-        check=False,
-        encoding="utf-8",
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
-    return proc.stdout
+    return gitrun.run(main, *args, check=True).text
 
 
 def _fields(text: str) -> list[str]:

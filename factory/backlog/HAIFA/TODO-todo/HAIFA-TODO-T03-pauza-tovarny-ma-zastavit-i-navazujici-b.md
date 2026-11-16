@@ -18,5 +18,5 @@ Důvod: Found while reviewing T30 (web/control.py pause, run/pause.py). A pause 
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T30 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-15 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/46 · náklady $1.37

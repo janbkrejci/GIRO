@@ -25,10 +25,13 @@ from run_repo import (
 )
 
 from aifactory.cli import main
+from aifactory.config import runtime
+from aifactory.errors import TaskRunError
 from aifactory.harness.override import StepOverride, effective_agent
-from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run import task as task_mod
-from aifactory.run.store import ABORTED, RUNNING
+from aifactory.runstore.rows import ABORTED, RUNNING, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import read_envelope
 
 Capsys = pytest.CaptureFixture[str]
@@ -94,6 +97,20 @@ def test_run_creates_worktree_branch_and_row(repo: Path, script: Script) -> None
     second = run_task(repo, T01)
     assert second.run.state == "succeeded", second.run.error
     assert second.run.branch == f"factory/{T01}-2"
+
+
+@pytest.mark.parametrize("existing", [None, "false"])
+def test_run_sets_missing_untracked_cache_and_keeps_existing(
+    repo: Path, script: Script, existing: str | None
+) -> None:
+    if existing is not None:
+        git(repo, "config", "--local", "core.untrackedCache", existing)
+    script.add("planner", ok())
+
+    assert run_task(repo, T01).run.state == "succeeded"
+
+    assert git(repo, "config", "--local", "--get", "core.untrackedCache") == (existing or "true")
+    assert git(repo, "config", "--default", "", "--get", "core.fsmonitor") == ""
 
 
 def test_outputs_are_named_by_task(repo: Path, script: Script) -> None:
@@ -484,27 +501,27 @@ def test_config_comes_from_base(repo: Path, script: Script) -> None:
 
 def test_agents_override_changes_every_role(repo: Path) -> None:
     rc = task_mod._load(repo)
-    changed = task_mod.apply_agents_override(rc, {"harness": "codex", "thinking": "high"})
+    changed = runtime.apply_agents_override(rc, {"harness": "codex", "thinking": "high"})
     assert {a.harness for a in changed.config.agents.agents} == {"codex"}
     # a harness switch without a model takes that harness's preset model
     assert {a.model for a in changed.config.agents.agents} == {"gpt-6.1-sol"}
     assert {a.thinking for a in changed.config.agents.agents} == {"high"}
     # in memory only: the loaded config is untouched
     assert {a.harness for a in rc.config.agents.agents} == {"claude"}
-    same = task_mod.apply_agents_override(rc, {"model": "opus"})
+    same = runtime.apply_agents_override(rc, {"model": "opus"})
     assert {(a.harness, a.model) for a in same.config.agents.agents} == {("claude", "opus")}
-    assert task_mod.apply_agents_override(rc, None) is rc
+    assert runtime.apply_agents_override(rc, None) is rc
 
 
 def test_override_with_a_model_the_harness_rejects(repo: Path) -> None:
     rc = task_mod._load(repo)
     with pytest.raises(TaskRunError) as err:
-        task_mod.apply_agents_override(rc, {"harness": "codex", "model": "a/b/c"})
+        runtime.apply_agents_override(rc, {"harness": "codex", "model": "a/b/c"})
     assert err.value.code == "invalid_override"
 
 
 def test_step_override_still_wins_over_the_run_override(repo: Path) -> None:
-    rc = task_mod.apply_agents_override(task_mod._load(repo), {"harness": "codex"})
+    rc = runtime.apply_agents_override(task_mod._load(repo), {"harness": "codex"})
     agent = rc.config.agents.agents[0]
     stepped = effective_agent(agent, StepOverride(harness="claude", model="sonnet"))
     assert (stepped.harness, stepped.model) == ("claude", "sonnet")
@@ -528,24 +545,6 @@ def test_override_is_noted_on_the_run(repo: Path, script: Script) -> None:
     script.add("planner", ok(artifacts=[SPEC]))
     result = run_task(repo, T01, note="pozor", agents_override={"model": "opus"})
     assert result.run.note == "pozor [zdroj harnessu: explicit] [přepis rosteru: model=opus]"
-
-
-def test_legacy_task_harness_values_keep_import_inheritance(repo: Path) -> None:
-    from aifactory import backlog as core
-
-    project = repo / "backlog/M01-core/index.md"
-    project.write_text(
-        project.read_text().replace(
-            "workflow: plan-commit", "workflow: plan-commit\nharness: claude\nmodel: opus"
-        )
-    )
-    task_path = repo / "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
-    task_path.write_text(
-        task_path.read_text().replace("status: todo", "status: todo\nharness: codex")
-    )
-    task = core.load_for_edit(repo).by_id[T01]
-    assert isinstance(task, core.Task)
-    assert task_mod.task_harness_values(task) == {"harness": "codex"}
 
 
 def test_project_and_task_model_choices_are_legacy_metadata(repo: Path, script: Script) -> None:
@@ -656,7 +655,7 @@ def test_bad_local_harness_never_starts_on_roster(
     repo: Path, script: Script, failure: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from aifactory.harness import settings
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
     from intent_fixture import computer_binding
 
@@ -676,7 +675,7 @@ def test_bad_local_harness_never_starts_on_roster(
         machine.harnesses["codex"].model = ""
         settings.path().write_text(machine.model_dump_json())
     if failure == "failed":
-        (haifa_home() / settings.TEST_FILE).write_text('{"codex": {"gpt-6.1-sol": {"ok": false}}}')
+        (giro_home() / settings.TEST_FILE).write_text('{"codex": {"gpt-6.1-sol": {"ok": false}}}')
     if failure == "invalid":
         local.path.write_text(local.path.read_text().replace('"codex"', '"unknown"'))
     with pytest.raises(TaskRunError) as exc:

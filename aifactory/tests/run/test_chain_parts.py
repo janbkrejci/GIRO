@@ -12,14 +12,17 @@ from pathlib import Path
 import pytest
 from run_repo import Script, commit_all, fake_env, git, make_run_repo, ok, write
 
+from aifactory import gitquery
 from aifactory.cli import main
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
+from aifactory.gitops import pr_changed_files
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskPrRow, TaskRunError, TaskRunRow, TaskRunStore
-from aifactory.run.gitops import pr_changed_files
 from aifactory.run.members import launch_error, member_result, parse_envelope
-from aifactory.run.store import TaskChainRow
+from aifactory.runstore.rows import TaskChainRow, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import read_envelope
+from gitcount import count_git
 
 Capsys = pytest.CaptureFixture[str]
 T01, T02 = "M01-S01-T01", "M01-S01-T02"
@@ -132,7 +135,8 @@ def test_running_chains_come_first(tmp_path: Path) -> None:
 # ── pr_changed_files ─────────────────────────────────────────────────────────
 
 
-def test_pr_changed_files(tmp_path: Path) -> None:
+def _pr_repo(tmp_path: Path) -> tuple[Path, str]:
+    """`main` and `factory/X-1` both moved on from the first commit (returned)."""
     repo = tmp_path / "r"
     repo.mkdir()
     git(repo, "init", "-q", "-b", "main")
@@ -148,10 +152,38 @@ def test_pr_changed_files(tmp_path: Path) -> None:
     git(repo, "checkout", "-q", "main")
     write(repo, "later.txt", "main moves on\n")
     commit_all(repo, "main later")
+    return repo, base_sha
+
+
+def test_pr_changed_files(tmp_path: Path) -> None:
+    repo, base_sha = _pr_repo(tmp_path)
     assert pr_changed_files(repo, "main", "factory/X-1") == ["a.txt", "src/one.py"]
     assert pr_changed_files(repo, "gone", "factory/X-1", base_sha) == ["a.txt", "src/one.py"]
     assert pr_changed_files(repo, "main", "factory/missing") is None
     assert pr_changed_files(repo, "gone", "factory/X-1") is None
+
+
+def test_pr_changed_files_caches_refs_and_merge_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _ = _pr_repo(tmp_path)
+    gitquery.clear_caches()
+    assert pr_changed_files(repo, "main", "factory/X-1") == ["a.txt", "src/one.py"]
+    with count_git(monkeypatch, tmp_path / "trace.json") as count:
+        assert pr_changed_files(repo, "main", "factory/X-1") == ["a.txt", "src/one.py"]
+    assert dict(count.commands) == {"diff": 1}
+    # the branch moves: its ref and the new merge base are asked again
+    git(repo, "checkout", "-q", "factory/X-1")
+    write(repo, "src/two.py", "2\n")
+    commit_all(repo, "more")
+    git(repo, "checkout", "-q", "main")
+    with count_git(monkeypatch, tmp_path / "trace.json") as count:
+        assert pr_changed_files(repo, "main", "factory/X-1") == [
+            "a.txt",
+            "src/one.py",
+            "src/two.py",
+        ]
+    assert count.commands["merge-base"] == 1 and count.commands["diff"] == 1
 
 
 # ── member processes ─────────────────────────────────────────────────────────

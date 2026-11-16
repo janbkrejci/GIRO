@@ -21,17 +21,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from aifactory.backlog import Backlog, Container, effective_writes, is_human, iter_tasks
 from aifactory.backlog.derived import ancestors, descendant_tasks
 from aifactory.config import load_run_config
+from aifactory.config.runtime import apply_agents_override, main_ignored, prepare_cfg
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentCall, EnvelopeBase, PhaseParams
 from aifactory.engine.runner import Run
 from aifactory.engine.tracer import Tracer
+from aifactory.guard import TaskWriteGuard
 from aifactory.harness import canonical, install
 from aifactory.harness.check import check_harness
 from aifactory.harness.settings import context_binding, ensure_enabled
 from aifactory.run.followups import Reported, _for_human
-from aifactory.run.guard import TaskWriteGuard
-from aifactory.run.scope import TaskScope, matches
-from aifactory.run.task import _main_ignored, apply_agents_override, prepare_cfg
+from aifactory.scope import TaskScope, matches
 from aifactory.workflow.propose import _isolated
 
 install()
@@ -397,7 +397,6 @@ def _invoke(
             run.repo_root = isolated
             run.agent_environment = {
                 "GIRO_RUN_ID": job_id,
-                "HAIFA_RUN_ID": job_id,
                 "CLAUDE_SAFE_MODE": "1",
                 "CODEX_SAFE_MODE": "1",
                 "PI_SAFE_MODE": "1",
@@ -406,7 +405,7 @@ def _invoke(
                 repo,
                 isolated,
                 TaskScope(job_id, (), ()),
-                (*_main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
+                (*main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
             )
             with run.phase(
                 PhaseParams(

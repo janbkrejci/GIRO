@@ -421,8 +421,8 @@ def _r2_runs(ctx: Context, st: R2Run) -> bool:
     ctx.catch_up_base()
     first, second = R2_TASKS
     pending = [
-        ctx.haifa_async("task", "run", first, task=first),
-        ctx.haifa_async("task", "run", second, task=second),
+        ctx.giro_async("task", "run", first, task=first),
+        ctx.giro_async("task", "run", second, task=second),
     ]
     st.cmds = cmds = [p.wait() for p in pending]
     for task_id, cmd in zip(R2_TASKS, cmds, strict=True):
@@ -464,7 +464,7 @@ def _r2_runs(ctx: Context, st: R2Run) -> bool:
 def _r2_approve(ctx: Context, st: R2Run) -> bool:
     res, cmds = st.res, st.cmds
     first, second = R2_TASKS
-    approve1 = ctx.haifa("task", "approve", first)
+    approve1 = ctx.giro("task", "approve", first)
     ctx.catch_up_base()
     res.check(
         "first_merged",
@@ -475,7 +475,7 @@ def _r2_approve(ctx: Context, st: R2Run) -> bool:
         res.commits.append(str(approve1.payload["merge_sha"]))
     before = ctx.fetch_base()
     conflict_codes = ("conflict",) if ctx.local else ("conflict", "merge_failed")
-    approve2 = ctx.haifa("task", "approve", second)
+    approve2 = ctx.giro("task", "approve", second)
     after = ctx.fetch_base()
     conflict = approve2.code == 2 and approve2.error_code in conflict_codes and before == after
     res.check(
@@ -533,7 +533,7 @@ def _resolve_run(ctx: Context, st: ResolveRun) -> bool:
         return False
     second = str(state["second"])
     ctx.catch_up_base()
-    st.cmd = cmd = ctx.haifa("task", "resolve", second, task=second, variant="resolve")
+    st.cmd = cmd = ctx.giro("task", "resolve", second, task=second, variant="resolve")
     run_id = ctx.reference(res, cmd)
     res.check("resolve_ok", cmd.ok and cmd.run.get("state") == "succeeded", cmd.brief())
     ctx.add_pr(res, second, cmd.pr or state["pr"])
@@ -572,12 +572,12 @@ def _resolve_approve(ctx: Context, st: ResolveRun) -> bool:
     res = st.res
     state = ctx.state["R2"]
     first, second = str(state["first"]), str(state["second"])
-    approve = ctx.haifa("task", "approve", second)
+    approve = ctx.giro("task", "approve", second)
     for _ in range(0 if ctx.local else 6):
         if approve.error_code != "merge_failed":
             break
         time.sleep(10)
-        approve = ctx.haifa("task", "approve", second)
+        approve = ctx.giro("task", "approve", second)
     ctx.catch_up_base()
     res.check(
         "second_merged",
@@ -684,7 +684,7 @@ def _r3_approve(ctx: Context, st: R3Run) -> bool:
     # 2. approve in factory (the PR of R10)
     if "R10" in ctx.state:
         before = ctx.base_commits()
-        approve = ctx.haifa("task", "approve", R10_TASK)
+        approve = ctx.giro("task", "approve", R10_TASK)
         ctx.catch_up_base()
         st.commits["approve_in_factory"] = ctx.base_commits() - before
         res.check("approve_ok", approve.ok, approve.brief())
@@ -704,7 +704,7 @@ def _r3_approve(ctx: Context, st: R3Run) -> bool:
 def _r3_approve_show(ctx: Context, st: R3Run) -> bool:
     res, approve = st.res, st.approve
     if approve is not None:
-        show = ctx.haifa("task", "show", R10_TASK)
+        show = ctx.giro("task", "show", R10_TASK)
         prs = show.payload.get("prs", [])
         states = [p.get("state") for p in prs if isinstance(p, dict)]
         res.check("pr_merged", "merged" in states, f"task_prs states: {states}")
@@ -732,7 +732,7 @@ def _r3_merge_outside(ctx: Context, st: R3Run) -> bool:
                 "local: provider local zjišťuje stav PR z lokální větve base a sync obnovuje "
                 "stavy PR dřív, než base dotáhne; validace proto base dotáhla před sync"
             )
-        sync = ctx.haifa("backlog", "sync")
+        sync = ctx.giro("backlog", "sync")
         synced = [t.get("task_id") for t in sync.payload.get("tasks", []) if isinstance(t, dict)]
         sync_pr = sync.payload.get("pr") if isinstance(sync.payload.get("pr"), dict) else {}
         res.check(
@@ -780,7 +780,7 @@ def _r3_return(ctx: Context, st: R3Run) -> bool:
         return True
     before = ctx.base_commits()
     number_before = _pr_number(ctx, first.pr)
-    st.ret = ret = ctx.haifa(
+    st.ret = ret = ctx.giro(
         "task",
         "return",
         R3_RETURN_TASK,
@@ -820,7 +820,7 @@ def _r3_close(ctx: Context, st: R3Run) -> bool:
     # 5. closed PR
     before = ctx.base_commits()
     _close_outside(ctx, res, ret.pr or first.pr, ret.run or first.run)
-    refused = ctx.haifa("task", "approve", R3_RETURN_TASK)
+    refused = ctx.giro("task", "approve", R3_RETURN_TASK)
     res.check(
         "approve_refused",
         refused.code == 2 and refused.error_code == "pr_not_open",
@@ -834,7 +834,7 @@ def _r3_close_sync(ctx: Context, st: R3Run) -> bool:
     res, first, ret, before = st.res, st.first, st.ret, st.close_before
     if first is None or not first.ok or ret is None or before is None:
         return True
-    sync = ctx.haifa("backlog", "sync")
+    sync = ctx.giro("backlog", "sync")
     synced = [t.get("task_id") for t in sync.payload.get("tasks", []) if isinstance(t, dict)]
     res.check(
         "sync_ignores_closed",
@@ -1274,7 +1274,7 @@ def b1(ctx: Context) -> ScenarioResult:
         f"{ctx.base_commits()}",
     )
     res.observe(
-        "B1 běží s falešným harnessem v obou režimech: hlídač zápisů (run/guard.py) je kód, "
+        "B1 běží s falešným harnessem v obou režimech: hlídač zápisů (aifactory/guard.py) je kód, "
         "model k ověření nepotřebuje; zápisy jdou do negitignorovaných souborů, "
         "gitignorované hlídač nevidí"
     )

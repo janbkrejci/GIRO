@@ -4,7 +4,10 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import OverviewView from './OverviewView.vue'
 import RepoControls from '@/components/overview/RepoControls.vue'
 import type { OverviewData, RepoItem } from '@/lib/api'
-import { BY_PROJECT_KEY, SHOW_FINISHED_KEY, OVERVIEW_POLL_MS } from '@/lib/overview'
+import { BY_PROJECT_KEY, SHOW_FINISHED_KEY, OVERVIEW_FALLBACK_MS } from '@/lib/overview'
+import { resetOverviewLiveForTests } from '@/lib/overviewLive'
+import { LIVE_DEBOUNCE_MS } from '@/lib/live'
+import { FakeEventSource, filesEvent, traceEvent } from '@/test/fakeEventSource'
 import { config, factory, failed, overview, repo, review, running, tasks } from '@/test/overviewFixtures'
 import { answerDialog, openDialog } from '@/test/modal'
 import { defineComponent, onMounted } from 'vue'
@@ -77,6 +80,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  resetOverviewLiveForTests()
+  FakeEventSource.reset()
   vi.useRealTimers()
   vi.unstubAllGlobals()
   delete (document as unknown as Record<string, unknown>).visibilityState
@@ -109,7 +114,7 @@ describe('OverviewView', () => {
     expect(wrapper.find('[data-repo="busy"] [data-test="row-running"]').exists()).toBe(true)
 
     slow = repo('slow', { review: [review()] })
-    await vi.advanceTimersByTimeAsync(OVERVIEW_POLL_MS)
+    await vi.advanceTimersByTimeAsync(OVERVIEW_FALLBACK_MS)
     await flushPromises()
     const loaded = wrapper.get('[data-repo="slow"]')
     expect(loaded.attributes('aria-busy')).toBeUndefined()
@@ -302,11 +307,32 @@ describe('OverviewView', () => {
     expect(gone.get('[data-test="state-missing"]').text()).toBe('Složka nenalezena')
   })
 
-  it('reloads every 2 s, on focus and by the refresh button, only reading', async () => {
+  it('has no 2 s timer and reloads after live events of any repo', async () => {
+    vi.stubGlobal('EventSource', FakeEventSource)
+    const fetchMock = stubOverview()
+    await mountView()
+    expect(overviewCalls(fetchMock)).toBe(1)
+    vi.advanceTimersByTime(2000)
+    await flushPromises()
+    expect(overviewCalls(fetchMock)).toBe(1)
+    const live = FakeEventSource.latest()
+    expect(live.url).toBe('/api/live')
+    live.emit('files', { ...filesEvent(['backlog/a.md']), repo: 'busy' })
+    live.emit('trace', { ...traceEvent({ runs_changed: true }), repo: 'waiting' })
+    await new Promise((resolve) => setTimeout(resolve, LIVE_DEBOUNCE_MS + 50))
+    await flushPromises()
+    expect(overviewCalls(fetchMock)).toBe(2) // two events in one debounce window: one read
+    live.emit('resync', { repo: 'busy' })
+    await new Promise((resolve) => setTimeout(resolve, LIVE_DEBOUNCE_MS + 50))
+    await flushPromises()
+    expect(overviewCalls(fetchMock)).toBe(3)
+  })
+
+  it('reloads every 15 s as a fallback, on focus and by the refresh button, only reading', async () => {
     const fetchMock = stubOverview()
     const wrapper = await mountView()
     expect(overviewCalls(fetchMock)).toBe(1)
-    vi.advanceTimersByTime(OVERVIEW_POLL_MS)
+    vi.advanceTimersByTime(OVERVIEW_FALLBACK_MS)
     await flushPromises()
     expect(overviewCalls(fetchMock)).toBe(2)
     window.dispatchEvent(new Event('focus'))
@@ -322,13 +348,13 @@ describe('OverviewView', () => {
     const fetchMock = stubOverview()
     await mountView()
     setVisibility('hidden')
-    vi.advanceTimersByTime(OVERVIEW_POLL_MS * 5)
+    vi.advanceTimersByTime(OVERVIEW_FALLBACK_MS * 5)
     await flushPromises()
     expect(overviewCalls(fetchMock)).toBe(1)
     setVisibility('visible')
     await flushPromises()
     expect(overviewCalls(fetchMock)).toBe(2)
-    vi.advanceTimersByTime(OVERVIEW_POLL_MS)
+    vi.advanceTimersByTime(OVERVIEW_FALLBACK_MS)
     await flushPromises()
     expect(overviewCalls(fetchMock)).toBe(3)
   })
@@ -337,7 +363,7 @@ describe('OverviewView', () => {
     const fetchMock = stubOverview()
     const wrapper = await mountView()
     wrapper.unmount()
-    vi.advanceTimersByTime(OVERVIEW_POLL_MS * 3)
+    vi.advanceTimersByTime(OVERVIEW_FALLBACK_MS * 3)
     window.dispatchEvent(new Event('focus'))
     await flushPromises()
     expect(overviewCalls(fetchMock)).toBe(1)
@@ -349,7 +375,7 @@ describe('OverviewView', () => {
     const wrapper = await mountView()
     expect(wrapper.find('[data-test="overview-card"]').exists()).toBe(false)
     data = overview([repo('a', { running: [running()] })])
-    vi.advanceTimersByTime(OVERVIEW_POLL_MS)
+    vi.advanceTimersByTime(OVERVIEW_FALLBACK_MS)
     await flushPromises()
     expect(wrapper.get('[data-test="overview-card"]').attributes('data-repo')).toBe('a')
   })
@@ -481,11 +507,11 @@ it('keeps one backlog indicator per calm or active repo in both modes and update
     expect(wrapper.find('[data-repo="clean"] [data-test="repo-backlog-status"]').exists()).toBe(false)
   }
   dirty = false
-  vi.advanceTimersByTime(OVERVIEW_POLL_MS)
+  vi.advanceTimersByTime(OVERVIEW_FALLBACK_MS)
   await flushPromises()
   expect(wrapper.findAll('[data-test="repo-backlog-status"]')).toHaveLength(0)
   dirty = true
-  vi.advanceTimersByTime(OVERVIEW_POLL_MS)
+  vi.advanceTimersByTime(OVERVIEW_FALLBACK_MS)
   await flushPromises()
   expect(wrapper.findAll('[data-test="repo-backlog-status"]')).toHaveLength(2)
 })

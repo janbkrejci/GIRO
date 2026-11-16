@@ -34,7 +34,7 @@ from validation.safety import Owned, safe_rmtree
 from validation.sandbox import (
     AIFACTORY_DIR,
     AZURE_SANDBOX_ENV,
-    HAIFA_ROOT,
+    GIRO_ROOT,
     TEMPLATE_DIR,
     VALIDATION_DIR,
     AzureRepo,
@@ -52,7 +52,7 @@ from validation.sandbox import (
 from validation.scenarios import ORDER
 
 EXIT_OK, EXIT_FAILED, EXIT_SETUP = 0, 1, 2
-SANDBOX_ENV = "HAIFA_SANDBOX_REPO"
+SANDBOX_ENV = "GIRO_SANDBOX_REPO"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -65,8 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("local", "github", "azure"),
         default="local",
         help="local: bare repo in a temp dir, fake harness, no cost; "
-        "github: the HAIFA_SANDBOX_REPO sandbox with the real harnesses; "
-        "azure: the HAIFA_AZURE_SANDBOX_REPO sandbox on Azure DevOps with the real harnesses",
+        "github: the GIRO_SANDBOX_REPO sandbox with the real harnesses; "
+        "azure: the GIRO_AZURE_SANDBOX_REPO sandbox on Azure DevOps with the real harnesses",
     )
     parser.add_argument(
         "--results-dir",
@@ -90,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="replace the template's .factory/agents.yaml and "
         ".factory/workflows/simple-sdlc.yaml with DIR/agents.yaml and "
-        "DIR/workflows/simple-sdlc.yaml (relative to the HAIFA root); the roster "
+        "DIR/workflows/simple-sdlc.yaml (relative to the GIRO root); the roster "
         "needs the agents planner, builder, tester, reviewer and documenter",
     )
     parser.add_argument(
@@ -115,27 +115,27 @@ def _load_env() -> None:
         from dotenv import load_dotenv
     except ImportError:  # pragma: no cover - python-dotenv is a dependency
         return
-    load_dotenv(HAIFA_ROOT / ".env", override=False)
+    load_dotenv(GIRO_ROOT / ".env", override=False)
 
 
 # Computer-local harness choices (``factory harness settings``): a default harness there
 # overrides the harness and model of every agent of the roster, so a run would no longer
 # validate the roster. The isolated home leaves them out and links everything else.
 MACHINE_HARNESS_FILES = frozenset({"harnesses.json", "harness-tests.json"})
-HOME_ENV = "HAIFA_HOME"
+HOME_ENV = "GIRO_HOME"
 
 
-def isolated_haifa_home(workdir: Path, source: Path | None = None) -> Path:
-    """A HAIFA home in `workdir` that mirrors `source` without the machine harness choices.
+def isolated_giro_home(workdir: Path, source: Path | None = None) -> Path:
+    """A GIRO home in `workdir` that mirrors `source` without the machine harness choices.
 
     Every other entry of `source` (``env``, ``library``, ``logs`` ...) is a symlink (a
     copy where symlinks fail), so the run keeps the operator's credentials and library;
     only the roster decides which harness and model each agent uses.
     """
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
 
-    real = (source if source is not None else haifa_home()).expanduser()
-    home = workdir / "haifa-home"
+    real = (source if source is not None else giro_home()).expanduser()
+    home = workdir / "giro-home"
     home.mkdir(parents=True, exist_ok=True)
     if real.is_dir():
         for entry in sorted(real.iterdir()):
@@ -154,11 +154,7 @@ def isolated_haifa_home(workdir: Path, source: Path | None = None) -> Path:
 
 def _worker_json(argv: list[str]) -> tuple[int, dict[str, Any]]:
     """A factory command through the worker without the fake (github preflight)."""
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if k not in {"GIRO_VALIDATE_FAKE", "HAIFA_VALIDATE_FAKE"}
-    }
+    env = {k: v for k, v in os.environ.items() if k not in {"GIRO_VALIDATE_FAKE"}}
     proc = subprocess.run(
         [sys.executable, "-m", "validation.worker", *argv],
         cwd=AIFACTORY_DIR,
@@ -191,7 +187,7 @@ def roster_harnesses(roster: Path | None) -> set[str]:
 def check_config(harnesses: list[str]) -> dict[str, Any]:
     """A minimal roster for ``factory harness check --config``: one agent per harness.
 
-    ``--config`` uses the public HAIFA roster loader (``.factory/agents.yaml``
+    ``--config`` uses the public GIRO roster loader (``.factory/agents.yaml``
     format); the check only needs agent names and harnesses.
     """
     return {"agents": [{"name": f"check-{name}", "harness": name} for name in harnesses]}
@@ -205,7 +201,7 @@ def _require_just() -> None:
 def _preflight_harnesses(roster: Path | None) -> None:
     """``factory harness check`` of every harness the roster uses."""
     names = sorted(roster_harnesses(roster))
-    with tempfile.TemporaryDirectory(prefix="haifa-validate-check-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="giro-validate-check-") as tmp:
         config = Path(tmp) / "harnesses.yaml"
         config.write_text(json.dumps(check_config(names)), encoding="utf-8", newline="\n")
         code, data = _worker_json(["harness", "check", "--json", "--config", str(config)])
@@ -292,7 +288,7 @@ def preflight_azure(sandbox_repo: str | None, roster: Path | None = None) -> Azu
                 "az is not logged in; run 'az login --allow-no-subscriptions' "
                 f"or set AZURE_DEVOPS_EXT_PAT ({detail})"
             )
-    with tempfile.TemporaryDirectory(prefix="haifa-validate-az-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="giro-validate-az-") as tmp:
         url = str(azure_show(Path(tmp), target)["remoteUrl"])
     probe = subprocess.run(
         ["git", *git_auth_args(), "ls-remote", "--heads", url],
@@ -308,9 +304,9 @@ def preflight_azure(sandbox_repo: str | None, roster: Path | None = None) -> Azu
     return target
 
 
-def _haifa_head() -> str:
+def _giro_head() -> str:
     try:
-        return git(HAIFA_ROOT, "rev-parse", "HEAD")
+        return git(GIRO_ROOT, "rev-parse", "HEAD")
     except RuntimeError:
         return ""
 
@@ -347,8 +343,13 @@ def make_context(
     owned: Owned,
     r5_samples: int,
     selected: list[str] | tuple[str, ...] = (),
+    in_process: bool = False,
 ) -> Context:
-    """The shared Context of one run over a prepared sandbox (writes the hidden test)."""
+    """The shared Context of one run over a prepared sandbox (writes the hidden test).
+
+    `in_process` runs the commands over the fake harness in this process
+    (``Context.in_process``); ``just validate`` keeps one worker subprocess per command.
+    """
     harnesses = step_harnesses(sandbox.repo)
     return Context(
         remote,
@@ -359,6 +360,7 @@ def make_context(
         hidden=write_hidden(workdir),
         harnesses=harnesses,
         selected=list(selected),
+        in_process=in_process,
     )
 
 
@@ -412,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
 
     owned = Owned()
     if args.workdir is None:
-        workdir = owned.add(Path(tempfile.mkdtemp(prefix="haifa-validate-")))
+        workdir = owned.add(Path(tempfile.mkdtemp(prefix="giro-validate-")))
     else:
         existed = args.workdir.exists()
         args.workdir.mkdir(parents=True, exist_ok=True)
@@ -425,8 +427,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             owned.add(workdir)
 
-    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME", "HAIFA_HOME")}
-    os.environ["GIRO_HOME"] = os.environ["HAIFA_HOME"] = str(isolated_haifa_home(workdir))
+    previous_home = {key: os.environ.get(key) for key in ("GIRO_HOME",)}
+    os.environ["GIRO_HOME"] = str(isolated_giro_home(workdir))
     try:
         return _run(args, names, roster, target, started, owned, workdir)
     finally:
@@ -477,7 +479,7 @@ def _run(
         or (sandbox.azure.web_url if sandbox.azure else None)
         or sandbox.remote_url,
         "base": sandbox.base,
-        "haifa_commit": _haifa_head(),
+        "giro_commit": _giro_head(),
         "started_at": started,
         "ended_at": now_iso(),
         "roster": str(roster) if roster else None,

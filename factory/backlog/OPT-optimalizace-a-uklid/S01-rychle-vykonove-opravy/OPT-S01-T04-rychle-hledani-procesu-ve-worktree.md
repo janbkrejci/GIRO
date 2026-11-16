@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T04
 title: Rychlé hledání procesů ve worktree
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -16,4 +16,4 @@ Hotovo znamená:
 - Testy: proces s cwd ve worktree se zastaví, proces mimo ne, proces v sourozenecké složce se stejným prefixem jména (`run-1` vs `run-10`) ne, vlastní proces a rodiče nikdy, proces bez přístupu vyvolá chybu.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

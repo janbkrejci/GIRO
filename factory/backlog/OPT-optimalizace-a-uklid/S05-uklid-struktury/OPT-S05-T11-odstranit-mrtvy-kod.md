@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T11
 title: Odstranit mrtvý kód
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -20,4 +20,4 @@ Hotovo znamená:
 - `just lint`, `just typecheck` a dotčené testy projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

@@ -18,7 +18,6 @@ import uvicorn
 import yaml
 from backlog_fixture import make_backlog_repo
 from multi_repo import (
-    BASE,
     SSSF_ROSTER,
     commit_all,
     git,
@@ -34,7 +33,7 @@ from starlette.testclient import TestClient
 
 from aifactory.codeprint import CodeWatch
 from aifactory.skill import envelope_problems
-from aifactory.web import create_multi_app
+from aifactory.web.app import create_multi_app
 
 ALLOWED_GIT = {"rev-parse", "cat-file", "ls-tree", "for-each-ref", "remote"}
 
@@ -257,16 +256,11 @@ def test_inspect_runs_only_read_git(
     _add(client, other)
     index = root / ".git" / "index"
     before = index.stat().st_mtime_ns
-    calls: list[list[str]] = []
-    real_run = subprocess.run
+    from gitspy import spy_git
 
-    def spy(argv: Any, *args: Any, **kwargs: Any) -> Any:
-        if isinstance(argv, list | tuple) and argv and argv[0] == "git":
-            calls.append([str(a) for a in argv[1:]])
-        return real_run(argv, *args, **kwargs)
-
-    monkeypatch.setattr(subprocess, "run", spy)
+    spied = spy_git(monkeypatch)
     assert _inspect(client, root / "sub")["data"]["addable"] is True
+    calls = [call.argv[1:] for call in spied]
     assert calls
 
     def subcommand(args: list[str]) -> list[str]:
@@ -436,42 +430,31 @@ def test_list_statuses(client: TestClient, tmp_path: Path) -> None:
 def test_list_cache_and_configuration_invalidation(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from aifactory.web import app as web_app
-    from aifactory.web.config_cache import CONFIG_TTL, ConfigCache
+    from gitcount import count_git
 
     root = init_repo(tmp_path / "cached")
     install(root)
     register(client, root)
-    now = [100.0]
-    client.app.state.repo_status_cache = ConfigCache(clock=lambda: now[0])  # type: ignore[attr-defined]
-    real = getattr(web_app, "repo_status")  # noqa: B009
-    calls = []
-
-    def counted(entry: Any) -> Any:
-        calls.append(entry.id)
-        return real(entry)
-
-    monkeypatch.setattr(web_app, "repo_status", counted)
+    trace = tmp_path / "git-trace.json"
 
     def status() -> str:
         result: str = _get(client, "/api/repos")["data"]["repos"][0]["status"]
         return result
 
     assert status() == "ok"
-    for _ in range(5):
+    with count_git(monkeypatch, trace) as count:
+        for _ in range(5):
+            assert status() == "ok"
+        # Runtime changes do not invalidate configuration or cause Git on navigation.
+        write(root, ".factory/worktrees/run/log", "runtime\n")
+        write(root, ".factory/trace.db", "runtime\n")
         assert status() == "ok"
-    assert calls == ["cached"]
-    # Runtime changes do not invalidate configuration or cause Git on navigation.
-    write(root, ".factory/worktrees/run/log", "runtime\n")
-    write(root, ".factory/trace.db", "runtime\n")
-    assert status() == "ok" and len(calls) == 1
-    (root / ".factory/trace.db").unlink()
-    now[0] += CONFIG_TTL + 1
-    assert status() == "ok" and len(calls) == 2
+        (root / ".factory/trace.db").unlink()
+    assert count.total == 0, count.commands
     _post(client, "/api/repos/cached/settings", {"shared": {"merge_strategy": "merge"}})
-    assert status() == "uncommitted" and len(calls) == 3
+    assert status() == "uncommitted"
     commit_all(root)  # external commit must immediately restore the clean state
-    assert status() == "ok" and len(calls) == 4
+    assert status() == "ok"
     # The CLI edits from another process, without an HTTP invalidation hook.
     result = subprocess.run(
         [
@@ -493,13 +476,13 @@ def test_list_cache_and_configuration_invalidation(
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert status() == "uncommitted" and len(calls) == 5
+    assert status() == "uncommitted"
     commit_all(root)
-    assert status() == "ok" and len(calls) == 6
+    assert status() == "ok"
     write(root, ".agents/skills/new/nested.md", "new skill\n")
-    assert status() == "uncommitted" and len(calls) == 7
+    assert status() == "uncommitted"
     (root / ".agents/skills/new/nested.md").unlink()
-    assert status() == "ok" and len(calls) == 8
+    assert status() == "ok"
 
 
 def _delete(client: TestClient, repo_id: str, payload: Any, status: int = 200) -> Any:
@@ -536,7 +519,7 @@ def test_delete_keeps_factory_in_the_repo(client: TestClient, tmp_path: Path, ho
 
 
 def test_delete_uninstalls(tmp_path: Path) -> None:
-    home = Path(os.environ["HAIFA_HOME"])
+    home = Path(os.environ["GIRO_HOME"])
     client = multi_client(home, tmp_path)
     root = init_repo(tmp_path / "proj")
     _add(client, root)
@@ -704,6 +687,64 @@ def test_live_events_per_repo(tmp_path: Path, home: Path) -> None:
     assert not thread.is_alive()
 
 
+@pytest.mark.xdist_group("live")
+def test_live_all_tags_events_with_their_repo(tmp_path: Path, home: Path) -> None:
+    setup = multi_client(home, tmp_path)
+    a, b = _two_repos(setup, tmp_path)
+    port = _free_port()
+    app = create_multi_app(home=home, static_dir=tmp_path / "nostatic", live_interval=0.1)
+    server = uvicorn.Server(
+        uvicorn.Config(
+            app, host="127.0.0.1", port=port, log_level="warning", timeout_graceful_shutdown=1
+        )
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not server.started:
+            assert time.monotonic() < deadline, "server did not start"
+            time.sleep(0.02)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/api/live", headers={"Host": "127.0.0.1"})
+        response = conn.getresponse()
+        assert response.status == 200
+        assert _read_event(response, "hello", time.monotonic() + 5)["repos"] == ["a", "b"]
+        time.sleep(0.3)  # the watchers take their baseline
+        b_task = "backlog/A1/A1-T01-first.md"
+        _append(b / b_task, "\nJen B.\n")
+        event = _read_event(response, "files", time.monotonic() + 5)
+        assert (event["repo"], event["paths"]) == ("b", [b_task])
+        # Removing a repo closes its hub: the overview stream asks for a resync and goes on.
+        remover = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        remover.request(
+            "DELETE",
+            "/api/repos/a",
+            body=json.dumps({"uninstall": False}),
+            headers={"Host": "127.0.0.1", "Content-Type": "application/json"},
+        )
+        assert remover.getresponse().status == 200
+        remover.close()
+        assert _read_event(response, "resync", time.monotonic() + 5)["repo"] == "a"
+        _append(b / b_task, "\nZnovu B.\n")
+        assert _read_event(response, "files", time.monotonic() + 5)["repo"] == "b"
+        conn.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+    assert not thread.is_alive()
+
+
+def test_repo_overview_is_one_item_of_the_overview(tmp_path: Path, home: Path) -> None:
+    client = multi_client(home, tmp_path)
+    _two_repos(client, tmp_path)
+    item = _get(client, "/api/repos/a/overview")["data"]
+    whole = _get(client, "/api/overview")["data"]["repos"]
+    assert item["id"] == "a" and item["state"] == next(r for r in whole if r["id"] == "a")["state"]
+    assert set(item) == set(whole[0])
+    assert _get(client, "/api/repos/nope/overview", 404)["error"]["code"] == "unknown_repo"
+
+
 # -- write guard (M1) and stale code ------------------------------------------------------
 
 
@@ -786,15 +827,6 @@ def test_code_and_restart_need_no_repository(tmp_path: Path, home: Path) -> None
     assert restarts == ["restart"]
 
 
-def test_single_repo_app_has_no_registry_endpoints(tmp_path: Path) -> None:
-    from aifactory.web import create_app
-
-    root = init_repo(tmp_path / "proj")
-    client = TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
-    assert _get(client, "/api/health")["data"]["repo"] == str(root)
-    assert _get(client, "/api/repos", 404)["error"]["code"] == "not_found"
-
-
 def test_live_hub_closes_twice(tmp_path: Path) -> None:
     from aifactory.web.live import LiveHub
 
@@ -816,32 +848,30 @@ def test_repo_git_read_rejects_exhausted_budget_before_start(
     caplog: pytest.LogCaptureFixture,
     seconds: float,
 ) -> None:
-    from aifactory import procrun
-    from aifactory.web import repos
+    from aifactory import procrun, repo_vet
 
     def forbidden(*args: object, **kwargs: object) -> None:
         pytest.fail("no git may start with an exhausted budget")
 
-    monkeypatch.setattr(repos, "_read_git", forbidden)
+    monkeypatch.setattr(repo_vet, "_read_git", forbidden)
     monkeypatch.setattr(procrun, "run", forbidden)
     with procrun.budget(seconds), pytest.raises(procrun.BudgetExceeded):
-        repos.read_git(tmp_path, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
+        repo_vet.read_git(tmp_path, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
     assert not any(record.exc_info for record in caplog.records)
 
 
 def test_repo_git_read_has_useful_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from aifactory import procrun
-    from aifactory.web import repos
+    from aifactory import gitrun, procrun, repo_vet
 
     calls: list[object] = []
 
-    def run(argv: object, timeout: float, **kwargs: object) -> procrun.Finished:
-        calls.append(argv)
-        assert timeout == 10.0
-        assert kwargs["cwd"] == tmp_path
-        return procrun.Finished(0, "head\n", "")
+    def run(cwd: object, *args: str, **kwargs: object) -> gitrun.Result:
+        calls.append(["git", *args])
+        assert kwargs["timeout"] == 10.0 and kwargs["read_only"] is True
+        assert cwd == tmp_path
+        return gitrun.Result(("git", *args), 0, b"head\n", b"")
 
-    monkeypatch.setattr(procrun, "run", run)
+    monkeypatch.setattr(gitrun, "run", run)
     with procrun.budget(10):
-        assert repos.read_git(tmp_path, "rev-parse", "HEAD") == "head"
+        assert repo_vet.read_git(tmp_path, "rev-parse", "HEAD") == "head"
     assert calls == [["git", "rev-parse", "HEAD"]]

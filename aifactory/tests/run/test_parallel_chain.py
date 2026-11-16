@@ -16,7 +16,9 @@ import pytest
 from run_repo import Script, commit_all, fake_env, make_run_repo, ok, write
 
 from aifactory.backlog import Task, load_backlog
+from aifactory.backlog.followup_ids import follow_up_marker
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review.automerge import AutoMergeResult
 from aifactory.run import (
@@ -24,20 +26,16 @@ from aifactory.run import (
     STOP_FAILED,
     STOP_NOT_MERGED,
     Skip,
-    TaskPrRow,
-    TaskRunError,
     TaskRunResult,
-    TaskRunRow,
-    TaskRunStore,
     retry_chain,
     run_chain,
     select_next,
 )
-from aifactory.run.followups import follow_up_marker
 from aifactory.run.members import member_result
-from aifactory.run.store import FAILED, SUCCEEDED
 from aifactory.run.task import blocked_reason
 from aifactory.run.unchanged import finish_unchanged
+from aifactory.runstore.rows import FAILED, SUCCEEDED, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 CORE = "backlog/M01-core"
 STEP = "S01-model"

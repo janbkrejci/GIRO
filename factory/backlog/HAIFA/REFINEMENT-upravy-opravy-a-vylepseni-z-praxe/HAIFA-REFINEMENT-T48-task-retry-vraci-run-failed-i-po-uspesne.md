@@ -17,5 +17,5 @@ Hotovo znamená:
 - Dotčené testy projdou podle AGENTS.md, celou sadu ověří CI.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-19 · workflow build-test-review · bez změn, běh 61e65f98 · už hotovo: aifactory/src/aifactory/cli.py: _task_retry a _task_run používají společné _chain_output a _emit_runs., aifactory/src/aifactory/run/task.py: TaskRunResult.ok vyhodnocuje aktuální stav succeeded a pr_error., aifactory/tests/run/test_auto_merge.py: test_retry_merges_and_continues ověřuje exit 0 a úsp… · náklady $0.00

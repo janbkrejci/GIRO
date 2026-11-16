@@ -19,5 +19,5 @@ Hotovo znamená:
 Mimo rozsah: změna ostatních fází workflow.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-13 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/27 · náklady $1.96

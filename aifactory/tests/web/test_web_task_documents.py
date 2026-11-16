@@ -11,13 +11,13 @@ from backlog_fixture import A3, git, make_backlog_repo
 from starlette.testclient import TestClient
 
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _get(client: TestClient, url: str, status: int = 200) -> Any:

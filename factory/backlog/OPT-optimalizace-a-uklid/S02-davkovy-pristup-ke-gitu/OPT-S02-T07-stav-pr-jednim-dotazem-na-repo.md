@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T07
 title: Stav PR jedním dotazem na repo
-status: todo
+status: done
 depends_on: [OPT-S02-T01]
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - Testy s falešným `gh` a `az` ověří jedno volání seznamu na repo a stejný výsledek synchronizace jako dnes.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

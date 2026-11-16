@@ -23,7 +23,7 @@ def _language(page: Page, language: str) -> None:
     )
     _choose(page, selector, language)
     expect(page.locator("html")).to_have_attribute("lang", language)
-    assert page.evaluate("localStorage.getItem('haifa.dashboard.locale')") == language
+    assert page.evaluate("localStorage.getItem('giro.dashboard.locale')") == language
 
 
 @pytest.mark.parametrize("width", [1366, 390])
@@ -105,7 +105,7 @@ def test_global_locale_browser(width: int) -> None:
                 close() {}
             }""")
             page.route("**/*", serve)
-            response = page.goto("http://haifa.test/#/overview")
+            response = page.goto("http://giro.test/#/overview")
             assert response is not None and '<html lang="en">' in response.text()
             # A Czech browser still boots in English, even with no repositories.
             expect(page.locator("html")).to_have_attribute("lang", "en")
@@ -122,7 +122,7 @@ def test_global_locale_browser(width: int) -> None:
             expect(page.locator("html")).to_have_attribute("lang", "cs")
             registered = True
             for identifier in ("haifa", "second"):
-                page.goto(f"http://haifa.test/#/r/{identifier}/runs")
+                page.goto(f"http://giro.test/#/r/{identifier}/runs")
                 expect(page.locator("nav.screen-tabs")).to_contain_text("Běhy")
                 expect(page.locator("html")).to_have_attribute("lang", "cs")
             _language(page, "en")
@@ -130,7 +130,7 @@ def test_global_locale_browser(width: int) -> None:
             expect(page.locator("html")).to_have_attribute("lang", "en")
 
             # A form and the open assistant panel retain their DOM and unfinished input.
-            page.goto("http://haifa.test/#/setup")
+            page.goto("http://giro.test/#/setup")
             port = page.locator('[data-test="dash-port"]')
             port.fill("4801")
             page.locator('[data-test="assistant-toggle"]').click()
@@ -160,7 +160,7 @@ def test_global_locale_browser(width: int) -> None:
             _assert_document_fits(page)
 
             # Switching cannot submit, clear or recreate a drafted Intent.
-            page.goto("http://haifa.test/#/r/haifa/backlog/intent")
+            page.goto("http://giro.test/#/r/haifa/backlog/intent")
             intent = page.locator('[data-test="intent-text"]')
             intent.fill("Můj rozepsaný Intent")
             intent.evaluate("el => { window.localeIntent = el }")
@@ -172,7 +172,7 @@ def test_global_locale_browser(width: int) -> None:
             # Accept the normal unsaved-work warning for this abandoned draft.
             page.once("dialog", lambda dialog: dialog.accept())
             page.reload()
-            page.goto("http://haifa.test/#/r/haifa/runs/watched")
+            page.goto("http://giro.test/#/r/haifa/runs/watched")
             region = page.locator('[data-test="waterfall-scroll"]')
             expect(region).to_be_visible()
             expect(region).to_have_attribute("data-overflow", "true")

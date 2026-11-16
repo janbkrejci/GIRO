@@ -5,7 +5,7 @@ with one module and one step but no task: the test creates the tasks in the brow
 The server is the real ``factory obs`` started through ``validation.worker``, which
 installs the fake harness of ``validation.fake`` first; ``claude``, ``codex``, ``pi``
 and ``gh`` point at a tripwire, so no model and no hosting is ever reached. The server
-gets its own ``HAIFA_HOME`` (a temporary directory): ``factory obs --repo`` registers the
+gets its own ``GIRO_HOME`` (a temporary directory): ``factory obs --repo`` registers the
 repo in its ``dashboard.yaml`` and the dashboard starts every run as a separate process
 (again through ``validation.worker``) and writes its envelope and output to ``logs/``
 there. The repo's API is under ``/api/repos/<id>/`` (``ObsServer.api``).
@@ -33,12 +33,14 @@ from typing import Any, TypeVar
 import yaml
 
 from aifactory import oscompat
-from aifactory.web.registry import REGISTRY_FILE, same_repo
+from aifactory.registry import REGISTRY_FILE, same_repo
 
 AIFACTORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(AIFACTORY / "tests" / "run"))
 
 from run_repo import files as run_repo_files  # noqa: E402
+
+from gitutil import git as git  # noqa: E402
 
 __all__ = [
     "T01",
@@ -63,19 +65,12 @@ T02 = "M01-S01-T02"
 STEP = "M01-S01"
 HEALTH_TIMEOUT_S = 20.0
 API_TIMEOUT_S = 10.0
-REMOVED_ENV = ("HAIFA_SANDBOX_REPO", "HAIFA_VALIDATE_HIDDEN", "HAIFA_VALIDATE_FAKE")
-TRIPWIRE_ENV = ("AIFACTORY_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH")
+REMOVED_ENV = ("GIRO_SANDBOX_REPO", "GIRO_VALIDATE_HIDDEN", "GIRO_VALIDATE_FAKE")
+TRIPWIRE_ENV = ("GIRO_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH")
 T = TypeVar("T")
 GITIGNORE = (
     ".factory/local.yaml\n.factory/trace.db*\n.factory/worktrees/\n.factory/data/\n__pycache__/\n"
 )
-
-
-def git(repo: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", *args], cwd=repo, check=True, capture_output=True, text=True, encoding="utf-8"
-    )
-    return proc.stdout.strip()
 
 
 def make_f3_repo(path: Path) -> Path:
@@ -174,9 +169,9 @@ def _server_env(script: Path, wire: Path, home: Path) -> dict[str, str]:
     env = dict(os.environ)
     for key in REMOVED_ENV:
         env.pop(key, None)
-    env["HAIFA_HOME"] = str(home)
-    env["HAIFA_UPDATE_REPO"] = ""  # Tests never query the real GitHub release API.
-    env["HAIFA_VALIDATE_FAKE"] = str(script)
+    env["GIRO_HOME"] = str(home)
+    env["GIRO_UPDATE_REPO"] = ""  # Tests never query the real GitHub release API.
+    env["GIRO_VALIDATE_FAKE"] = str(script)
     old = env.get("PYTHONPATH")
     env["PYTHONPATH"] = str(AIFACTORY) + (os.pathsep + old if old else "")
     env["UV_NO_SYNC"] = "1"

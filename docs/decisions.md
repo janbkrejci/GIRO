@@ -49,7 +49,7 @@ mimo spec daného tasku. Ostatním PR zůstává původní důvod odmítnutí.
 
 - **ID follow-upů (HAIFA-REFINEMENT-T83):** follow-upy z běhů se připravují z aktuální cílové větve po fetch, nikoli z backlogu ve worktree běhu. Před sloučením PR se backlog ověří znovu. Nový kolidující follow-up dostane číslo nad maximem v cílové větvi i PR; současně se přejmenuje soubor a přepíšou jeho odkazy v souborech změněných tímto PR (`related`, `depends_on`, `follows`, `follow-up-of` i textové odkazy). Existující task a odkazy v nezměněných souborech cílové větve si ponechají původní význam. Opravená větev obsahuje aktuální base; úlohové PR musí po změně hlavičky znovu projít CI. Publikování a poslední kontrola se v jednom repozitáři serializují se zápisy běhů. Selhání fetch, nejednoznačné ID nebo neřešitelný konflikt sloučení zastaví; úlohové PR uchová důvod v `auto_merge_error`, vlastní PR factory jej vrátí jako varování běhu. Necommitnuté lokální úpravy nejsou zdrojem přidělených ID ani stavu tasků.
 
-- **Dědičnost z knihovny:** agenti, workflow, skilly a rozšíření se hledají nejdřív v `.factory/` repa, potom v knihovně (`$HAIFA_HOME/library`, bez ní seed). Kopie v repu má přednost. Nic se mezi knihovnou a repem nesynchronizuje, „Přesunout do knihovny“ přesune kopii z repa do knihovny. Běh zapíše do trace commit knihovny, ze kterého četl, a skilly z knihovny jen nakopíruje do worktree.
+- **Dědičnost z knihovny:** agenti, workflow, skilly a rozšíření se hledají nejdřív v `.factory/` repa, potom v knihovně (`$GIRO_HOME/library`, bez ní seed). Kopie v repu má přednost. Nic se mezi knihovnou a repem nesynchronizuje, „Přesunout do knihovny“ přesune kopii z repa do knihovny. Běh zapíše do trace commit knihovny, ze kterého četl, a skilly z knihovny jen nakopíruje do worktree.
 - **Obnova knihovny při instalaci:** instalace a upgrade HAIFA spustí `factory library seed --all`, který nahradí všechny položky semínka v knihovně verzí z nainstalovaného balíčku, i ty, které tým upravil. Vlastní úpravy proto patří do `.factory/` repa. Položky mimo semínko zůstanou a kopie v `.factory/` rep se nikdy nemění. Knihovna obsahuje i skill `factory` vygenerovaný z `factory --skill`. Ruční `factory library seed` bez `--all` dál ponechá položky změněné týmem.
 - **Instrukce a skilly repa:** agenti používají CLAUDE.md, AGENTS.md a skilly repa tak, jak je jejich harness načte při spuštění v repu. Osobní a globální konfigurace operátora se do běhu nedostane, kde to harness umí, jinak to hlásí `factory check`. `*_SAFE_MODE=1` vrátí úplnou izolaci.
 - **Skilly v repu:** zdroj je `.claude/skills/<jméno>/`. `.agents/skills/<jméno>/` je jeho kopie pro codex a pi, bez symlinků (na Windows bez `core.symlinks` nefungují). Kopii udržuje `factory skills sync` a rozdíl hlásí `factory check`.
@@ -61,7 +61,7 @@ mimo spec daného tasku. Ostatním PR zůstává původní důvod odmítnutí.
 ## Dashboard a distribuce
 
 - **Lokální řízení repozitáře (S11):** provozní `auto_merge`, `auto_continue` a výchozí
-  `harness` patří dvojici HAIFA_HOME / místní klon. Sdílená služba
+  `harness` patří dvojici GIRO_HOME / místní klon. Sdílená služba
   `aifactory.repo_settings.RepositorySettings` je nezávislá na web registry; CLI
   `factory config local show|set --repo PATH --json`, dashboard i worker používají
   stejná data a validaci. T01 zavádí službu; napojení runtime a UI v T02–T05 se vydá
@@ -69,12 +69,12 @@ mimo spec daného tasku. Ostatním PR zůstává původní důvod odmítnutí.
 - **Identita a životnost:** klíč je SHA-256 kanonické absolutní cesty common Git dir
   (`git rev-parse --path-format=absolute --git-common-dir`, resolve symlinků a Windows
   normcase). Worktrees sdílejí záznam, nezávislé klony nikoli, ani se stejným remote.
-  ID dashboardu ani remote do identity nevstupují. Jiný HAIFA_HOME má jiné volby.
+  ID dashboardu ani remote do identity nevstupují. Jiný GIRO_HOME má jiné volby.
   Přesun common dir vytváří novou identitu s vypnutými automatizacemi; původní záznam
   zůstane osiřelý, nemaže se ani nemigruje při čtení. Odstranění klonu záznam nemaže;
   vrácení klonu na tutéž kanonickou cestu záznam znovu použije. Při nahrazení klonu
   na stejné cestě je nutné lokální volby výslovně zkontrolovat či resetovat.
-- **Formát a precedence:** `<HAIFA_HOME>/repositories/<klíč>.json` obsahuje přesně
+- **Formát a precedence:** `<GIRO_HOME>/repositories/<klíč>.json` obsahuje přesně
   `version: 1`, booleany `auto_merge`, `auto_continue` a `harness: null|claude|codex|pi`.
   Chybějící soubor znamená false/false/null; null dědí místní `harnesses.json`
   (`default_harness`, bez něj null a další výběr řeší harness resolver). Explicitní
@@ -104,7 +104,7 @@ mimo spec daného tasku. Ostatním PR zůstává původní důvod odmítnutí.
   restartovat dashboard i workery; downgrade opět používá legacy pravidla.
 
 - **Více repozitářů:** jeden `factory obs` obsluhuje repozitáře z registru `dashboard.yaml` v domově HAIFA. Port je jen v registru. `.factory/`, backlog a trace DB zůstávají v repu.
-- **Tajný terminál:** globální `GET /api/terminal` vrací dostupnost, domovský adresář a shell; `POST /api/terminal/exec` streamuje NDJSON výstup a návratový kód. Bez přihlášení, dostupný pouze při loopback `allowed_hosts` i loopback adrese klienta; síťový dashboard jej nikdy nepovolí. Platí běžná ochrana Origin, Sec-Fetch-Site a JSON. Příkazy ani výstup se neukládají do repa či trace DB. Samostatné `cd` řeší server, cwd drží klient. Odpojení nebo limit 600 s ukončí skupinu procesů; bez TTY a stdin. POSIX navíc nabízí interaktivní login shell nad PTY: `POST /api/terminal/sessions` vytvoří sezení (`cols`, `rows` 1–1000, volitelné `cwd`, výchozí domov); GET terminálu hlásí schopnost `pty`. `GET /api/terminal/sessions/{id}/stream` posílá surové bajty jedinému odběrateli, `POST .../input` zapisuje UTF-8, `POST .../resize` mění velikost a jádro oznamuje SIGWINCH skupině popředí. `DELETE .../{id}`, odpojení nebo konec shellu ukončí skupinu procesů, zavře FD a odstraní sezení; bez časového limitu. Nejvýš čtyři sezení (429), druhý stream 409, neznámé id 404; Windows používá ConPTY přes windowsovou závislost pywinpty, shell z `%COMSPEC%` a čtení ve vlákně; bez dostupného winpty vrací 501. Shell má controlling TTY, `TERM=xterm-256color`, `COLORTERM=truecolor`. Všechny nové routy zachovávají loopback kontrolu i write guard; vstup ani výstup se neukládají.
+- **Tajný terminál:** globální `GET /api/terminal` vrací dostupnost, domovský adresář a shell. Bez přihlášení, dostupný pouze při loopback `allowed_hosts` i loopback adrese klienta; síťový dashboard jej nikdy nepovolí. Platí běžná ochrana Origin, Sec-Fetch-Site a JSON. POSIX nabízí interaktivní login shell nad PTY: `POST /api/terminal/sessions` vytvoří sezení (`cols`, `rows` 1–1000, volitelné `cwd`, výchozí domov); GET terminálu hlásí schopnost `pty`. `GET /api/terminal/sessions/{id}/stream` posílá surové bajty jedinému odběrateli, `POST .../input` zapisuje UTF-8, `POST .../resize` mění velikost a jádro oznamuje SIGWINCH skupině popředí. `DELETE .../{id}`, odpojení nebo konec shellu ukončí skupinu procesů, zavře FD a odstraní sezení; bez časového limitu. Nejvýš čtyři sezení (429), druhý stream 409, neznámé id 404; Windows používá ConPTY přes windowsovou závislost pywinpty, shell z `%COMSPEC%` a čtení ve vlákně; bez dostupného winpty vrací 501. Shell má controlling TTY, `TERM=xterm-256color`, `COLORTERM=truecolor`. Všechny nové routy zachovávají loopback kontrolu i write guard; vstup ani výstup se neukládají.
 - **AI průvodce z topbaru:** každé otevření začne nové vlákno; minulá vlákna zůstávají dostupná v historii. Před první zprávou panel nabízí „Podle nastavení“ (bez parametru `harness`) a použitelné podporované harnessy z `GET /api/assistant/harnesses`, s náhledem modelu a thinking. Explicitní volba jde do `createThread` až při prvním odeslání; mění pouze nové vlákno, nikoli výchozí harness repozitáře. Historie a další zprávy používají uloženou volbu; nový prázdný panel obnoví „Podle nastavení“. Guide vyžaduje harness s omezenými nástroji a pi nenabízí. Po `harness_unavailable` zůstává výběr i původní zpráva dostupná pro opětovné odeslání. Bez použitelné volby či při chybě načtení panel odkazuje na Harnessy tohoto počítače.
 - **Limity harnessů:** dashboard ukazuje poslední hodnoty, které harness sám vrátil při běhu (Claude ve stream-json, Codex v session logu). Žádné vlastní dotazy na API ani app-server.
 - **Distribuce:** GitHub Actions na `main` sestaví frontend, ověří instalaci na Ubuntu a vydá release `haifa-<verze>.zip` s verzí `<major>.<minor>.<číslo běhu>`. Commit, který mění jen `factory/` (backlog, specy, dokumentace tasků), `docs/` nebo `.factory/`, release nespouští. Workflow nemá PR testy, lint, typovou kontrolu ani Windows job; úplné kontroly jsou lokální `just check` a `just e2e`. Approve a auto-merge mohou PR bez checků mergnout.
@@ -124,7 +124,7 @@ Při startovním úklidu advice a při úklidu worktrees procházíme pouze př�
 
 - **Zdroje:** `factory learn scan --all` (v dashboardu přepínač Ze všech rep v sekci Lekce) čte výtky běhů všech rep z registru dashboardu (`dashboard.yaml` v domově HAIFA). Repo bez složky nebo trace DB se přeskočí s varováním, jedno rozbité repo scan neshodí. Agent `learner` dál běží jen pro čtení v izolovaném klonu repa, ve kterém scan běží. Bez `--all` se čte jen to repo jako dřív.
 - **Cílové repo:** každá lekce nese `repo`, id registrovaného repa, kam pravidlo patří. Pravidlo o konvencích nebo kódu jednoho repa patří tomu repu, nedostatek factory samotné (chování role, prompt role selhávající ve více repech) repu factory. Lekce si pamatuje i repa, odkud její výtky přišly (`origin`).
-- **Repo factory:** je to registrované repo s id z `HAIFA_FACTORY_REPO`, jinak to, jehož `aifactory/pyproject.toml` pojmenuje Python projekt `aifactory`. Id z proměnné, které v registru není, znamená, že repo factory není.
+- **Repo factory:** je to registrované repo s id z `GIRO_FACTORY_REPO`, jinak to, jehož `aifactory/pyproject.toml` pojmenuje Python projekt `aifactory`. Id z proměnné, které v registru není, znamená, že repo factory není.
 - **Uložení:** lekce se uloží do `learn_lessons` v trace DB cílového repa, ne do repa, kde scan běžel. Přijaté a zamítnuté lekce se při scanu čtou ze všech rep. `factory learn accept` založí task v backlogu cílového repa s výtkami z běhů všech rep jako důkazy.
 - **Klíče výtek:** výtky čtené ze všech rep mají klíč s předponou repa (`<repo_id>:<envelope_id>#<n>`), unikátní napříč repy. Klíč bez předpony (lekce z jednoho repa) patří repu, v jehož trace DB lekce je.
 - **Cíl `seed`:** prompt role v semínku knihovny (`aifactory/src/aifactory/seed/agents/<role>/`) smí být cílem jen lekce pro repo factory. Lekci se `seed` pro jiné repo, nebo když repo factory není, learner dostane k opravě. Do knihoven se změna dostane po merge přes `factory library seed` nebo novou verzi HAIFA.
@@ -133,19 +133,19 @@ Při startovním úklidu advice a při úklidu worktrees procházíme pouze př�
 ## 2026-11-09: Explicitní převzetí legacy provozních voleb
 
 Auto merge, auto continue a výchozí harness nové Factory patří dvojici místní
-HAIFA_HOME / identita repozitáře (společný Git adresář worktrees). Bez lokálního záznamu
+GIRO_HOME / identita repozitáře (společný Git adresář worktrees). Bez lokálního záznamu
 jsou automatizace vypnuté; harness dědí místní výchozí hodnotu počítače. Legacy effective
 hodnoty jsou metadata a žádné runtime rozhodnutí automatizací z nich nevychází.
 `effective_sources`, `effective` a `harness_values` zůstávají pro čtení metadat a náhled,
 nikoli jako fallback místní politiky. Guide ověřuje kontext tasku, ale jeho volbu harnessu
-určuje místní služba; `task_harness_values` je kompatibilní čtečka metadat.
+určuje místní služba.
 
 CLI `config local legacy` a Přehled zobrazí effective hodnoty i původ pro všechny úrovně.
 `config local import` a odpovídající API přijmou shodné hodnoty, při rozporech vyžadují
 konkrétní repo rozhodnutí pro každý rozporný klíč. Žádné any(true) ani nejbližší projekt.
 Model/thinking jsou pouze náhled; místní harness používá místní preset/roster. Existující
 záznam chrání výslovné `--overwrite`. Import sdílí zámek a atomický zápis lokální služby,
-je idempotentní a píše jen do HAIFA_HOME. Náhled nesynchronizuje databázový mirror.
+je idempotentní a píše jen do GIRO_HOME. Náhled nesynchronizuje databázový mirror.
 
 Legacy CLI zápisy `backlog auto-continue`, `backlog auto-merge`, `task edit --auto-merge`
 vracejí deprekační chybu s konkrétní alternativou `config local set`. Parser a textové
@@ -170,8 +170,9 @@ upgradovaném počítači nejsou součástí přechodu.
 
 ## 2026-11-14: GIRO — identita a podporovaný přechod (S12-T01)
 
-Implementační kontrakt a inventura jsou v [docs/rebranding/giro.md](rebranding/giro.md).
-Jde o rozhodnutí pro T02–T07; současný produkt ani hosting se tímto zápisem nemění.
+Přechod proběhl; jeho kontrakt a přechodový kód odstranilo OPT-S05-T01 (viz níže).
+Platí identita, technické názvy a aliasy prostředí; body o migraci a publikaci
+poslední HAIFA jsou historické.
 Toto rozhodnutí pro rebranding zpřesňuje dosavadní popis distribuce a návratu;
 S11 identita podle common Git dir a lokální provozní volby zůstávají zachované.
 
@@ -182,16 +183,16 @@ S11 identita podle common Git dir a lokální provozní volby zůstávají zacho
   DB/protokolové klíče, frontendové storage klíče a knihovní identity se nepřejmenovávají
   bez funkčního důvodu. Veřejný GIRO bundle je `giro-<verze>.zip`; poslední HAIFA
   používá výhradně dosavadní `haifa-<verze>.zip`.
-- **Doba kompatibility:** alias `factory`, dokumentované `HAIFA_*`, legacy home
+- **Doba kompatibility:** alias `factory`, legacy home
   a čtení posledního HAIFA bundlu po celou GIRO 1.x a nejméně 12 měsíců od prvního
   stabilního GIRO vydání. Odstranění až major 2 nebo později, po splnění obou
   podmínek, samostatném rozhodnutí a alespoň 90denním předchozím upozornění.
   Technické názvy a historické releasy nemají tímto stanoven konec životnosti.
-- **Prostředí a data:** zavést GIRO_* se stejnými příponami. V rámci vrstvy nové
-  jméno vítězí nad legacy; CLI > procesové prostředí > vybraný home/env > dosavadní
+- **Prostředí a data:** zavést GIRO_* se stejnými příponami (legacy `HAIFA_*`
+  zrušeny v OPT-S05-T13); CLI > procesové prostředí > vybraný home/env > dosavadní
   konfigurace/default. Prázdné je nenastaveno, neplatné neprázdné je chyba.
   Home se určuje před načtením env, soubor jej nesmí přesměrovat. Podprocesy
-  dostávají oba aliasy se stejnou efektivní hodnotou. Default je XDG/home `giro`
+  dostávají `GIRO_*` s efektivní hodnotou. Default je XDG/home `giro`
   vedle původního `haifa`, explicitní legacy home zůstává na své cestě.
   Oba default adresáře bez dokončeného migračního manifestu znamenají blokaci,
   nikoli tiché sloučení. Záloha celé konzistentní sady dat a knihovny, migrační
@@ -230,24 +231,6 @@ S11 identita podle common Git dir a lokální provozní volby zůstávají zacho
   Produkt poskytuje workflow a PR/approve/merge, nikoli obecnou automatickou
   publikaci každého uživatelského projektu. Slogan nesmí takovou funkci slibovat.
 
-## 2026-11-15 — Provozní zdroje a přenos HAIFA → GIRO (T05)
-
-- [Migrační postup](rebranding/repository-migration.md) určuje přenos všech heads
-  a tags do nového `janbkrejci/GIRO` se zachováním objektových SHA; GitHub PR,
-  issues a releasy zůstávají v původním HAIFA. Read-only inventura nenašla
-  otevřené PR/issues; existující devět větví se zachová bez automatického merge.
-- Uchovaný zdroj poslední HAIFA je přesně
-  `4dd3ddf1ea18f672674123df94dc4643a4868f52` (T04), nikoli rebrandingový main.
-  T06 jej sváže s `haifa-transition-source` a `HAIFA_TRANSITION_SHA`; nejprve
-  ověří GIRO G, potom vydá H a vypne všechny HAIFA Actions. G_SHA a skutečná
-  čísla H/G se zaznamenají z konkrétních T06 běhů, nikoli odhadem před vydáním.
-- Nové repo se importuje s vypnutými Actions, protože přenesené historické
-  větve mohou obsahovat starší publikační workflow. Původní public repo i jeho
-  poslední HAIFA latest zůstanou dostupné. Knihovna zůstává HAIFA-LIBRARY dle T01.
-- Přesun vývojářského checkoutu je volitelná samostatná odstávka. Pouhá změna
-  remote nemění registry ID; přesun common Git dir mění klíč lokálních voleb,
-  proto vyžaduje opravu worktree vazeb, registry a nastavení ze zálohy.
-
 ## 2026-11-16: GIRO-LIBRARY a cesta vývojového checkoutu
 
 Vlastník výslovně požádal o přejmenování `janbkrejci/HAIFA-LIBRARY` na
@@ -261,3 +244,50 @@ UUID knihovny, `skill/factory`, metadata návrhů a historické záznamy zůstá
 Lokální knihovny bez remote ani vlastní vzdálené knihovny se nepřepojují.
 Při přesunu checkoutu se opraví Git worktrees, cesta a zobrazovaný název v
 registraci dashboardu a klíč lokálních nastavení; ID registrace `haifa` zůstává.
+
+## 2026-11-16: Engine je vlastní kód GIRO (OPT-S05-T12)
+
+`aifactory/src/aifactory/engine/` vznikl portem modulů `adw_modules` ze sssf
+(github.com/disler/super-simple-software-factory). Poslední známý upstream je
+commit `aa8b55c` repozitáře sssf (vendorováno 2026-09-26 do `vendor/sssf`, kopie
+smazána v `81121dc2`). Protože upstream kopie v repu už není, pravidlo
+o diffovatelnosti se sssf a značky `# aifactory N:` se ruší. Engine podléhá
+stejnému ruff a striktnímu mypy jako zbytek balíčku a mění se jako běžný kód.
+
+## 2026-11-16: Odstranění přechodového kódu HAIFA → GIRO (OPT-S05-T01)
+
+Přechod na GIRO proběhl (HAIFA-S12-T06). Odstraněno bez náhrady: přechodové
+tlačítko dashboardu a jeho API, předání dashboardu poslední HAIFA, příkaz
+`giro migrate`, release workflow poslední HAIFA s jeho gate a provozní dokumenty
+přechodu (cutover, migrace repozitáře, kontrakt názvů a protokol vydání). Aktualizace hledají jen GIRO bundle v
+`GIRO_UPDATE_REPO`, jinak `janbkrejci/GIRO`; hodnota
+`janbkrejci/HAIFA` už nemá výjimku. Start nad samotným legacy home dál končí
+`migration_required` bez zápisu a radí přesun složky nebo `GIRO_HOME`;
+`migration_guard` dál kontroluje homes označené dřívější migrací. Alias `factory`,
+technické názvy a běžný upgrade včetně Windows handoff zůstávají.
+
+## 2026-11-16: Proměnné prostředí jen GIRO_* (OPT-S05-T13)
+
+Nahrazuje aliasy `HAIFA_*` z rozhodnutí S12-T01 (Prostředí a data, Doba
+kompatibility). GIRO čte a nastavuje, i pro podprocesy, jen `GIRO_*`. Legacy
+`HAIFA_*` a `AIFACTORY_GH`/`AIFACTORY_AZ` (dnes `GIRO_GH`/`GIRO_AZ`) se nečtou ani
+nepředávají; je-li některá nastavená v prostředí nebo v `<home>/env`, proces jednou
+vypíše varování s názvem náhrady `GIRO_*` a bez hodnoty, aby uživatel s
+`HAIFA_HOME` nedostal potichu jiný home. Legacy názvy píše jen `environment.py`,
+hlídá to test. Alias CLI `factory` zůstává.
+
+## 2026-11-16: Konec názvu HAIFA v kódu a odstranění migrační ochrany (rozšíření OPT-S05-T01)
+
+Produkt je GIRO, název HAIFA zůstává jen v historii (`docs/decisions.md`, `factory/`,
+`validation/results/`), v historických ID tasků, ve jménech existujících vzdálených
+sandboxů (`HAIFA-E2E-*`, `HAIFA-Azure-Sandbox`), v registry id `haifa` tohoto repa a ve
+varování o zrušených proměnných `HAIFA_*` (`environment.py`, uninstall skripty).
+Odstraněno: hledání legacy home `~/.config/haifa` (`migration_required`,
+`migration_collision`), `migration_guard` s markerem `giro-migration.json`, process
+lease a jeho kódy chyb. Lease chránil jen přípravu migrace, běžný upgrade ho
+nepotřebuje, proto nezůstal ani v neutrální podobě. Přejmenováno bez převodu starých
+hodnot: klíče prohlížeče `giro.*` a `giro-theme`, stav v `<git common dir>/giro/`,
+větve návrhů knihovny `giro-library/…` a jejich záznam `giro-pull-requests.json`, blok
+návrhu asistenta ` ```giro-action `, placeholder `<!-- doplňuje GIRO při schválení PR -->`
+(backlog přepsán v témže commitu). Sdílené tabulky `haifa_backlog*` a `haifa_owners` se
+při prvním otevření přejmenují na `giro_*` i s řádky.

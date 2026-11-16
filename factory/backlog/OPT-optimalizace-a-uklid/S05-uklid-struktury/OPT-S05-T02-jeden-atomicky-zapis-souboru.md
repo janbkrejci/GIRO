@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T02
 title: Jeden atomický zápis souboru
-status: todo
+status: done
 depends_on: [OPT-S05-T01]
 ---
 
@@ -16,4 +16,4 @@ Hotovo znamená:
 - Test selhání: simulovaný `PermissionError` se zopakuje, po vyčerpání pokusů vyhodí chybu, cílový soubor zůstane nepoškozený a dočasný soubor se uklidí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

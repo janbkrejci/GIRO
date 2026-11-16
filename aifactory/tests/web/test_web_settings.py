@@ -14,7 +14,7 @@ from aifactory.config import config_changes, load_local, resolve_commit
 from aifactory.config.errors import ConfigIssue
 from aifactory.config.settings import parse_project_settings
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 CONFIG = ".factory/config.yaml"
@@ -30,7 +30,7 @@ def root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _check(response: Any, status: int) -> Any:
@@ -270,10 +270,10 @@ def test_saving_docs_root_drops_old_folder_keys(client: TestClient, root: Path) 
 
 
 def test_legacy_local_preview_import_and_preservation(client: TestClient, root: Path) -> None:
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
 
-    service = RepositorySettings(root, haifa_home())
+    service = RepositorySettings(root, giro_home())
     before = {p: p.read_bytes() for p in (root / "backlog").rglob("*.md")}
     url = "/api/settings/local/legacy"
     preview = _get(client, url)["data"]

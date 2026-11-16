@@ -11,8 +11,8 @@ from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 from advice_fixture import make_repo, output
-from aifactory.web import create_app
 from aifactory.web.workflow_advice import AdviceManager
+from single_repo import RepoClient, repo_app
 
 
 def wait(client: TestClient, identifier: str) -> dict[str, Any]:
@@ -25,10 +25,10 @@ def wait(client: TestClient, identifier: str) -> dict[str, Any]:
 
 
 def client_for(repo: Path, runner: Any) -> TestClient:
-    app = create_app(repo, static_dir=repo / "absent")
+    app = repo_app(repo, static_dir=repo / "absent")
     app.state.workflow_advice.close()
     app.state.workflow_advice = AdviceManager(runner)
-    return TestClient(app, base_url="http://127.0.0.1:4700")
+    return RepoClient(app, base_url="http://127.0.0.1:4700")
 
 
 def test_async_duplicate_poll_scope_and_expiry(tmp_path: Path) -> None:
@@ -173,11 +173,11 @@ def test_idempotent_save_and_foreign_edit(tmp_path: Path) -> None:
 
 def test_rollback_and_journal_then_base_resolution(tmp_path: Path) -> None:
     from advice_fixture import git
+    from aifactory import backup, mainwrites
     from aifactory.config import load_run_config
-    from aifactory.run import backup, mainwrites
-    from aifactory.run.task import named_workflow
     from aifactory.web import backlog
     from aifactory.web.backlog import UsageError
+    from aifactory.workflow.parse import named_workflow
 
     repo = make_repo(tmp_path / "repo")
     with client_for(repo, lambda *args: output("research", new=True)) as client:
@@ -213,8 +213,8 @@ def test_rollback_and_journal_then_base_resolution(tmp_path: Path) -> None:
 
 
 def test_two_repos_with_identical_task_ids_are_isolated(tmp_path: Path) -> None:
+    from aifactory.registry import Registry
     from aifactory.web.app import create_multi_app
-    from aifactory.web.registry import Registry
 
     first = make_repo(tmp_path / "first")
     second = make_repo(tmp_path / "second")
@@ -237,7 +237,7 @@ def test_two_repos_with_identical_task_ids_are_isolated(tmp_path: Path) -> None:
 
 def test_busy_queue_and_task_state_are_rejected(tmp_path: Path) -> None:
     from aifactory.web.backlog import UsageError
-    from aifactory.web.workflow_advice import Cancellation
+    from aifactory.web.workflow_advice import Cancellation, task_state
     from aifactory.workflow.adaptive import context
 
     repo = make_repo(tmp_path / "repo")
@@ -259,7 +259,7 @@ def test_busy_queue_and_task_state_are_rejected(tmp_path: Path) -> None:
             context(repo, None, {"step": "P01-S01", "title": "Draft", "body": "x" * 100_001})
         edit_task(repo, "P01-S01-T01", status="cancelled")
         with pytest.raises(UsageError, match="task state"):
-            context(repo, "P01-S01-T01", {})
+            context(repo, "P01-S01-T01", {}, task_state=task_state(repo))
         cancellation = Cancellation()
         cancellation.set()
         assert cancellation.is_set()
@@ -314,11 +314,11 @@ def test_advice_save_survives_concurrent_guard_restoration(tmp_path: Path) -> No
     from types import SimpleNamespace
 
     from aifactory.config import load_run_config
+    from aifactory.config.runtime import prepare_cfg
     from aifactory.engine import agents
     from aifactory.engine.permissions import PermissionBreach
-    from aifactory.run.guard import TaskWriteGuard
-    from aifactory.run.scope import TaskScope
-    from aifactory.run.task import prepare_cfg
+    from aifactory.guard import TaskWriteGuard
+    from aifactory.scope import TaskScope
 
     repo = make_repo(tmp_path / "repo")
     worktree = make_repo(tmp_path / "foreign-worktree")
@@ -381,7 +381,7 @@ def test_project_binding_in_job_and_save(
         )
     )
     from aifactory.harness import settings
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
 
     settings.write(
@@ -393,7 +393,7 @@ def test_project_binding_in_job_and_save(
                 "pi": {"enabled": False},
             },
         },
-        haifa_home(),
+        giro_home(),
     )
     RepositorySettings(repo).update({"harness": "codex"})
     seen: list[dict[str, Any]] = []

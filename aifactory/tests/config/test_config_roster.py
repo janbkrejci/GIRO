@@ -120,11 +120,11 @@ def test_explicit_override_and_atomic_failure(
     def fail(source: str, destination: Path) -> None:
         raise OSError("cannot replace")
 
-    monkeypatch.setattr("aifactory.config.roster.os.replace", fail)
+    monkeypatch.setattr("aifactory.oscompat.os.replace", fail)
     with pytest.raises(ConfigError):
         roster(repo, change=True, preset="claude")
     assert path.read_bytes() == before
-    assert not list(path.parent.glob(".agents-*.yaml"))
+    assert not list(path.parent.glob(".agents.yaml.*"))
 
 
 def test_flow_yaml_retains_unknown_fields(tmp_path: Path) -> None:

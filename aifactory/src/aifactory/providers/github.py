@@ -1,7 +1,7 @@
 """Provider ``github``: pull requests through the ``gh`` CLI.
 
 Every ``gh`` call goes through ``GhCli.run``. The executable is ``gh`` found on
-``PATH`` (or ``$AIFACTORY_GH``); tests put a fake one first on ``PATH``. Bodies go
+``PATH`` (or ``$GIRO_GH``); tests put a fake one first on ``PATH``. Bodies go
 in on stdin (``--body-file -``). Pushing is plain git, not ``gh``.
 
 GitHub computes mergeability lazily and answers ``UNKNOWN`` until it is done, so
@@ -45,11 +45,12 @@ import os
 import re
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
 from aifactory.config.settings import ProjectSettings
+from aifactory.environment import value
 from aifactory.providers.base import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -119,12 +120,16 @@ class GhError(ProviderError):
         super().__init__("gh_failed", f"gh {' '.join(args[:2])}: {detail}")
 
 
+# Seconds one ``gh`` command may run (as ``AZ_TIMEOUT`` for ``az``).
+GH_TIMEOUT = 120
+
+
 class GhCli:
-    """The one place that runs ``gh``."""
+    """The one place that runs ``gh``; a command running past ``GH_TIMEOUT`` is stopped."""
 
     def __init__(self, cwd: Path, executable: str | None = None) -> None:
         self.cwd = cwd
-        self.executable = executable or os.environ.get("AIFACTORY_GH") or "gh"
+        self.executable = executable or value("GH") or "gh"
 
     def run(self, *args: str, stdin: str | None = None, env: dict[str, str] | None = None) -> str:
         try:
@@ -136,9 +141,14 @@ class GhCli:
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
+                timeout=GH_TIMEOUT,
             )
         except FileNotFoundError as exc:
             raise ProviderError("gh_missing", "gh is not installed or not on PATH") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise ProviderError(
+                "gh_timeout", f"gh {' '.join(args[:2])} exceeded {GH_TIMEOUT}s; retry"
+            ) from exc
         if result.returncode != 0:
             raise GhError(args, result.returncode, result.stderr)
         return result.stdout
@@ -152,6 +162,8 @@ class GhCli:
 
 
 _STATUS_FIELDS = "state,mergeable,headRefOid,mergeCommit,mergedAt"
+# How many of the newest PRs ``statuses`` lists; an older one is asked on its own.
+LIST_LIMIT = 200
 CHECK_LOG_LINES = 150
 """How many trailing lines of a red check's log ``check_logs`` keeps."""
 _JOB_LINK = re.compile(r"/actions/runs/\d+/job/(\d+)")
@@ -253,10 +265,8 @@ class GitHubProvider(GitProvider):
             )
         return None
 
-    def _status_once(self, pr: PullRequest) -> PrStatus:
-        data = self._read("pr", "view", pr.id, "--json", _STATUS_FIELDS)
-        if not isinstance(data, dict):
-            raise ProviderError("gh_failed", "gh pr view: expected a JSON object")
+    @staticmethod
+    def _parse(data: dict[str, Any]) -> PrStatus:
         state = str(data.get("state", "")).upper()
         raw_head = data.get("headRefOid")
         head = raw_head if isinstance(raw_head, str) else None
@@ -275,6 +285,33 @@ class GitHubProvider(GitProvider):
         if mergeable == "CONFLICTING":
             return PrStatus(OPEN, CONFLICT, head_sha=head)
         return PrStatus(OPEN, UNKNOWN, head_sha=head)
+
+    def _status_once(self, pr: PullRequest) -> PrStatus:
+        data = self._read("pr", "view", pr.id, "--json", _STATUS_FIELDS)
+        if not isinstance(data, dict):
+            raise ProviderError("gh_failed", "gh pr view: expected a JSON object")
+        return self._parse(data)
+
+    def statuses(self, prs: Sequence[PullRequest]) -> dict[str, PrStatus | ProviderError]:
+        """One ``gh pr list --state all`` for the repository, paired by PR number.
+
+        A PR outside the newest ``LIST_LIMIT``, or open with ``UNKNOWN`` mergeability, is
+        asked with ``gh pr view`` (``status``); so is every PR when the list fails.
+        """
+        if len(prs) < 2:
+            return super().statuses(prs)
+        listed: dict[str, PrStatus] = {}
+        try:
+            data = self._read(
+                "pr", "list", "--state", "all", "--limit", str(LIST_LIMIT),
+                "--json", f"number,{_STATUS_FIELDS}",
+            )  # fmt: skip
+        except ProviderError:
+            data = []
+        for item in data if isinstance(data, list) else []:
+            if isinstance(item, dict) and isinstance(item.get("number"), int):
+                listed[str(item["number"])] = self._parse(item)
+        return self._with_listed(prs, listed)
 
     def status(self, pr: PullRequest) -> PrStatus:
         """The PR status; an open PR with ``unknown`` mergeability is asked again."""

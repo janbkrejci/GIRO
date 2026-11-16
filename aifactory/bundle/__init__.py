@@ -1,1 +1,1 @@
-"""Distribution bundle of HAIFA (``just bundle``)."""
+"""Distribution bundle of GIRO (``just bundle``)."""

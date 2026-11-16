@@ -25,14 +25,14 @@ def _choose_inventory(page: Page, test_id: str, value: str) -> None:
 
 
 def test_library_seed_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
     monkeypatch.setenv("GIT_CONFIG_KEY_0", "commit.gpgsign")
     monkeypatch.setenv("GIT_CONFIG_VALUE_0", "false")
     script = tmp_path / "fake.json"
     script.write_text(json.dumps({"agents": {}}), encoding="utf-8")
     wire, marker = diagnostic_tripwire(tmp_path)
-    home = tmp_path / "haifa-home"
+    home = tmp_path / "giro-home"
     external: list[str] = []
     dialogs: list[str] = []
     with obs_server(None, script, wire, tmp_path / "obs.log", home) as server:
@@ -120,14 +120,14 @@ def test_library_seed_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_repo_library_hide_restore_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     script = tmp_path / "fake.json"
     script.write_text(json.dumps({"agents": {}}), encoding="utf-8")
     wire, marker = diagnostic_tripwire(tmp_path)
-    home = tmp_path / "haifa-home"
+    home = tmp_path / "giro-home"
     repo = make_f3_repo(tmp_path / "repo")
     workflows = repo / ".factory/workflows"
-    (workflows / "haifa-implement-task.yaml").write_text(
+    (workflows / "giro-implement-task.yaml").write_text(
         "name: repo-only\nsteps: []\n", encoding="utf-8"
     )
     with obs_server(repo, script, wire, tmp_path / "obs.log", home) as server:
@@ -149,7 +149,7 @@ def test_repo_library_hide_restore_browser(tmp_path: Path, monkeypatch: pytest.M
                 page.goto("/#/setup/library")
                 page.locator('[data-test="tab-workflow"]').click()
                 row = page.locator('[data-test="inventory-item"]').filter(
-                    has_text="haifa-implement-task"
+                    has_text="giro-implement-task"
                 )
                 expect(row).to_contain_text("Only in repository")
                 expect(page.locator('[data-test="library-setup"]')).to_be_visible()
@@ -157,7 +157,7 @@ def test_repo_library_hide_restore_browser(tmp_path: Path, monkeypatch: pytest.M
                 _choose_inventory(page, "inventory-source", "repo")
                 row.locator("button").first.click()
                 expect(page.locator('[data-test="inventory-detail"]')).to_contain_text(
-                    "haifa-implement-task.yaml"
+                    "giro-implement-task.yaml"
                 )
                 row.locator('[data-test="inventory-hide"]').click()
                 expect(row).to_have_count(0)
@@ -180,7 +180,7 @@ def test_repo_library_hide_restore_browser(tmp_path: Path, monkeypatch: pytest.M
                 page.locator('[data-test="ignore-restore"]').click()
                 page.locator('[data-test="inventory-ignored"]').uncheck()
                 expect(row).to_have_count(1)
-                assert (workflows / "haifa-implement-task.yaml").exists()
+                assert (workflows / "giro-implement-task.yaml").exists()
                 assert not marker.exists()
             finally:
                 context.close()

@@ -2,7 +2,7 @@
 import { t } from '@/lib/i18n'
 import { factoryDiagnostic, factoryErrorText } from '@/lib/factoryMessages'
 import { computed, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue'
-import { ApiError, applyBasePull, applyFactoryPlan, fetchBasePullPlan, fetchFactoryPlan, fetchOverview, type FactoryAction, type FactoryOptions, type FactoryPlan, type FactoryInitPlan, type FactoryRequest, type FactoryResult, type OverviewRunning } from '@/lib/api'
+import { ApiError, applyBasePull, applyFactoryPlan, fetchBasePullPlan, fetchFactoryPlan, fetchRepoOverview, type FactoryAction, type FactoryOptions, type FactoryPlan, type FactoryInitPlan, type FactoryRequest, type FactoryResult, type OverviewRunning } from '@/lib/api'
 import { installOptions, lastFactoryResult } from '@/lib/factory'
 import { useConfirm } from '@/lib/confirm'
 import { useLive } from '@/lib/live'
@@ -80,10 +80,9 @@ async function refreshRuns() {
   runsFailed.value = false
   cancel()
   try {
-    const overview = await fetchOverview()
+    const repo = await fetchRepoOverview(props.repoId)
     if (mine !== runGeneration || disposed) return
-    const repo = overview.repos.find(r => r.id === props.repoId)
-    if (repo && !['error','timeout','missing','not_git'].includes(repo.state)) {
+    if (!['error','timeout','missing','not_git'].includes(repo.state)) {
       runs.value = repo.running.filter(r => r.process !== 'ended')
       runsKnown.value = true
     } else runsFailed.value = true

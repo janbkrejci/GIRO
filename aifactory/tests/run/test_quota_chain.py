@@ -16,8 +16,9 @@ from run_repo import SPEC, T01, Script, commit_all, fake_env, make_run_repo, ok,
 from aifactory import failure
 from aifactory.backlog import Task, load_backlog
 from aifactory.config import load_run_config
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskRunError, TaskRunStore, run_task
+from aifactory.run import run_task
 from aifactory.run.fallback import SWITCH_KEY, harness_switches
 from aifactory.run.quota_chain import (
     ProjectChain,
@@ -26,7 +27,8 @@ from aifactory.run.quota_chain import (
     project_chain,
     start_harness,
 )
-from aifactory.run.store import FAILED, SUCCEEDED
+from aifactory.runstore.rows import FAILED, SUCCEEDED
+from aifactory.runstore.store import TaskRunStore
 
 AGENTS = (
     "defaults:\n  harness: codex\n  model: gpt-6.1-sol\n{fallback}"

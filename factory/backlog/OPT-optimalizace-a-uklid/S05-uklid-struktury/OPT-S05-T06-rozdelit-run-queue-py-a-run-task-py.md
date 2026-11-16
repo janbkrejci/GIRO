@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T06
 title: Rozdělit run/queue.py a run/task.py
-status: todo
+status: done
 depends_on: [OPT-S05-T05]
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - Testy `tests/run/` a přímých volajících projdou beze změny chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

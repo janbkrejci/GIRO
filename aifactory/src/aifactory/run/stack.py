@@ -22,7 +22,8 @@ from pathlib import Path
 from aifactory.backlog import Backlog, Task, unmet
 from aifactory.providers import OPEN
 from aifactory.providers import git as provider_git
-from aifactory.run.store import TaskPrRow, TaskRunStore
+from aifactory.runstore.rows import TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 
 # a dependency in one of these states cannot be stacked on
 _STACKABLE_REASONS = ("not_done", "incomplete")

@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T05
 title: Rychlý YAML loader všude
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -16,4 +16,4 @@ Hotovo znamená:
 - Test hlídá, že mimo `yamlload.py` nikdo nevolá `yaml.safe_load` ani `yaml.load`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

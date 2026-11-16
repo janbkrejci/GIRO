@@ -36,7 +36,7 @@ from validation import f2_backlog
 from validation.fake import OUTPUT
 from validation.sandbox import TEMPLATE_DIR
 
-REVIEW_RULE_MARKER = "# haifa-validate: revised"
+REVIEW_RULE_MARKER = "# giro-validate: revised"
 CLI_ANCHOR = "    # commands: each command is one `if` below this line\n"
 ALL_EMPTY = "__all__: list[str] = []"
 MATHX = "src/sandbox/mathx.py"

@@ -16,5 +16,5 @@ Respektuj povolené cesty a chráněné soubory. Nálezy tohoto počítače a kn
    Doporučená oprava: delete adws/ in a separate commit once nobody runs sssf in this repo
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-08 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/100 · náklady $0.23

@@ -12,8 +12,8 @@
 - `-n auto` respects PYTEST_XDIST_AUTO_NUM_WORKERS; otherwise starts 1.5x as many
   workers as logical CPUs on POSIX, one per CPU (at most eight) on Windows.
 - Approve and auto-merge read CI checks without waiting for them (`review.ci` limits 0).
-- Every test gets `HAIFA_HOME` pointing at a temporary directory (the dashboard writes
-  the logs of its run processes there) and fails when the real HAIFA home changed. Logs
+- Every test gets `GIRO_HOME` pointing at a temporary directory (the dashboard writes
+  the logs of its run processes there) and fails when the real GIRO home changed. Logs
   of other processes (a dashboard the operator runs meanwhile) are ignored: the launcher
   puts the server's pid into every log name.
 """
@@ -33,7 +33,7 @@ from typing import NoReturn
 import pytest
 
 import repo_templates
-from aifactory import home as haifa_home_module
+from aifactory import home as giro_home_module
 from tiers import BROWSER_FILES, SLOW_FILES
 
 # Keep git from spawning background housekeeping after commits, merges and pushes.
@@ -194,6 +194,14 @@ def _fast_test_env(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _fresh_git_caches() -> None:
+    """Every test starts without the per-process git answers of the previous one."""
+    from aifactory import gitquery
+
+    gitquery.clear_caches()
+
+
+@pytest.fixture(autouse=True)
 def _no_ci_wait(monkeypatch: pytest.MonkeyPatch) -> None:
     """Approve reads a hosting's CI checks as they are (``review.ci``); no test waits 90 s."""
     from aifactory.review import ci
@@ -214,14 +222,13 @@ Snapshot = dict[str, tuple[int, int]]
 
 
 @pytest.fixture(scope="session")
-def _real_haifa_home() -> Path:
-    """The operator's HAIFA home, taken before any test changes the environment."""
-    explicit = os.environ.get("GIRO_HOME") or os.environ.get("HAIFA_HOME")
+def _real_giro_home() -> Path:
+    """The operator's GIRO home, taken before any test changes the environment."""
+    explicit = os.environ.get("GIRO_HOME")
     if explicit:
         return Path(explicit).expanduser()
     base = Path(os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config"))
-    # Do not invoke guarded discovery against the operator's live legacy installation.
-    return base / "haifa"
+    return base / "giro"
 
 
 def _snapshot(root: Path) -> Snapshot:
@@ -247,38 +254,35 @@ def _snapshot(root: Path) -> Snapshot:
 
 
 @pytest.fixture(autouse=True)
-def _haifa_home(
-    _real_haifa_home: Path,
-    _real_haifa_snapshot: Snapshot,
+def _giro_home(
+    _real_giro_home: Path,
+    _real_giro_snapshot: Snapshot,
     tmp_path_factory: pytest.TempPathFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[Path]:
-    home = tmp_path_factory.mktemp("haifa-home")
-    from aifactory.environment import SUFFIXES
+    home = tmp_path_factory.mktemp("giro-home")
+    from aifactory.environment import LEGACY_NAMES, SUFFIXES, canonical
 
-    # Tests must not inherit the factory runner's run ID, sandbox or machine choices.
-    for suffix in SUFFIXES:
-        for prefix in ("GIRO_", "HAIFA_"):
-            monkeypatch.delenv(prefix + suffix, raising=False)
-    monkeypatch.setenv(haifa_home_module.HOME_ENV, str(home))
+    # Tests must not inherit the factory runner's run ID, sandbox or machine choices,
+    # nor a legacy name (it would only print the legacy warning).
+    for name in (*(canonical(suffix) for suffix in SUFFIXES), *LEGACY_NAMES):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(giro_home_module.HOME_ENV, str(home))
     yield home
-    after = _protected_home_snapshots(_real_haifa_home)
-    assert after == _real_haifa_snapshot, f"the real HAIFA home {_real_haifa_home} changed"
+    after = _protected_home_snapshots(_real_giro_home)
+    assert after == _real_giro_snapshot, f"the real GIRO home {_real_giro_home} changed"
 
 
 @pytest.fixture(scope="session")
-def _real_haifa_snapshot(_real_haifa_home: Path) -> Snapshot:
+def _real_giro_snapshot(_real_giro_home: Path) -> Snapshot:
     """One baseline per worker; every test still checks for writes at teardown.
 
     The real home must stay unchanged throughout the session. Scanning it again
     before every test doubles the I/O and would accept a previous test's leak as
     the next test's baseline.
     """
-    return _protected_home_snapshots(_real_haifa_home)
+    return _protected_home_snapshots(_real_giro_home)
 
 
 def _protected_home_snapshots(root: Path) -> Snapshot:
-    paths = {root}
-    if root.name in {"haifa", "giro"}:
-        paths.add(root.with_name("giro" if root.name == "haifa" else "haifa"))
-    return {f"{path}/{key}": item for path in paths for key, item in _snapshot(path).items()}
+    return {f"{root}/{key}": item for key, item in _snapshot(root).items()}

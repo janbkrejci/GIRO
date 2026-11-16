@@ -19,5 +19,5 @@ Důvod: Thread.stored() thinking obsahuje, ale Thread.summary() ani detail() v a
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T73 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-24 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/153 · náklady $0.00

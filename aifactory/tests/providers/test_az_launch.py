@@ -29,7 +29,7 @@ def test_msi_native_child_receives_exact_arguments(
     module = install / "Lib" / "site-packages" / "azure" / "cli" / "__main__.py"
     module.parent.mkdir(parents=True)
     module.touch()
-    monkeypatch.setenv("AIFACTORY_AZ", str(shim))
+    monkeypatch.setenv("GIRO_AZ", str(shim))
     args = (
         "repos",
         "pr",
@@ -95,7 +95,7 @@ def test_explicit_native_executor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, windows: bool
 ) -> None:
     native = str(tmp_path / "fake.exe")
-    monkeypatch.setenv("AIFACTORY_AZ", native)
+    monkeypatch.setenv("GIRO_AZ", native)
     monkeypatch.setattr(azure, "WINDOWS", windows)
     monkeypatch.setattr(shutil, "which", lambda name: name)
     monkeypatch.setattr(subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
@@ -123,7 +123,7 @@ def test_unknown_or_incomplete_shim_never_launches(
         pytest.fail("a shim must not be executed through a shell")
 
     monkeypatch.setattr(subprocess, "run", unexpected)
-    with pytest.raises(ProviderError, match="AIFACTORY_AZ.*native executable"):
+    with pytest.raises(ProviderError, match="GIRO_AZ.*native executable"):
         azure.AzCli(tmp_path).run('{"quote": "value"}')
 
 

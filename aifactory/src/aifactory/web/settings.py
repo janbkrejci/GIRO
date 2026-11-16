@@ -19,8 +19,6 @@ working tree that differs from the ``base`` commit.
 
 from __future__ import annotations
 
-import os
-import tempfile
 import typing
 from pathlib import Path
 from typing import Any
@@ -28,15 +26,12 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from aifactory import gitops
 from aifactory.config import (
     ConfigError,
     ConfigIssue,
     LocalSettings,
     ProjectSettings,
-    change_warnings,
-    config_changes,
-    resolve_commit,
-    worktree_base,
 )
 from aifactory.config.settings import (
     CONFIG_FILE,
@@ -50,7 +45,7 @@ from aifactory.config.settings import (
     validation_issues,
 )
 from aifactory.config.source import LOCAL_FILE, git
-from aifactory.run import gitops
+from aifactory.oscompat import atomic_write
 
 JsonDict = dict[str, Any]
 
@@ -93,20 +88,18 @@ class SettingsError(Exception):
 
 
 def config_status(root: Path) -> tuple[JsonDict | None, list[str]]:
-    """``factory config status`` (D4): shared config not committed to base."""
+    """``factory config status`` (D4): shared config not committed to base.
+
+    ``config.status.config_status`` (the CLI's implementation) on the repository snapshot
+    shared with the overview (``web.repostate``).
+    """
+    from aifactory.web.repostate import snapshot
+
     try:
-        base = worktree_base(root)
-        sha = resolve_commit(root, base)
-        changes = config_changes(root, sha)
+        status = snapshot(root).config_status()
     except ConfigError as exc:
         return None, [f"config status: {exc}"]
-    data: JsonDict = {
-        "base": base,
-        "commit": sha,
-        "clean": not changes,
-        "changes": [c.to_dict() for c in changes],
-    }
-    return data, change_warnings(changes, base, sha)
+    return status.to_json(), status.warnings
 
 
 def _options(name: str) -> list[str]:
@@ -298,16 +291,8 @@ def _protected_files(value: Any, rel: str, issues: list[JsonDict]) -> Any:
 
 
 def _write_atomic(path: Path, data: JsonDict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     text = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, default_flow_style=False)
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
-        os.replace(tmp, path)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
+    atomic_write(path, text)
 
 
 def _git_ok(root: Path, *args: str) -> bool:

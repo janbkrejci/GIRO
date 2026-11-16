@@ -6,7 +6,6 @@ mapped onto the bare remote with ``url.<path>.insteadOf``.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -17,15 +16,9 @@ from library_tree import put, skill_files
 from aifactory.library import remote
 from aifactory.providers.git import redact_url
 from cli_json import run_json
+from gitutil import git
 
 Capsys = pytest.CaptureFixture[str]
-
-
-def _git(cwd: Path, *args: str) -> str:
-    out = subprocess.run(
-        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True, encoding="utf-8"
-    )
-    return out.stdout.strip()
 
 
 class Homes:
@@ -35,18 +28,16 @@ class Homes:
         self.user = tmp / "home"
         self.user.mkdir()
         monkeypatch.setenv("HOME", str(self.user))
-        monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
         monkeypatch.delenv("GIRO_LIBRARY", raising=False)
         for kind in ("AUTHOR", "COMMITTER"):
             monkeypatch.setenv(f"GIT_{kind}_NAME", "Ada Tester")
             monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")
         self.bare = tmp / "remote.git"
-        _git(tmp, "init", "--bare", "--quiet", "-b", "main", str(self.bare))
+        git(tmp, "init", "--bare", "--quiet", "-b", "main", str(self.bare))
 
     def use(self, name: str) -> Path:
-        """Switch both compatible home names to home `name`; its library path."""
+        """Switch GIRO_HOME to home `name`; its library path."""
         home = self.user / name
-        self.mp.setenv("HAIFA_HOME", str(home))
         self.mp.setenv("GIRO_HOME", str(home))
         return home / "library"
 
@@ -86,7 +77,7 @@ def _import(homes: Homes, name: str, text: str = "Run it.") -> list[str]:
 def _snapshot(lib: Path) -> dict[str, bytes]:
     """Refs, HEAD, index and every working-tree file, byte for byte."""
     snap = {
-        "refs": _git(lib, "for-each-ref", "--format=%(refname) %(objectname)").encode(),
+        "refs": git(lib, "for-each-ref", "--format=%(refname) %(objectname)").encode(),
         "HEAD": (lib / ".git" / "HEAD").read_bytes(),
         "index": (lib / ".git" / "index").read_bytes(),
     }
@@ -108,8 +99,8 @@ def _shared(homes: Homes, capsys: Capsys) -> tuple[Path, Path]:
 def test_init_with_remote_pushes_and_clone_joins(homes: Homes, capsys: Capsys) -> None:
     lib_a = homes.use("a")
     data = _ok(capsys, ["library", "init", "--name", "team", "--remote", str(homes.bare), "--json"])
-    assert _git(homes.bare, "rev-parse", "main") == data["commit"]
-    assert _git(lib_a, "remote", "get-url", "origin") == str(homes.bare)
+    assert git(homes.bare, "rev-parse", "main") == data["commit"]
+    assert git(lib_a, "remote", "get-url", "origin") == str(homes.bare)
     status = _ok(capsys, ["library", "status", "--json"])
     assert status["remote"] == str(homes.bare) and status["branch"] == "main"
     assert (status["ahead"], status["behind"]) == (0, 0)
@@ -118,7 +109,7 @@ def test_init_with_remote_pushes_and_clone_joins(homes: Homes, capsys: Capsys) -
     lib_b = homes.use("b")
     cloned = _ok(capsys, ["library", "clone", str(homes.bare), "--branch", "main", "--json"])
     assert cloned["library"] == str(lib_b) and cloned["id"] == status["id"]
-    assert _git(lib_b, "rev-parse", "HEAD") == data["commit"]
+    assert git(lib_b, "rev-parse", "HEAD") == data["commit"]
     assert not list(lib_b.parent.glob(".library-clone-*"))
     assert _fail(capsys, ["library", "clone", str(homes.bare), "--json"])["code"] == (
         "library_exists"
@@ -139,26 +130,26 @@ def merge(homes: Homes, branch: str, *, squash: bool = False) -> str:
     import tempfile
 
     work = Path(tempfile.mkdtemp(prefix="merge-", dir=homes.tmp))
-    _git(homes.tmp, "clone", "--quiet", str(homes.bare), str(work))
+    git(homes.tmp, "clone", "--quiet", str(homes.bare), str(work))
     if squash:
-        _git(work, "merge", "--squash", "--quiet", f"origin/{branch}")
-        _git(work, "commit", "--quiet", "-m", f"squash {branch}")
+        git(work, "merge", "--squash", "--quiet", f"origin/{branch}")
+        git(work, "commit", "--quiet", "-m", f"squash {branch}")
     else:
-        _git(work, "merge", "--no-ff", "--quiet", "-m", f"merge {branch}", f"origin/{branch}")
-    _git(work, "push", "--quiet", "origin", "main")
-    return _git(work, "rev-parse", "HEAD")
+        git(work, "merge", "--no-ff", "--quiet", "-m", f"merge {branch}", f"origin/{branch}")
+    git(work, "push", "--quiet", "origin", "main")
+    return git(work, "rev-parse", "HEAD")
 
 
 def test_write_in_b_behind_a_then_pull(homes: Homes, capsys: Capsys) -> None:
     lib_a, lib_b = _shared(homes, capsys)
-    main = _git(homes.bare, "rev-parse", "main")
+    main = git(homes.bare, "rev-parse", "main")
     homes.use("a")
     first = _ok(capsys, _import(homes, "lint"))
     sent = first["pull_request"]
-    assert sent["branch"].startswith("haifa-library/") and sent["url"] is None
-    assert _git(homes.bare, "rev-parse", "main") == main
-    assert _git(homes.bare, "rev-parse", sent["branch"]) == first["commit"]
-    assert _git(lib_a, "rev-parse", "HEAD") == first["commit"]
+    assert sent["branch"].startswith("giro-library/") and sent["url"] is None
+    assert git(homes.bare, "rev-parse", "main") == main
+    assert git(homes.bare, "rev-parse", sent["branch"]) == first["commit"]
+    assert git(lib_a, "rev-parse", "HEAD") == first["commit"]
     status = _ok(capsys, ["library", "status", "--json"])
     assert status["sync_state"] == "pending" and status["ahead"] == 1
     assert [p["branch"] for p in status["pull_requests"]] == [sent["branch"]]
@@ -180,8 +171,8 @@ def test_write_in_b_behind_a_then_pull(homes: Homes, capsys: Capsys) -> None:
     assert pulled["pulled"] == 2 and pulled["after"] == merged
     second = _ok(capsys, _import(homes, "fmt"))
     assert second["committed"] and second["pull_request"]
-    assert _git(homes.bare, "rev-parse", "main") == merged
-    assert _git(lib_b, "rev-parse", "HEAD") == second["commit"]
+    assert git(homes.bare, "rev-parse", "main") == merged
+    assert git(lib_b, "rev-parse", "HEAD") == second["commit"]
 
     homes.use("a")
     assert _fail(capsys, _import(homes, "docs"))["code"] == "library_behind"
@@ -198,15 +189,15 @@ def test_diverged_pull_and_push_refused(homes: Homes, capsys: Capsys) -> None:
     merge(homes, _ok(capsys, _import(homes, "lint"))["pull_request"]["branch"])
     homes.use("b")
     put(lib_b, "skills/lint/SKILL.md", "a conflicting local skill\n")
-    _git(lib_b, "add", "-A")
-    _git(lib_b, "commit", "--quiet", "-m", "local skill")
-    local = _git(lib_b, "rev-parse", "HEAD")
+    git(lib_b, "add", "-A")
+    git(lib_b, "commit", "--quiet", "-m", "local skill")
+    local = git(lib_b, "rev-parse", "HEAD")
     assert _fail(capsys, ["library", "pull", "--json"])["code"] == "library_diverged"
     assert not (lib_b / ".git" / "rebase-merge").exists()
     assert _fail(capsys, ["library", "push", "--json"])["code"] == "library_diverged"
     assert _fail(capsys, _import(homes, "fmt"))["code"] == "library_diverged"
-    assert _git(lib_b, "rev-parse", "HEAD") == local
-    assert _git(lib_b, "status", "--porcelain") == ""
+    assert git(lib_b, "rev-parse", "HEAD") == local
+    assert git(lib_b, "status", "--porcelain") == ""
 
 
 def test_pull_rebases_local_commits_onto_a_squash_merge(homes: Homes, capsys: Capsys) -> None:
@@ -216,12 +207,12 @@ def test_pull_rebases_local_commits_onto_a_squash_merge(homes: Homes, capsys: Ca
     second = _ok(capsys, _import(homes, "fmt"))
     assert first["pull_request"]["branch"] != second["pull_request"]["branch"]
     # each pull request holds only its own change
-    tree = _git(homes.bare, "ls-tree", "-r", "--name-only", second["pull_request"]["branch"])
+    tree = git(homes.bare, "ls-tree", "-r", "--name-only", second["pull_request"]["branch"])
     assert "skills/fmt/SKILL.md" in tree and "skills/lint/SKILL.md" not in tree
     squashed = merge(homes, first["pull_request"]["branch"], squash=True)
     pulled = _ok(capsys, ["library", "pull", "--json"])
     assert pulled["local"] == 1
-    assert _git(lib_b, "rev-parse", "HEAD~1") == squashed
+    assert git(lib_b, "rev-parse", "HEAD~1") == squashed
     status = _ok(capsys, ["library", "status", "--json"])
     assert status["sync_state"] == "pending"
     assert [p["branch"] for p in status["pull_requests"]] == [second["pull_request"]["branch"]]
@@ -229,22 +220,22 @@ def test_pull_rebases_local_commits_onto_a_squash_merge(homes: Homes, capsys: Ca
 
 def test_pull_refuses_dirty_and_push_sends_local_commits(homes: Homes, capsys: Capsys) -> None:
     _lib_a, lib_b = _shared(homes, capsys)
-    main = _git(homes.bare, "rev-parse", "main")
+    main = git(homes.bare, "rev-parse", "main")
     homes.use("b")
     put(lib_b, "notes.md", "local\n")
     assert _fail(capsys, ["library", "pull", "--json"])["code"] == "library_dirty"
     status = _ok(capsys, ["library", "status", "--json"])
     assert status["dirty"] and status["uncommitted"] == ["?? notes.md"]
     assert status["sync_state"] == "local"
-    _git(lib_b, "add", "notes.md")
-    _git(lib_b, "commit", "--quiet", "-m", "local note")
+    git(lib_b, "add", "notes.md")
+    git(lib_b, "commit", "--quiet", "-m", "local note")
     status = _ok(capsys, ["library", "status", "--json"])
     assert status["ahead"] == 1 and status["unsent"] == 1 and status["sync_state"] == "local"
     pushed = _ok(capsys, ["library", "push", "--json"])
     assert pushed["pushed"] == 1
     branch = pushed["pull_request"]["branch"]
-    assert _git(homes.bare, "rev-parse", branch) == _git(lib_b, "rev-parse", "HEAD")
-    assert _git(homes.bare, "rev-parse", "main") == main
+    assert git(homes.bare, "rev-parse", branch) == git(lib_b, "rev-parse", "HEAD")
+    assert git(homes.bare, "rev-parse", "main") == main
     again = _ok(capsys, ["library", "push", "--json"])
     assert again["pushed"] == 0 and again["pull_request"] is None
     assert _ok(capsys, ["library", "status", "--json"])["sync_state"] == "pending"
@@ -256,18 +247,18 @@ def test_rejected_push_changes_nothing(homes: Homes, capsys: Capsys) -> None:
     lib_a, _lib_b = _shared(homes, capsys)
     hook = homes.bare / "hooks" / "pre-receive"
     hook.parent.mkdir(exist_ok=True)
-    _git(homes.bare, "config", "core.hooksPath", str(hook.parent))
+    git(homes.bare, "config", "core.hooksPath", str(hook.parent))
     hook.write_text(
         "#!/bin/sh\necho rejected by policy >&2\nexit 1\n", encoding="utf-8", newline="\n"
     )
     hook.chmod(0o755)
     homes.use("a")
-    remote_before = _git(homes.bare, "rev-parse", "main")
+    remote_before = git(homes.bare, "rev-parse", "main")
     before = _snapshot(lib_a)
     error = _fail(capsys, _import(homes, "lint"))
     assert error["code"] == "push_failed"
     assert _snapshot(lib_a) == before
-    assert _git(homes.bare, "rev-parse", "main") == remote_before
+    assert git(homes.bare, "rev-parse", "main") == remote_before
 
 
 def test_url_with_password_is_stored_and_shown_without_it(
@@ -281,7 +272,7 @@ def test_url_with_password_is_stored_and_shown_without_it(
         monkeypatch.setenv(f"GIT_CONFIG_VALUE_{n}", url)
     lib_a = homes.use("a")
     _ok(capsys, ["library", "init", "--remote", secret, "--json"])
-    assert _git(lib_a, "config", "--get", "remote.origin.url") == plain
+    assert git(lib_a, "config", "--get", "remote.origin.url") == plain
     assert "s3cret" not in (lib_a / ".git" / "config").read_text()
     assert _ok(capsys, ["library", "status", "--json"])["remote"] == plain
 
@@ -299,11 +290,11 @@ def test_clone_validates_library_yaml(homes: Homes, capsys: Capsys) -> None:
         "invalid_library"
     )
     work = homes.tmp / "work"
-    _git(homes.tmp, "init", "--quiet", "-b", "main", str(work))
+    git(homes.tmp, "init", "--quiet", "-b", "main", str(work))
     put(work, "library.yaml", yaml.safe_dump({"format": 1, "name": "x"}))
-    _git(work, "add", ".")
-    _git(work, "commit", "--quiet", "-m", "no id")
-    _git(work, "push", "--quiet", str(homes.bare), "main")
+    git(work, "add", ".")
+    git(work, "commit", "--quiet", "-m", "no id")
+    git(work, "push", "--quiet", str(homes.bare), "main")
     assert _fail(capsys, ["library", "clone", str(homes.bare), "--json"])["code"] == (
         "invalid_library"
     )

@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T05
 title: Rozdělit run/store.py
-status: todo
+status: done
 depends_on: [OPT-S05-T03]
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - Schéma databáze se nemění a existující `trace.db` se otevře bez migrace.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

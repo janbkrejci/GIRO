@@ -14,9 +14,12 @@ from run_repo import commit_all, git, make_run_repo, write
 from test_parallel_chain import CORE, STEP, T01, T02, T03, T04, _db, _pr, no_files, setup_tasks
 
 from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
-from aifactory.run import TaskRunError, TaskRunRow, TaskRunStore, start_factory
-from aifactory.run.queue import _start_with_lock_retry
+from aifactory.run import start_factory
+from aifactory.run.chain import _start_with_lock_retry
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.fixture(name="repo")
@@ -311,7 +314,7 @@ def test_lock_retry_rechecks_policy_only_for_automatic_starts(
             raise TaskRunError("trace_db_locked", "held by another process")
         return "claimed"
 
-    monkeypatch.setattr("aifactory.run.queue.time.sleep", lambda _: None)
+    monkeypatch.setattr("aifactory.run.chain.time.sleep", lambda _: None)
     if automatic:
         # Omitting the origin must keep the automatic barrier enabled by default.
         with pytest.raises(TaskRunError) as caught:
@@ -322,3 +325,23 @@ def test_lock_retry_rechecks_policy_only_for_automatic_starts(
         assert _start_with_lock_retry(start, repo=repo, automatic=False) == "claimed"
         assert calls == ["start", "start"]
     assert settings.read().auto_continue is False
+
+
+def test_one_selection_loads_the_run_config_once(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from aifactory.config import loader
+
+    setup_tasks(repo, [(T01, "src/a/"), (T02, "src/b/"), (T03, "src/c/")])
+    real = loader.load_config
+    loads: list[object] = []
+
+    def counting(*args: object, **kwargs: object) -> object:
+        loads.append(args[0])
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr("aifactory.config.run.load_config", counting)
+    start = FakeStart(repo)
+    start_factory(repo, start, max_parallel=3, pr_files=no_files)
+    assert start.calls == [T01, T02, T03]
+    assert len(loads) == 1

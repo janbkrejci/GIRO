@@ -3,7 +3,7 @@
 Writes ``.factory/config.yaml``, the backlog directory and the runtime lines of
 ``.gitignore``. Agents, workflows, skills and extensions are not copied: a run inherits
 them from the library (``aifactory.library.inherit``). Nothing is committed and nothing is
-written to the library or ``$HAIFA_HOME``.
+written to the library or ``$GIRO_HOME``.
 
 A repo whose ``config.yaml`` is committed (HEAD or base) is installed
 (``already_installed``); a repo with an sssf installation is refused (``existing_config``).
@@ -16,7 +16,6 @@ into base with one commit.
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,6 +24,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import ValidationError
 
+from aifactory import gitquery
 from aifactory.config.settings import CONFIG_FILE, ProjectSettings
 from aifactory.library.store import LibraryStoreError
 from aifactory.providers import git
@@ -83,22 +83,16 @@ def _git_out(root: Path, *args: str) -> str | None:
 def _repo_root(path: Path) -> Path:
     if not path.is_dir():
         raise LibraryStoreError("not_a_repository", f"{path} is not a git repository")
-    proc = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        cwd=path,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    if proc.returncode != 0 or not proc.stdout.strip():
+    top = gitquery.toplevel(path)
+    if top is None:
         raise LibraryStoreError("not_a_repository", f"{path} is not a git repository")
-    return Path(proc.stdout.strip()).resolve()
+    return top
 
 
 def _committed(root: Path, ref: str, rel: str) -> bool:
     if git.rev_parse(root, ref) is None:
         return False
-    return git.run_bytes(root, ["cat-file", "-e", f"{ref}:{rel}"], env=_READ_ENV).returncode == 0
+    return gitquery.exists(root, [f"{ref}:{rel}"])[f"{ref}:{rel}"]
 
 
 def _refuse(root: Path, base: str) -> None:

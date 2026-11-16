@@ -1,4 +1,4 @@
-"""Distribution: version in one place, wheel contents and the ``$HAIFA_HOME/env`` file."""
+"""Distribution: version in one place, wheel contents and the ``$GIRO_HOME/env`` file."""
 
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def _write_env(home: Path, text: str, mode: int = 0o600) -> Path:
 def test_env_file_loads_without_override(tmp_path: Path) -> None:
     home = tmp_path / "home"
     _write_env(home, '# comment\nNEW_KEY=new\nKEPT=from-file\nexport QUOTED="a b"\n')
-    environ = {"HAIFA_HOME": str(home), "KEPT": "from-env"}
+    environ = {"GIRO_HOME": str(home), "KEPT": "from-env"}
     err = io.StringIO()
     loaded = load_env_file(environ, stderr=err)
     assert sorted(loaded) == ["NEW_KEY", "QUOTED"]
@@ -112,10 +112,10 @@ def test_env_file_loads_without_override(tmp_path: Path) -> None:
 
 
 def test_env_file_missing_is_noop(tmp_path: Path) -> None:
-    environ = {"HAIFA_HOME": str(tmp_path / "none")}
+    environ = {"GIRO_HOME": str(tmp_path / "none")}
     err = io.StringIO()
     assert load_env_file(environ, stderr=err) == []
-    assert environ == {"HAIFA_HOME": str(tmp_path / "none")}
+    assert environ == {"GIRO_HOME": str(tmp_path / "none")}
     assert err.getvalue() == ""
 
 
@@ -123,7 +123,7 @@ def test_env_file_missing_is_noop(tmp_path: Path) -> None:
 def test_env_file_wrong_mode_warns_and_loads(tmp_path: Path) -> None:
     home = tmp_path / "home"
     _write_env(home, "OPEN_KEY=1\n", mode=0o644)
-    environ = {"HAIFA_HOME": str(home)}
+    environ = {"GIRO_HOME": str(home)}
     err = io.StringIO()
     assert load_env_file(environ, stderr=err) == ["OPEN_KEY"]
     assert environ["OPEN_KEY"] == "1"
@@ -133,8 +133,8 @@ def test_env_file_wrong_mode_warns_and_loads(tmp_path: Path) -> None:
 
 def test_factory_loads_env_file(tmp_path: Path) -> None:
     home = tmp_path / "home"
-    _write_env(home, "HAIFA_TEST_FROM_FILE=yes\nHAIFA_TEST_KEPT=file\n", mode=0o640)
-    env = {**os.environ, "HAIFA_HOME": str(home), "HAIFA_TEST_KEPT": "env"}
+    _write_env(home, "OPEN_TEST_FROM_FILE=yes\nOPEN_TEST_KEPT=file\n", mode=0o640)
+    env = {**os.environ, "GIRO_HOME": str(home), "OPEN_TEST_KEPT": "env"}
     code = (
         "import os, sys\n"
         "from aifactory.cli import main\n"
@@ -142,7 +142,7 @@ def test_factory_loads_env_file(tmp_path: Path) -> None:
         "    main(['--skill'])\n"
         "except SystemExit:\n"
         "    pass\n"
-        "print(os.environ['HAIFA_TEST_FROM_FILE'], os.environ['HAIFA_TEST_KEPT'])\n"
+        "print(os.environ['OPEN_TEST_FROM_FILE'], os.environ['OPEN_TEST_KEPT'])\n"
     )
     proc = subprocess.run(
         [sys.executable, "-c", code],

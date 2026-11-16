@@ -13,11 +13,12 @@ from run_repo import T01, T02, commit_all, make_run_repo
 from test_followups import TODO_STEP, follow_up, task_of, workflow_run
 
 from aifactory.backlog import Backlog, Container, check_backlog, edit_task, link_task, load_backlog
-from aifactory.run import TaskRunStore, triage
+from aifactory.run import triage
 from aifactory.run.followups import FollowUpOutcome, Reported
-from aifactory.run.store import TaskRunRow
 from aifactory.run.task import _record_follow_ups
 from aifactory.run.triage import Decision
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import WorkflowRun
 
 TARGET = "M01-S01-T03"

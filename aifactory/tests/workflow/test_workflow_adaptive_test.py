@@ -298,7 +298,7 @@ def test_checks_runnable_finds_programs_on_path_and_in_the_worktree(tmp_path: Pa
             checks=[
                 {"name": "on_path", "argv": [sys.executable]},
                 {"name": "local", "argv": ["./scripts/check.sh"]},
-                {"name": "unknown", "argv": ["no-such-program-haifa"]},
+                {"name": "unknown", "argv": ["no-such-program-giro"]},
                 {"name": "missing", "argv": ["scripts/missing.sh"]},
             ],
         )

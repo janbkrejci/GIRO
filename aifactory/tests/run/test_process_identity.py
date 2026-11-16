@@ -12,7 +12,8 @@ import pytest
 
 from aifactory import oscompat
 from aifactory.engine.tracer import Tracer
-from aifactory.run.store import FAILED, TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import FAILED, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 
 def row() -> TaskRunRow:

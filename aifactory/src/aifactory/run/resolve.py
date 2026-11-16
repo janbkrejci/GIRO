@@ -21,17 +21,15 @@ fails, ``restore`` puts the branch back exactly where it was before the rebase.
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aifactory import failure
+from aifactory import failure, gitops, gitrun
 from aifactory.backlog import Task
 from aifactory.backlog.derived import ancestors
-from aifactory.run import gitops
-from aifactory.run.guard import TaskWriteGuard
-from aifactory.run.scope import TaskScope
+from aifactory.guard import TaskWriteGuard
+from aifactory.scope import TaskScope
 from aifactory.workflow import (
     Generated,
     WorkflowRun,
@@ -40,14 +38,6 @@ from aifactory.workflow import (
     unmerged_files,
 )
 from aifactory.workflow.rebuild import to_rebuild
-
-RESOLVE_WORKFLOW = "resolve"
-RESOLVE_REVIEWED_WORKFLOW = "resolve-reviewed"
-"""``resolve`` plus a review of a resolution the agent wrote; auto-merge resolves with it."""
-CI_FIX_WORKFLOW = "ci-fix"
-"""Repairs a PR whose CI checks went red, on the PR's branch (``review.ci``)."""
-# internal workflows: packaged, available also when neither the repo nor the library has them
-INTERNAL_WORKFLOWS = frozenset({RESOLVE_WORKFLOW, RESOLVE_REVIEWED_WORKFLOW, CI_FIX_WORKFLOW})
 
 
 @dataclass(frozen=True)
@@ -275,9 +265,7 @@ def finish_resolve(worktree: Path, wf: WorkflowRun, task_id: str, spec: ResolveS
 def restore(worktree: Path, before: str) -> None:
     """Put the worktree's branch back on `before` with a clean tree; raise if it is not."""
     for args in (("rebase", "--abort"), ("merge", "--abort")):
-        subprocess.run(
-            ["git", *args], cwd=worktree, capture_output=True, text=True, encoding="utf-8"
-        )
+        gitrun.run(worktree, *args)
     gitops.git(worktree, "reset", "--hard", "-q", before)
     gitops.git(worktree, "clean", "-fdq")
     now = gitops.head(worktree)

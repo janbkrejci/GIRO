@@ -11,16 +11,17 @@ from pathlib import Path
 
 import pytest
 from run_repo import T01, Script, fake_env, git, make_run_repo, ok, write
-from starlette.testclient import TestClient
 
 from aifactory import failure
 from aifactory.backlog import find_task, load_for_edit
-from aifactory.run import TaskRunError, TaskRunStore, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import run_task
 from aifactory.run.allow_writes import allow_writes, plan_allow_writes, violation_paths
-from aifactory.run.scope import effective_task_writes
-from aifactory.run.store import FAILED, SUCCEEDED
-from aifactory.web import create_app
+from aifactory.runstore.rows import FAILED, SUCCEEDED
+from aifactory.runstore.store import TaskRunStore
+from aifactory.scope import effective_task_writes
 from cli_json import run_json
+from single_repo import RepoClient, repo_app
 
 Capsys = pytest.CaptureFixture[str]
 TASK_FILE = "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
@@ -166,8 +167,8 @@ class _Launcher:
 def test_dashboard_plan_and_action(repo: Path, script: Script, tmp_path: Path) -> None:
     run_id = _failed_run(repo, script, "README.md", ".factory/x.md")
     launcher = _Launcher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
 
     response = client.get(f"/api/runs/{run_id}/allow-writes")
     assert response.status_code == 200, response.json()
@@ -244,7 +245,7 @@ def test_retry_refuses_writes_missing_from_base(
     run_id = _failed_run(repo, script, "README.md", "docs/extra.md")
     calls = len(script.calls)
 
-    def incomplete_commit(root: Path, message: str) -> BacklogCommit:
+    def incomplete_commit(root: Path, message: str, **_: object) -> BacklogCommit:
         if result_kind == "partial":
             edit_task(root, T01, writes=["src/app/", "README.md"])
             return commit_backlog(root, message)
@@ -293,7 +294,7 @@ def test_all_commit_results_verify_effective_writes_in_base(
     module = import_module("aifactory.run.allow_writes")
     _failed_run(repo, script, "docs/extra.md")
 
-    def commit_inherited_writes(root: Path, message: str) -> BacklogCommit:
+    def commit_inherited_writes(root: Path, message: str, **_: object) -> BacklogCommit:
         # The path is covered through an inherited directory, not an own literal path.
         edit_container(root, "M01-S01", values={"writes": ["src/app/", "docs/"]})
         edit_task(root, T01, clear_writes=True)
@@ -387,7 +388,7 @@ def test_failed_allow_writes_restores_file_and_index(
         original_edit(root, task_id, writes=writes)
         raise RuntimeError("edit failed")
 
-    def fail_commit(root: Path, message: str) -> None:
+    def fail_commit(root: Path, message: str, **_: object) -> None:
         git(root, "add", TASK_FILE)
         raise RuntimeError("commit failed")
 
@@ -428,3 +429,24 @@ def test_behind_base_with_dirty_checkout_fails_before_edit(
     assert (repo / TASK_FILE).read_bytes() == before
     assert git(repo, "rev-parse", "HEAD") == head
     assert git(repo, "status", "--porcelain") == status
+
+
+def test_allow_writes_loads_the_run_config_once(
+    repo: Path, script: Script, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from aifactory.config import loader
+
+    _failed_run(repo, script, "docs/extra.md")
+    real = loader.load_config
+    loads: list[object] = []
+
+    def counting(*args: object, **kwargs: object) -> object:
+        loads.append(args[0])
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr("aifactory.config.run.load_config", counting)
+    plan_allow_writes(repo, T01)
+    assert len(loads) == 1
+    loads.clear()
+    allow_writes(repo, T01)
+    assert len(loads) == 1

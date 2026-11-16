@@ -50,15 +50,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aifactory.backlog import TaskEditError
 from aifactory.config import load_local, load_run_config
+from aifactory.config.runtime import apply_agents_override, main_ignored, prepare_cfg
 from aifactory.engine import agents
 from aifactory.engine.data_types import AgentCall, EnvelopeBase, PhaseParams
 from aifactory.engine.runner import Run
 from aifactory.engine.tracer import Tracer
 from aifactory.failure import AgentReportedFail, InvalidOutput
+from aifactory.guard import TaskWriteGuard
 from aifactory.harness import canonical, install
 from aifactory.harness.check import check_harness
 from aifactory.harness.settings import effective_override
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.learn.collect import Objection, collect
 from aifactory.learn.store import (
     ACCEPTED,
@@ -68,9 +70,8 @@ from aifactory.learn.store import (
     lesson_id,
     normalize,
 )
-from aifactory.run.guard import TaskWriteGuard
-from aifactory.run.scope import TaskScope
-from aifactory.run.task import _main_ignored, apply_agents_override, prepare_cfg
+from aifactory.registry import Registry, same_repo
+from aifactory.scope import TaskScope
 from aifactory.workflow.propose import _isolated
 
 install()
@@ -141,9 +142,8 @@ def trace_db(repo: Path) -> Path:
 
 def _own_id(repo: Path) -> str:
     """The registry id of ``repo``, '' when the dashboard does not know it."""
-    from aifactory.web.registry import Registry, same_repo  # aifactory.web imports this module
 
-    state, _warnings = Registry(haifa_home()).snapshot()
+    state, _warnings = Registry(giro_home()).snapshot()
     return next((e.id for e in state.repos if same_repo(e.path, repo)), "")
 
 
@@ -304,7 +304,6 @@ def _ask_learner(
             run.repo_root = isolated
             run.agent_environment = {
                 "GIRO_RUN_ID": job_id,
-                "HAIFA_RUN_ID": job_id,
                 "CLAUDE_SAFE_MODE": "1",
                 "CODEX_SAFE_MODE": "1",
                 "PI_SAFE_MODE": "1",
@@ -313,7 +312,7 @@ def _ask_learner(
                 repo,
                 isolated,
                 TaskScope(job_id, (), ()),
-                (*_main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
+                (*main_ignored(repo, rc.config.settings.worktrees_dir, cfg), ".factory/data/"),
             )
             try:
                 with run.phase(

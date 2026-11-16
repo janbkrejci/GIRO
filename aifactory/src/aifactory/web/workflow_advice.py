@@ -17,14 +17,13 @@ from pathlib import Path
 from typing import Any
 
 from aifactory import backlog as core
-from aifactory import oscompat
+from aifactory import gitops, mainwrites, oscompat
 from aifactory.config import load_run_config
 from aifactory.errors import UsageError
 from aifactory.harness import HARNESSES, canonical
 from aifactory.harness import settings as harness_settings
-from aifactory.home import haifa_home
-from aifactory.run import gitops, mainwrites
-from aifactory.web.backlog import ensure_task_not_running
+from aifactory.home import giro_home
+from aifactory.web.backlog import _runtime, board_state, ensure_task_not_running
 from aifactory.workflow.adaptive import (
     WorkflowRecommendationOutput,
     context,
@@ -35,6 +34,16 @@ from aifactory.workflow.adaptive import (
 from aifactory.workflow.task_advice import TaskRecommendationOutput, validate_task
 
 Runner = Callable[[Path, dict[str, Any], str, threading.Event], dict[str, Any]]
+
+
+def task_state(repo: Path) -> Callable[[core.Backlog, core.Task], str]:
+    """The board state of a task of ``repo``, for ``adaptive.context``."""
+
+    def state(backlog: core.Backlog, task: core.Task) -> str:
+        rt, _ = _runtime(repo)
+        return board_state(backlog, task, rt)
+
+    return state
 
 
 class Cancellation(threading.Event):
@@ -104,7 +113,7 @@ def repo_lock(repo: Path) -> Iterator[None]:
     common = gitops.common_dir(repo)
     if common is None:
         raise UsageError("repository has no git common directory")
-    path = common / "haifa/workflow-advice.lock"
+    path = common / "giro/workflow-advice.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     try:
@@ -214,7 +223,7 @@ class AdviceManager:
         }
 
     def options(self, repo: Path) -> dict[str, Any]:
-        data = harness_settings.catalog(haifa_home())
+        data = harness_settings.catalog(giro_home())
         configured = data["settings"]["harnesses"]
         harnesses = [
             {
@@ -249,7 +258,13 @@ class AdviceManager:
         repo = repo.resolve()
         if task_id is not None:
             ensure_task_not_running(repo, task_id)
-        ctx = context(repo, task_id, body["draft"], task_parameters=self.task_parameters)
+        ctx = context(
+            repo,
+            task_id,
+            body["draft"],
+            task_parameters=self.task_parameters,
+            task_state=task_state(repo),
+        )
         explicit: dict[str, str] = {}
         if self.task_parameters:
             harness = body.get("harness")
@@ -420,7 +435,7 @@ class AdviceManager:
                 return dict(data), list(warnings)
             original = job.context["draft"]
             if task_id:
-                current = context(repo, task_id, {})["draft"]
+                current = context(repo, task_id, {}, task_state=task_state(repo))["draft"]
                 draft = {
                     **original,
                     "title": clean.get("title", current["title"]),
@@ -443,7 +458,7 @@ class AdviceManager:
                 }
             if "parameters" in clean:
                 draft["parameters"] = clean["parameters"]
-            ctx = context(repo, task_id, draft)
+            ctx = context(repo, task_id, draft, task_state=task_state(repo))
             if fingerprint(ctx) != job.fingerprint:
                 raise UsageError("task or context changed; request workflow advice again")
             value = WorkflowRecommendationOutput.model_validate(

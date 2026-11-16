@@ -17,6 +17,7 @@ import pytest
 
 from aifactory.backlog import Task, load_backlog
 from aifactory.config import load_run_config
+from aifactory.errors import TaskRunError
 from aifactory.providers import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -32,10 +33,10 @@ from aifactory.providers import git as pgit
 from aifactory.providers.local import LocalProvider
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import ReviewError, approve_task, ci, try_auto_merge
-from aifactory.run import TaskPrRow, TaskRunRow, TaskRunStore, run_task
-from aifactory.run.errors import TaskRunError
-from aifactory.run.store import MERGED_BY_AUTO, MERGED_BY_OPERATOR
+from aifactory.run import run_task
 from aifactory.run.task import TaskRunResult
+from aifactory.runstore.rows import MERGED_BY_AUTO, MERGED_BY_OPERATOR, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 
@@ -398,7 +399,7 @@ def test_ci_fix_that_needs_writes_keeps_the_pr_open_then_approve_allows_them(
 def test_cli_approve_allow_writes_allows_the_paths_and_merges(
     repo: Path, script: Script, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from aifactory.review import flow
+    from aifactory.review import context
     from cli_json import run_json
 
     first = first_run(repo, script)
@@ -416,7 +417,7 @@ def test_cli_approve_allow_writes_allows_the_paths_and_merges(
 
     # the CLI reads the provider from the configuration: the same scripted checks
     provider.script = [RED, GREEN]
-    monkeypatch.setattr(flow, "get_provider", lambda settings, main: provider)
+    monkeypatch.setattr(context, "get_provider", lambda settings, main: provider)
     script.on("planner", lambda wt: write(wt, "README.md", "FIXED\n"))
     script.add("planner", ok(artifacts=[], changed_files=["README.md"], commit_message="Fix CI"))
     capsys.readouterr()
@@ -542,7 +543,7 @@ def test_run_task_with_a_workflow_needs_the_branch(repo: Path) -> None:
 def test_review_failure_clears_manual_approval(
     repo: Path, script: Script, monkeypatch: pytest.MonkeyPatch, stage: str, code: str
 ) -> None:
-    from aifactory.review import flow
+    from aifactory.review import approve
 
     first_run(repo, script)
 
@@ -550,7 +551,7 @@ def test_review_failure_clears_manual_approval(
         assert pr(repo).approved_at is not None
         raise ReviewError(code, "stopped before merge")
 
-    monkeypatch.setattr(flow, stage, fail)
+    monkeypatch.setattr(approve, stage, fail)
     with pytest.raises(ReviewError, match=code):
         approve_task(repo, T01, provider=CiProvider(repo, [GREEN]))
     row = pr(repo)

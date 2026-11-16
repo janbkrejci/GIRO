@@ -24,5 +24,5 @@ Hotovo znamená:
 - Stávající testy pr_refresh, factory_start a auto_continue procházejí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-01 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/191 · náklady $0.00

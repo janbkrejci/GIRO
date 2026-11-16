@@ -28,5 +28,5 @@ Dva souběžné nebo po sobě jdoucí běhy založí navazující úlohu (follow
 - Testy pokrývají souběžné založení a běh ze zastaralé base.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-26 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/173 · náklady $0.00

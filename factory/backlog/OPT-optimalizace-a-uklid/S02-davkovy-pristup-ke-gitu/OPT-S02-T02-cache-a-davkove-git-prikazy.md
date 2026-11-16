@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T02
 title: Cache a dávkové git příkazy
-status: todo
+status: done
 depends_on: [OPT-S02-T01]
 ---
 
@@ -25,4 +25,4 @@ Hotovo znamená:
 - PR uvádí počet procesů gitu v `test_merges_a_reviewed_run` a v jednom testu `web/test_web_factory.py` před a po.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

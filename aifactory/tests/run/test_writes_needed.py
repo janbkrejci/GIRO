@@ -8,16 +8,17 @@ from typing import Any
 
 import pytest
 from run_repo import T01, Script, fake_env, git, make_run_repo, write
-from starlette.testclient import TestClient
 
 from aifactory import failure
 from aifactory.backlog import find_task, load_for_edit
-from aifactory.run import TaskRunError, TaskRunStore, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import run_task
 from aifactory.run.allow_writes import plan_allow_writes
 from aifactory.run.retry import retry_run
-from aifactory.run.store import FAILED, SUCCEEDED
-from aifactory.web import create_app
+from aifactory.runstore.rows import FAILED, SUCCEEDED
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json
+from single_repo import RepoClient, repo_app
 
 Capsys = pytest.CaptureFixture[str]
 TASK_FILE = "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
@@ -178,8 +179,8 @@ class _Launcher:
 def test_dashboard_allows_writes_needed(repo: Path, script: Script, tmp_path: Path) -> None:
     run_id = _failed(repo, script, "README.md")
     launcher = _Launcher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
 
     plan = client.get(f"/api/runs/{run_id}/allow-writes")
     assert plan.status_code == 200, plan.json()
@@ -214,8 +215,8 @@ def test_dashboard_allow_writes_of_a_ci_fix_run_starts_the_approve(
     finally:
         store.close()
     launcher = _Launcher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
 
     plan = client.get(f"/api/runs/{run_id}/allow-writes")
     assert plan.status_code == 200, plan.json()

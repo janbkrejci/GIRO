@@ -14,10 +14,8 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from aifactory.engine import data_types as dt
-from aifactory.harness import canonical, load
+from aifactory.harness import THINKING_LEVELS, canonical, load
 from aifactory.harness.config import HarnessConfigError
-
-THINKING_LEVELS = ("off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
 
 AgentT = TypeVar("AgentT", bound=dt.AgentConfig)
 

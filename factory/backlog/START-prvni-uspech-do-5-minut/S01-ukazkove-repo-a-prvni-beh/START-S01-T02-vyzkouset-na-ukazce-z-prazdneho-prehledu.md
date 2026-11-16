@@ -18,5 +18,5 @@ Hotovo znamená:
 - `just web-test`, `just web-build`, dotčené testy podle AGENTS.md.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-17 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/85 · náklady $6.16

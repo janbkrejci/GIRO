@@ -22,6 +22,6 @@ Kandidáti testů: backlog/test_backlog_auto_continue.py, test_backlog_auto_merg
 
 ## Běhy
 
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-09 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/210 · náklady $0.00
 

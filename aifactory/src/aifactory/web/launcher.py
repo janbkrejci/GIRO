@@ -6,7 +6,7 @@ CI checks), and ``start_publish`` (Publikovat with auto-merge) start
 ``<prefix> task run|return|resolve|retry|approve|publish ID --repo ROOT --json`` with
 ``start_new_session``, stdin closed, the repository root as cwd and the server's
 environment. The process's stdout (its JSON envelope) and stderr (its narration) go to two
-new files with mode 0600 in ``logs/`` of the HAIFA home (``aifactory.home``), never into
+new files with mode 0600 in ``logs/`` of the GIRO home (``aifactory.home``), never into
 the repository; their names carry the server's pid.
 
 The caller (off the event loop, in a thread pool) waits until the run is claimed in
@@ -46,11 +46,11 @@ from typing import Protocol
 
 from aifactory import home, oscompat
 from aifactory.config import ConfigError
+from aifactory.errors import TaskRunError
 from aifactory.run import members
-from aifactory.run.errors import TaskRunError
 from aifactory.run.members import DEFAULT_COMMAND, command_prefix, set_command_prefix
-from aifactory.run.store import TaskRunRow
-from aifactory.run.task import existing_store
+from aifactory.runstore.read import existing_store
+from aifactory.runstore.rows import TaskRunRow
 
 _POLL = 0.05
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from aifactory.engine.tracer import Tracer
-from aifactory.run.store import TaskRunStore
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.mark.parametrize("table", ["events", "phases", "envelopes", "gate_results"])

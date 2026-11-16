@@ -15,10 +15,10 @@ pytestmark = [pytest.mark.browser, pytest.mark.xdist_group("e2e")]
 
 def _serve(route: Route) -> None:
     url = urlsplit(route.request.url)
-    assert url.netloc == "haifa.test", route.request.url
+    assert url.netloc == "giro.test", route.request.url
     if url.path.startswith("/api/"):
         responses = {
-            "/api/health": {"app": "haifa-dashboard", "version": "test", "home": "/home"},
+            "/api/health": {"app": "giro-dashboard", "version": "test", "home": "/home"},
             "/api/repos": {"home": "/home", "repos": []},
             "/api/limits": {"providers": []},
             "/api/library": {"exists": False, "items": []},
@@ -73,7 +73,7 @@ def test_theme_form_styles_browser() -> None:
                     else None
                 ),
             )
-            page.goto("http://haifa.test/#/setup")
+            page.goto("http://giro.test/#/setup")
             port = page.locator('[data-test="dash-port"]')
             expect(port).to_be_visible()
             repo = page.locator('[data-test="inventory-repo"]')

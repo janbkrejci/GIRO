@@ -23,7 +23,7 @@ def pytest_environment(enabled: bool) -> Any:
     if not enabled:
         yield
         return
-    directory = tempfile.mkdtemp(prefix="haifa-pytest-")
+    directory = tempfile.mkdtemp(prefix="giro-pytest-")
     saved = os.environ.get("PYTEST_ADDOPTS")
     try:
         os.environ["PYTEST_ADDOPTS"] = (saved or "") + " --basetemp=" + shlex.quote(directory)

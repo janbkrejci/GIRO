@@ -1,6 +1,6 @@
 """The dashboard guide: read-only conversations about every registered repository.
 
-A thread lives in ``$HAIFA_HOME/assistant/threads/<id>/``: ``thread.json`` (messages, the
+A thread lives in ``$GIRO_HOME/assistant/threads/<id>/``: ``thread.json`` (messages, the
 harness, model, thinking and session), ``sessions/`` (the harness's own session state),
 ``work/`` (the agent's working directory, outside every repository) and ``turns/NNN/``
 (raw output and the write guard's backups of one answer).
@@ -33,7 +33,7 @@ and the registered repositories. Every message may carry the screen the user is 
 (``screen: {repo, task, run}``). Values of ``.env`` files and secret-looking environment
 variables are redacted from everything sent to the agent (``assistant_gate.redact``).
 
-Instead of a change the guide may propose one: a fenced ``haifa-action`` block with a JSON
+Instead of a change the guide may propose one: a fenced ``giro-action`` block with a JSON
 object of one of ``ACTION_FIELDS`` (create or edit a task, run a task, retry a run, approve a
 PR, cancel a task, follow up a done task). The answer keeps the validated proposals in
 ``actions`` (``status: proposed``) and drops the blocks from its text. The guide never
@@ -50,7 +50,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import threading
 import time
 import uuid
@@ -62,10 +61,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from aifactory import gitrun
 from aifactory import guide as guide_chapters
 from aifactory.harness import canonical
 from aifactory.harness import load as load_harness
 from aifactory.harness import settings as harness_settings
+from aifactory.oscompat import atomic_write
 from aifactory.web import assistant_codex
 from aifactory.web import assistant_gate as gate
 from aifactory.web.workflow_advice import Cancellation
@@ -79,7 +80,7 @@ MAX_TEXT = 20_000
 MAX_SCREEN = 200
 MAX_TURNS = 2
 MAX_ACTIONS = 5
-ACTION_FENCE = re.compile(r"^```haifa-action[ \t]*\r?\n(.*?)^```[ \t]*$", re.S | re.M)
+ACTION_FENCE = re.compile(r"^```giro-action[ \t]*\r?\n(.*?)^```[ \t]*$", re.S | re.M)
 ACTION_STATES = ("done", "failed", "dismissed")
 # The fields of each proposal kind: name -> (type, required). ``repo`` is always required.
 ACTION_FIELDS: dict[str, dict[str, tuple[type, bool]]] = {
@@ -189,7 +190,7 @@ def guide_system_template(home: Path) -> str:
     try:
         from aifactory.library.inherit import library_snapshot
 
-        item = library_snapshot({"HAIFA_HOME": str(home)}).agents.get(GUIDE_AGENT)
+        item = library_snapshot({"GIRO_HOME": str(home)}).agents.get(GUIDE_AGENT)
         found = item.file("system.md") if item is not None else None
         if found is not None:
             return found.data.decode("utf-8")
@@ -406,7 +407,7 @@ def _action(raw: Any, repo_ids: set[str]) -> dict[str, Any]:
 
 
 def parse_actions(text: str, repo_ids: set[str]) -> tuple[str, list[dict[str, Any]]]:
-    """The answer without its ``haifa-action`` blocks and the valid proposals in them.
+    """The answer without its ``giro-action`` blocks and the valid proposals in them.
 
     A block that is not a valid proposal is replaced by a note with the reason, so the user
     sees that the guide proposed something the dashboard cannot offer.
@@ -450,20 +451,16 @@ def parse_outcome(body: dict[str, Any]) -> tuple[str, str]:
 
 
 def _git(cwd: Path, *args: str) -> None:
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=GIRO guide",
-            "-c",
-            "user.email=guide@haifa.invalid",
-            "-c",
-            "commit.gpgsign=false",
-            *args,
-        ],
-        cwd=cwd,
+    gitrun.run(
+        cwd,
+        "-c",
+        "user.name=GIRO guide",
+        "-c",
+        "user.email=guide@giro.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        *args,
         check=True,
-        capture_output=True,
     )
 
 
@@ -478,9 +475,8 @@ def prepare_workdir(work: Path, home: Path, repo_id: str | None = None) -> None:
     script = work / "guide"
     content = (
         "#!/bin/sh\n"
-        f"GIRO_HOME={_sh_quote(str(home))} HAIFA_HOME={_sh_quote(str(home))} "
-        f"GIRO_GUIDE_REPO={_sh_quote(repo_id or '')} "
-        f"HAIFA_GUIDE_REPO={_sh_quote(repo_id or '')} exec {_sh_quote(sys.executable)} "
+        + f"GIRO_HOME={_sh_quote(str(home))} GIRO_GUIDE_REPO={_sh_quote(repo_id or '')} "
+        + f"exec {_sh_quote(sys.executable)} "
         '-m aifactory.web.assistant_gate "$@"\n'
     )
     if (work / ".git").is_dir() and script.is_file():
@@ -522,8 +518,8 @@ class RepoGuard:
     """Observe checkout changes without overwriting concurrent work."""
 
     def __init__(self, repos: list[tuple[str, Path]], work: Path, turn: Path, run_id: str):
-        from aifactory.run.guard import TaskWriteGuard
-        from aifactory.run.scope import TaskScope
+        from aifactory.guard import TaskWriteGuard
+        from aifactory.scope import TaskScope
 
         self.run = SimpleNamespace(
             session_dir=turn,
@@ -546,7 +542,7 @@ class RepoGuard:
 
     def enforce(self) -> list[str]:
         """Changed checkouts; a snapshot cannot identify which process wrote them."""
-        from aifactory.run import backup
+        from aifactory import backup
 
         problems: list[str] = []
         for guard, before in zip(self.guards, self.before, strict=True):
@@ -617,13 +613,10 @@ class AssistantManager:
                 self.threads[thread.id] = thread
 
     def _save(self, thread: Thread) -> None:
-        folder = self.root / thread.id
-        folder.mkdir(parents=True, exist_ok=True)
-        temporary = folder / "thread.json.tmp"
-        temporary.write_text(
-            json.dumps(thread.stored(), ensure_ascii=False, indent=2), encoding="utf-8"
+        atomic_write(
+            self.root / thread.id / "thread.json",
+            json.dumps(thread.stored(), ensure_ascii=False, indent=2),
         )
-        temporary.replace(folder / "thread.json")
 
     def _thread(self, thread_id: str) -> Thread:
         self._load()
@@ -705,8 +698,8 @@ class AssistantManager:
         from aifactory import backlog
         from aifactory.backlog.derived import harness_values
         from aifactory.config import ConfigError
+        from aifactory.repo_vet import trace_db_of
         from aifactory.web.overview import _trace_view
-        from aifactory.web.repos import trace_db_of
 
         repo_id = screen.get("repo")
         task_id = screen.get("task")
@@ -997,9 +990,7 @@ class AssistantManager:
         guard.snapshot()
         environment = {
             "GIRO_RUN_ID": run_id,
-            "HAIFA_RUN_ID": run_id,
             "GIRO_HOME": str(self.home),
-            "HAIFA_HOME": str(self.home),
             "CLAUDE_SAFE_MODE": "1",
             "CODEX_SAFE_MODE": "1",
             "PI_SAFE_MODE": "1",

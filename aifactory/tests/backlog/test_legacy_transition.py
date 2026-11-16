@@ -6,8 +6,8 @@ import pytest
 
 from aifactory.backlog import Task, add_task, edit_task, follow_up_task, load_backlog
 from aifactory.backlog.taskfile import mark_done
+from aifactory.gitops import git
 from aifactory.repo_settings import RepositorySettings, SettingsError
-from aifactory.run.gitops import git
 from cli_json import run_json
 from legacy_backlog import derived as old_derived
 from legacy_backlog import loader as old_loader
@@ -170,7 +170,7 @@ def test_old_reader_preserves_operating_values_after_edits_and_completion(repo: 
 def test_cli_preview_and_explicit_import(
     repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     args = ["--repo", str(repo), "--json"]
     code, preview = run_json(capsys, ["config", "local", "legacy", *args])
     assert code == 0 and preview["data"]["proposals"]["auto_merge"]["value"] is True

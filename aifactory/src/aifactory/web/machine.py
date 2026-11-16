@@ -41,7 +41,7 @@ from aifactory import procrun
 from aifactory.check import RULE_GROUPS, Machine, Probe, SystemMachine, run_check
 from aifactory.check.context import CheckContext
 from aifactory.config.errors import ConfigError
-from aifactory.environment import child_environment
+from aifactory.environment import canonical, child_environment
 from aifactory.harness import CLI_BINARIES, HARNESSES
 from aifactory.harness.check import HarnessStatus, harnesses_in_config
 from aifactory.harness.settings import read as read_harness_settings
@@ -182,9 +182,7 @@ class HomeMachine:
         return child_environment(self.delegate.environment(), HOME=str(self.home_dir))
 
     def env(self, name: str) -> str | None:
-        return (
-            str(self.home_dir) if name in {"GIRO_HOME", "HAIFA_HOME"} else self.delegate.env(name)
-        )
+        return str(self.home_dir) if name == canonical("HOME") else self.delegate.env(name)
 
     def which(self, program: str) -> str | None:
         choices = read_harness_settings(self.home_dir)
@@ -226,7 +224,7 @@ class HomeMachine:
 
 def _registered(home: Path) -> list[Any]:
     """The registered repositories of ``home``; none when the registry is missing or bad."""
-    from aifactory.web.registry import RepoError, parse_registry, registry_path
+    from aifactory.registry import RepoError, parse_registry, registry_path
 
     path = registry_path(home)
     try:
@@ -236,7 +234,7 @@ def _registered(home: Path) -> list[Any]:
 
 
 def outside_repo() -> Path:
-    """Find an existing path outside git, even when HAIFA_HOME is in a repo.
+    """Find an existing path outside git, even when GIRO_HOME is in a repo.
 
     The process's working directory is never used: it may have been deleted since the
     dashboard started (``os.getcwd()`` then fails without naming any file).
@@ -494,7 +492,7 @@ def _harness_repos(home: Path, machine: Machine | None, state: GlobalState) -> d
         from aifactory.library.store import library_root
 
         try:
-            from aifactory.web.repos import require_git_budget
+            from aifactory.repo_vet import require_git_budget
 
             require_git_budget()
             library_key = (str(library_root()), library_head(library_root()))

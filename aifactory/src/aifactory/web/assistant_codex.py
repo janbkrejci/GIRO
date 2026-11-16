@@ -17,6 +17,7 @@ from typing import Any
 
 from aifactory.engine.data_types import AgentRequest, AgentResult
 from aifactory.engine.utils import operator_env
+from aifactory.environment import value as env_value
 from aifactory.harness import codex
 
 SUPPORTED_VERSION = "codex-cli 0.167.2"
@@ -156,18 +157,15 @@ def launch_args(request: AgentRequest, home: Path, repo_id: str | None) -> list[
         "web_search": "disabled",
         # Replace the whole table rather than merging another server into ambient config.
         "mcp_servers": {
-            "haifa_guide": {
+            "giro_guide": {
                 "command": sys.executable,
                 "args": server_args,
                 "required": True,
                 "enabled_tools": ["guide"],
                 "env": {
                     "GIRO_HOME": str(home),
-                    "HAIFA_HOME": str(home),
                     "GIRO_GUIDE_REPO": repo_id or "",
-                    "HAIFA_GUIDE_REPO": repo_id or "",
-                    "GIRO_RUN_ID": operator_env().get("HAIFA_RUN_ID", "guide"),
-                    "HAIFA_RUN_ID": operator_env().get("HAIFA_RUN_ID", "guide"),
+                    "GIRO_RUN_ID": env_value("RUN_ID", operator_env()) or "guide",
                 },
             }
         },
@@ -189,7 +187,7 @@ def run(request: AgentRequest, *, home: Path, repo_id: str | None, **callbacks: 
     request = request.model_copy(
         update={
             "system_prompt": request.system_prompt
-            + "\nTransport: use the haifa_guide MCP guide tool for every ./guide command. "
+            + "\nTransport: use the giro_guide MCP guide tool for every ./guide command. "
             "Pass its arguments in argv without ./guide. No shell or file tools are available."
         }
     )

@@ -11,7 +11,6 @@ drops the merged ones. A dirty library or a conflicting rebase is refused.
 
 from __future__ import annotations
 
-import re
 import shutil
 import tempfile
 from collections.abc import Mapping
@@ -49,19 +48,7 @@ from aifactory.library.store import (
 )
 from aifactory.providers import git
 from aifactory.providers.base import ProviderError
-
-_NUMBER = re.compile(r"\d+")
-
-
-def version_key(version: str) -> tuple[int, ...]:
-    """Leading numbers of the dotted parts: ``0.10.2rc1`` is ``(0, 10, 2)``."""
-    key: list[int] = []
-    for part in version.split("."):
-        match = _NUMBER.match(part)
-        if match is None:
-            break
-        key.append(int(match.group()))
-    return tuple(key)
+from aifactory.versioning import version_key
 
 
 def compatible(minimum: object, installed: str = __version__) -> bool | None:

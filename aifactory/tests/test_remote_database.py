@@ -18,8 +18,9 @@ from aifactory.backlog.model import Backlog, Issue
 from aifactory.config import ConfigError
 from aifactory.config.settings import LocalSettings, ProjectSettings
 from aifactory.database.server import DatabaseServer
-from aifactory.run.errors import TaskRunError
-from aifactory.run.store import TaskRunRow, TaskRunStore
+from aifactory.errors import TaskRunError
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web.live import LiveWatcher
 from aifactory.web.overview import _open_ro
 
@@ -28,8 +29,8 @@ TASK = "backlog/P/S/P-S-T.md"
 
 @pytest.fixture
 def service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
-    monkeypatch.delenv("HAIFA_DATABASE_URL", raising=False)
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("GIRO_DATABASE_URL", raising=False)
     with DatabaseServer(("127.0.0.1", 0), tmp_path / "server") as server:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -57,7 +58,7 @@ def checkout(root: Path) -> Path:
 
 @pytest.fixture
 def repos(service: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
-    monkeypatch.setenv("HAIFA_DATABASE_URL", service)
+    monkeypatch.setenv("GIRO_DATABASE_URL", service)
 
     def remote(root: Path, *args: str) -> str | None:
         if args[:2] == ("remote", "get-url"):
@@ -68,7 +69,7 @@ def repos(service: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tupl
             )
         return None
 
-    monkeypatch.setattr("aifactory.run.gitops.read_git", remote)
+    monkeypatch.setattr("aifactory.gitops.read_git", remote)
     return checkout(tmp_path / "a"), checkout(tmp_path / "b")
 
 
@@ -91,15 +92,15 @@ def test_remote_identity(remote: str) -> None:
 def test_missing_remote_fails_closed(
     service: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HAIFA_DATABASE_URL", service)
-    monkeypatch.setattr("aifactory.run.gitops.read_git", lambda *args: None)
+    monkeypatch.setenv("GIRO_DATABASE_URL", service)
+    monkeypatch.setattr("aifactory.gitops.read_git", lambda *args: None)
     with pytest.raises(ConfigError, match="requires Git remote"):
         LocalSettings().trace_db_path(checkout(tmp_path / "repo"))
 
 
 def test_native_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
-    monkeypatch.delenv("HAIFA_DATABASE_URL", raising=False)
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("GIRO_DATABASE_URL", raising=False)
     path = LocalSettings().trace_db_path(tmp_path)
     path.parent.mkdir(parents=True)
     conn = database.connect(path)
@@ -162,7 +163,8 @@ def test_foreign_runs_are_not_reaped_or_signalled(
     try:
         a.claim(row("first"))
         monkeypatch.setattr(database, "MACHINE", "another-machine")
-        monkeypatch.setattr("aifactory.run.store._alive", lambda pid: False)
+        monkeypatch.setattr("aifactory.runstore.runs._alive", lambda pid: False)
+        monkeypatch.setattr("aifactory.runstore.chains._alive", lambda pid: False)
         assert b.live_runs()[0].state == "running"
         with pytest.raises(TaskRunError, match="already running"):
             b.claim(replace(row("second"), pid=1234))
@@ -217,9 +219,7 @@ def test_global_configuration_and_local_override(
     home.mkdir()
     (home / "database.yaml").write_text(f"url: {service}\n")
     root = checkout(tmp_path / "repo")
-    monkeypatch.setattr(
-        "aifactory.run.gitops.read_git", lambda *args: "https://example.org/repo.git"
-    )
+    monkeypatch.setattr("aifactory.gitops.read_git", lambda *args: "https://example.org/repo.git")
     path = LocalSettings().trace_db_path(root)
     assert database.is_remote(path)
     assert database._ENDPOINTS[str(path)][0] == service
@@ -232,9 +232,7 @@ def test_global_configuration_and_local_override(
 
 def test_project_isolation(repos: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch) -> None:
     a = database.connect(LocalSettings().trace_db_path(repos[0]), isolation_level=None)
-    monkeypatch.setattr(
-        "aifactory.run.gitops.read_git", lambda *args: "https://example.org/other.git"
-    )
+    monkeypatch.setattr("aifactory.gitops.read_git", lambda *args: "https://example.org/other.git")
     b = database.connect(LocalSettings().trace_db_path(repos[1]), isolation_level=None)
     try:
         a.execute("CREATE TABLE private_project (id TEXT)")
@@ -332,7 +330,7 @@ def test_first_join_preserves_dirty_backlog(
     load_backlog(a)
     edit_task(a, "P-S-T", title="Team title")
     (b / TASK).write_text((b / TASK).read_text().replace("title: Task", "title: My unsaved title"))
-    from aifactory.run import gitops
+    from aifactory import gitops
 
     original = gitops.read_git
 
@@ -342,7 +340,7 @@ def test_first_join_preserves_dirty_backlog(
         result: str | None = original(root, *args)
         return result
 
-    monkeypatch.setattr("aifactory.run.gitops.read_git", read_git)
+    monkeypatch.setattr("aifactory.gitops.read_git", read_git)
     with pytest.raises(TaskEditError, match="before joining"):
         load_backlog(b)
     assert "My unsaved title" in (b / TASK).read_text()
@@ -405,7 +403,7 @@ def test_idle_backlog_sync_reads_only_revision(
         shared, "connect", lambda *args, **kwargs: ReadOnlyProbe(connect(*args, **kwargs))
     )
     shared.synchronize(a, loaded.settings)
-    assert queries == ["SELECT revision FROM haifa_backlog_revision WHERE id = 1"]
+    assert queries == ["SELECT revision FROM giro_backlog_revision WHERE id = 1"]
     assert baseline.stat().st_mtime_ns == stamp
 
 
@@ -415,6 +413,7 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
     from concurrent.futures import ThreadPoolExecutor
 
     from aifactory.backlog import edit as edits
+    from aifactory.backlog.edit.common import BacklogFiles
     from aifactory.database import backlog as shared
 
     a, b = repos
@@ -425,23 +424,27 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
         threading.Event(),
         threading.Event(),
     )
-    write = edits._write_checked
+    write = edits.common._write_checked
     synchronize = shared._synchronize
 
     def delayed(
-        backlog: Backlog, baseline: list[Issue], changes: dict[str, str], command: str
+        files: BacklogFiles,
+        backlog: Backlog,
+        baseline: list[Issue],
+        changes: dict[str, str],
+        command: str,
     ) -> bool:
         if backlog.root == a:
             loaded_edit.set()
             assert release_edit.wait(10)
-        return write(backlog, baseline, changes, command)
+        return write(files, backlog, baseline, changes, command)
 
     def observed(root: Path, settings: ProjectSettings) -> None:
         if root == a and threading.current_thread().name.startswith("sync"):
             entered_sync.set()
         return synchronize(root, settings)
 
-    monkeypatch.setattr(edits, "_write_checked", delayed)
+    monkeypatch.setattr(edits.task, "_write_checked", delayed)
     monkeypatch.setattr(shared, "_synchronize", observed)
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="edit") as editor:
         with ThreadPoolExecutor(max_workers=1, thread_name_prefix="sync") as syncer:
@@ -459,3 +462,31 @@ def test_remote_sync_cannot_replace_baseline_during_validated_edit(
             pending_sync.result(timeout=10)
     assert load_backlog(a).by_id["P-S-T"].title == "New remote title"
     assert "Local draft" not in (a / TASK).read_text()
+
+
+def test_pre_giro_shared_tables_are_adopted_with_their_rows(tmp_path: Path) -> None:
+    import sqlite3
+
+    from aifactory.database import adopt_legacy_table
+    from aifactory.database import backlog as shared
+
+    conn = sqlite3.connect(tmp_path / "shared.db")
+    conn.execute("CREATE TABLE haifa_backlog (path TEXT PRIMARY KEY, text TEXT)")
+    conn.execute("CREATE TABLE haifa_backlog_revision (id INTEGER PRIMARY KEY, revision INTEGER)")
+    conn.execute("INSERT INTO haifa_backlog_revision VALUES (1, 0)")
+    conn.execute(
+        "CREATE TRIGGER haifa_backlog_insert AFTER INSERT ON haifa_backlog "
+        "BEGIN UPDATE haifa_backlog_revision SET revision = revision + 1 WHERE id = 1; END"
+    )
+    conn.execute("INSERT INTO haifa_backlog VALUES ('a.md', 'A')")
+    conn.execute("CREATE TABLE haifa_owners (id TEXT PRIMARY KEY, machine TEXT NOT NULL)")
+    conn.execute("INSERT INTO haifa_owners VALUES ('r1', 'm1')")
+
+    assert shared._snapshot(conn) == {"a.md": "A"}
+    adopt_legacy_table(conn, "giro_owners")
+    conn.execute("INSERT INTO giro_backlog VALUES ('b.md', 'B')")
+
+    names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+    assert not {n for n in names if n.startswith("haifa")}
+    assert shared._revision(conn) == 2
+    assert conn.execute("SELECT machine FROM giro_owners").fetchall() == [("m1",)]

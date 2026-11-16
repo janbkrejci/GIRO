@@ -3,7 +3,7 @@
 The check only reads: nothing is written to the repository, the trace DB, the library
 or the home directory, and nothing is fetched (ahead/behind come from local
 remote-tracking refs). Findings are split by ``scope``: ``repo`` (fix and commit to
-base), ``machine`` (fix locally) and ``library`` (fix in the library in ``$HAIFA_HOME``).
+base), ``machine`` (fix locally) and ``library`` (fix in the library in ``$GIRO_HOME``).
 
 Outside a git repository (no ``--repo`` given) only the rules with ``needs_repo=False``
 run: the machine and the library. ``--offline`` skips every call to the hosting and to

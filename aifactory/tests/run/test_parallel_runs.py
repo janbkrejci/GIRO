@@ -15,7 +15,9 @@ from run_repo import Script, fake_env, git, make_run_repo, ok, write
 from test_auto_continue import T01, T03, open_pr, runs_of, setup_chain
 
 from aifactory.engine.tracer import Tracer
-from aifactory.run import TaskRunError, TaskRunStore, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import run_task
+from aifactory.runstore.store import TaskRunStore
 
 
 @pytest.fixture(name="script")

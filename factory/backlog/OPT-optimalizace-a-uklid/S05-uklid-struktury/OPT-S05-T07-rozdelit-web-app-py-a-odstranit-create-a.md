@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T07
 title: Rozdělit web/app.py a odstranit create_app
-status: todo
+status: done
 depends_on: [OPT-S05-T03, OPT-S03-T02]
 ---
 
@@ -18,4 +18,4 @@ Hotovo znamená:
 - Upravené testy a browser test přehledu projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

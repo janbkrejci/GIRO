@@ -28,5 +28,5 @@ Hotovo znamená:
 - Stávající testy běhu a retry tasku v adresáři testů `run` projdou beze změny.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-23 · workflow plan-build-test · PR https://github.com/janbkrejci/HAIFA/pull/147 · náklady $0.00

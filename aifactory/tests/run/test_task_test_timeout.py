@@ -30,7 +30,8 @@ from run_repo import (
 )
 
 from aifactory.config import ConfigError
-from aifactory.run import TaskRunError, run_task
+from aifactory.errors import TaskRunError
+from aifactory.run import run_task
 
 STEP_INDEX = "backlog/M01-core/S01-model/index.md"
 TASK_FILE = "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
@@ -244,8 +245,8 @@ def _assert_not_started(repo: Path, script: Script) -> None:
 def test_task_run_only_takes_a_machine_wide_test_slot_when_configured(
     repo: Path, script: Script, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, slots: int
 ) -> None:
-    """A task run's test step holds a slot in ``<HAIFA home>/test_slots`` (``test_slots``)."""
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    """A task run's test step holds a slot in ``<GIRO home>/test_slots`` (``test_slots``)."""
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     setup(repo, config_timeout=43)
     if slots:
         config_path = repo / ".factory/config.yaml"

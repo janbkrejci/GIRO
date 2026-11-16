@@ -11,12 +11,17 @@ the commit) has a running run of ``M02-S01-T02`` and a finished run with an open
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 
 from web_repo import git_repo
 
-from aifactory.run.store import TaskPrRow, TaskRunRow, TaskRunStore
+import repo_templates
+from aifactory.runstore.rows import TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
+from gitutil import git_raw
+
+git = git_raw
+
 
 M01 = "M01"
 M02 = "M02"
@@ -66,17 +71,6 @@ def _area_files() -> dict[str, str]:
     }
 
 
-def git(root: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t", *args],
-        check=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    return result.stdout
-
-
 def _run(run_id: str, task_id: str, state: str, day: int) -> TaskRunRow:
     return TaskRunRow(
         run_id=run_id,
@@ -121,10 +115,18 @@ def make_backlog_repo(
     path: Path, *, levels: list[str] | None = None, with_trace: bool = False
 ) -> Path:
     """The repo at ``path`` with one commit; ``levels=[area, task]`` uses a flat backlog."""
+    levels = levels or ["module", "step", "task"]
+    repo_templates.build(path, f"backlog-{'-'.join(levels)}", lambda p: _build_repo(p, levels))
+    root = path.resolve()
+    if with_trace:
+        _write_trace(root)
+    return root
+
+
+def _build_repo(path: Path, levels: list[str]) -> None:
     root = git_repo(path)
     git(root, "config", "user.name", "Test")
     git(root, "config", "user.email", "test@example.com")
-    levels = levels or ["module", "step", "task"]
     files = _area_files() if len(levels) == 2 else _default_files()
     files[".factory/config.yaml"] = f"base: main\nlevels: [{', '.join(levels)}]\ndocs_root: .\n"
     files[".factory/workflows/custom-flow.yaml"] = "name: custom-flow\nsteps: [plan]\n"
@@ -135,6 +137,3 @@ def make_backlog_repo(
         target.write_text(text, encoding="utf-8", newline="\n")
     git(root, "add", "-A")
     git(root, "commit", "-qm", "init")
-    if with_trace:
-        _write_trace(root)
-    return root

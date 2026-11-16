@@ -28,7 +28,7 @@ Packages under `aifactory/src/aifactory/` and how they connect:
 - `config/`: `.factory/` in a target repo. Shared files (`config.yaml`, `agents.yaml`, `roles.yaml`, `prompts/`, `workflows/`) are read from the `base` commit tree, not the working tree. `local.yaml` is machine-local and read from disk.
 - `run/`: `giro task run`. Each run gets its own worktree under `<worktrees_dir>/<run-id>` and a row in `task_runs` in the trace DB (`.factory/trace.db`).
 - `workflow/`: YAML workflows as data. Steps are roles from the registry or code steps (`test`, `quality`, `commit`, `changes`, `command`, `rebase`, `rebuild`), with `repeat`/`until`, `when` and `accept`. Conditions read typed envelope fields and are never evaluated as Python.
-- `engine/`: agent execution ported from sssf (github.com/disler/super-simple-software-factory). Most files are excluded from ruff and relaxed in mypy so they stay diffable against sssf. Every logic change there must be marked `# aifactory 2.9:` (or a later version).
+- `engine/`: agent execution, originally ported from sssf (github.com/disler/super-simple-software-factory) and now GIRO's own code under the same ruff and mypy rules as the rest.
 - `harness/`: adapters for `claude | codex | pi`, registered into `engine.agents.INTERFACES`. The harness is set explicitly on the agent, never inferred from the model name.
 - `providers/`: git hosting (`local`, `github` via `gh`, `azure` via `az`), chosen by `git_provider`.
 - `review/`: PR publish, approve, return, resolve, auto-merge.
@@ -44,4 +44,4 @@ Packages under `aifactory/src/aifactory/` and how they connect:
 - Code, comments and docstrings are in English. The README, `docs/decisions.md` and backlog tasks are in Czech.
 - `docs/decisions.md` holds the design decisions in force. Update it when a change replaces one.
 
-Use `giro` in new command examples. `factory` and `HAIFA_*` are compatibility aliases. Keep `.factory/`, `factory/`, Python distribution `aifactory`, the `skill/factory` item and the library UUID. The default library repository is `janbkrejci/GIRO-LIBRARY`. Public GIRO download URLs become active only after cutover T06; see `docs/rebranding/release.md`.
+Use `giro` in new command examples. `factory` is a compatibility alias. Environment variables are `GIRO_*` only. Keep `.factory/`, `factory/`, Python distribution `aifactory`, the `skill/factory` item and the library UUID. The default library repository is `janbkrejci/GIRO-LIBRARY`.

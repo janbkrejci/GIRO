@@ -24,4 +24,4 @@ Hotovo znamená:
 - Distribuovaný statický frontend odpovídá opravenému zdrojovému kódu.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

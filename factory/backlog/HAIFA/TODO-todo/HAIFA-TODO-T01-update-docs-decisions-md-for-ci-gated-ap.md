@@ -18,5 +18,5 @@ Důvod: T28 changes the decision that auto-merge only checks the CI and leaves r
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T28 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · bez změn: rozhodnutí je v docs/decisions.md z HAIFA-TODO-T05 (6a6cb2a)

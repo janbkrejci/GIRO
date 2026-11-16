@@ -32,7 +32,9 @@ from workflow_fakes import FakeCodeRunner
 import aifactory.review
 from aifactory.cli import main
 from aifactory.review import ReviewError, approve_task, resolve_task
-from aifactory.run import TaskPrRow, TaskRunResult, TaskRunStore, run_task
+from aifactory.run import TaskRunResult, run_task
+from aifactory.runstore.rows import TaskPrRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import EngineCodeRunner
 from cli_json import run_json
 
@@ -501,6 +503,7 @@ def test_resolve_requires_current_remote_base_before_removing_old_checkout(
 def test_resolve_preserves_remainder_after_partial_worktree_remove(
     repo: Path, script: Script, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from aifactory import gitrun
     from aifactory.providers import ProviderError
     from aifactory.providers import git as pgit
 
@@ -518,7 +521,7 @@ def test_resolve_preserves_remainder_after_partial_worktree_remove(
     def partial_remove(cwd: Path, args: tuple[str, ...], input: str | None) -> Any:
         if args[:2] == ("worktree", "remove"):
             shutil.rmtree(metadata)
-            return subprocess.CompletedProcess(args, 1, "", "Invalid argument")
+            return gitrun.Result(("git", *args), 1, b"", b"Invalid argument")
         return original_run(cwd, args, input)
 
     with monkeypatch.context() as patch:
@@ -545,7 +548,7 @@ def test_recovery_refuses_directories_outside_configured_worktrees(
     from unittest.mock import Mock
 
     from aifactory.providers import git as pgit
-    from aifactory.review import flow
+    from aifactory.review import context
 
     outside = tmp_path / "personal"
     outside.mkdir()
@@ -555,7 +558,7 @@ def test_recovery_refuses_directories_outside_configured_worktrees(
     ctx.store.runs_on_branch.return_value = [Mock(worktree=str(outside))]
     monkeypatch.setattr(pgit, "checked_out_in", lambda *_: None)
     with pytest.raises(ReviewError, match="unsafe incomplete worktree"):
-        flow._free_branch(ctx, Mock(branch=BRANCH2))
+        context._free_branch(ctx, Mock(branch=BRANCH2))
     assert (outside / "evidence").read_bytes() == b"keep"
     assert not (repo / ".factory/recovered-worktrees").exists()
 

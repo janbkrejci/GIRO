@@ -1297,7 +1297,7 @@ describe('BacklogView', () => {
     const calls = fetchMock.mock.calls.length
     await chooseOption(wrapper, '[data-test="project-filter"]', 'M01')
     expect(roots()).toEqual(['M01'])
-    expect(localStorage.getItem('haifa.backlog.project.haifa')).toBe('M01')
+    expect(localStorage.getItem('giro.backlog.project.haifa')).toBe('M01')
     await wrapper.find('[data-test="mode-kanban"]').trigger('click')
     const cards = () => wrapper.findAll('[data-card]').map((c) => c.attributes('data-card')).sort()
     expect(cards()).toEqual(['M01-S01-T01', 'M01-S01-T02', 'M01-S01-T03'])

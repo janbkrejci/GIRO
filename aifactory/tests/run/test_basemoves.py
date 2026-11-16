@@ -1,4 +1,4 @@
-"""The base-move journal (``run/basemoves.py``) and the factory commands that write it."""
+"""The base-move journal (``aifactory/basemoves.py``) and the factory commands that write it."""
 
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 from run_repo import commit_all, git, make_run_repo, write
 
+from aifactory import basemoves
 from aifactory.backlog.commit import commit_backlog
+from aifactory.basemoves import BaseMove, factory_chain
 from aifactory.providers import git as pgit
-from aifactory.run import basemoves
-from aifactory.run.basemoves import BaseMove, factory_chain
 
 REF = "refs/heads/main"
 
@@ -26,7 +26,7 @@ def _move(old: str, new: str, run: str | None = None, ref: str = REF) -> BaseMov
 
 def test_journal_lives_in_the_common_git_dir(repo: Path) -> None:
     path = basemoves.journal(repo)
-    assert path == (repo / ".git" / "haifa" / "base-moves.jsonl").resolve()
+    assert path == (repo / ".git" / "giro" / "base-moves.jsonl").resolve()
     assert basemoves.offset(repo) == 0
     assert basemoves.moves_since(repo, 0) == []
 

@@ -1,0 +1,1364 @@
+"""Auto-continue: after a successful run, start the next ready task (D10, Q9).
+
+``run_chain`` runs one task with ``run_task`` and, when the run succeeded and
+opened its pull request, picks the next task with ``select_next`` and runs it,
+until nothing more can start or a run fails.
+
+A start refused by the shared trace lock is retried on the same candidate, at
+most three attempts. If it remains locked the chain fails with that diagnostic;
+it never skips the rest of the queue and reports it as exhausted.
+
+A ``needs_environment`` failure leaves the task todo without a PR and skips it for
+the rest of this chain, without healing; other ready tasks continue under the usual
+auto-continue rules. Its dependencies remain unmet.
+
+A run that failed because its task turned out blocked (an agent reported
+``blocked_by`` or a follow-up with ``blocks_task``; ``task.run_blockers``) does not
+stop the chain when it would go on after that task (the same rule as after a
+success). The blocked task stays unfinished without a PR and is reported as a
+``blocked`` skip; the next task is chosen by ``select_next`` with the blockers filed
+during that run (``blockers_of``) first, under the same checks as any candidate; when
+none of them can start, the usual order follows. Any other failure stops the chain
+(``stop == "failed"``), and so does a blocked run that would not go on. A blocked task
+whose blockers are all backlog tasks may start again later in the same chain.
+
+A blocked run leaves a priority record in the trace DB (``task_priority``,
+``store.Priority``): the task and its blockers, existing tasks from ``blocked_by`` too.
+It outlives the chain and holds for every selection (``select_next``, ``select_ready``,
+parallel chains), also of a chain started by hand: first the blocked tasks whose blockers
+are all finished, then the unfinished blockers of the others (a blocker's own blockers
+and unmet dependencies before it), each blocked task right after its blockers, then the
+kanban's queue and the usual order (``priority_order``). The checks of a candidate stay
+the same. The record goes when the task's run succeeds, when the task is no longer
+``todo`` (done, cancelled) or when the operator clears it in the kanban.
+
+Repository-local ``auto_continue`` is read fresh from GIRO_HOME. Its default is off.
+``--auto`` / ``auto=True`` is a deprecated compatibility parameter with no policy effect.
+Legacy task, step and project values never filter candidates. Automatic claim/reclaim
+and process spawn share the settings update lock; after off is confirmed no new work
+can be accepted. Already claimed runs and their internal repair phases finish.
+
+The next task stays in the same project (the root container of the backlog). It is
+taken from the same project's kanban manual queue first (``task_queue`` in the trace
+DB, ``store.QueuePrefs``), then from the same step, then from the rest of the same
+project, each in backlog order, only ``status: todo``. Tasks of other projects stay
+outside the chain even when queued, depended on or blocking a task.
+All candidates pass the same checks. A task excluded from
+auto-continue in the kanban is never started by a chain (``excluded``), with
+``--auto`` too; started by hand it runs. A task whose
+dependencies are only waiting in open (not merged) pull requests is skipped
+(``waits_on_pr``) and the chain goes on with what can run; after ``task
+approve`` the operator starts the skipped task again. A task without a
+workflow (effective ``workflow`` unset or ``null``) is never started: it is
+skipped as ``no_workflow`` ("bez workflow") and the chain goes on. A person's task
+(``assignee: human``) is skipped as ``human_task``. The chain never
+waits: when nothing can start it stops (``stop == "exhausted"``) and reports what it
+waits on.
+
+The chain merges only through repository-local ``auto_merge``.
+``review.automerge.try_auto_merge`` approves and merges its PR when every
+condition holds (succeeded run, a review phase whose last review approved, a
+clean merge, no red checks). With ``auto_merge`` on the next task is started only
+after that merge, from the base that holds it; a PR that was not merged stops
+the chain (``stop == "not_merged"``, or ``disabled`` when it would not continue
+anyway) and waits for ``factory task approve``. A PR in conflict is first resolved once
+(``review.automerge.resolve_and_merge``) and merged when that resolve succeeds.
+
+Parallel runs (``max_parallel_runs`` in ``.factory/config.yaml``, default 1): with 1 the
+chain runs one task after another as described above, with no other check. Above 1 the
+chain keeps up to that many slots taken in the repository, each run a separate process
+(``members.ProcessRunner``, ``factory task run --member``): after the first task it
+fills the free slots with the next ready tasks and refills a slot whenever one frees. A
+slot (``Slots``) is taken by a task with a live run (of this chain, of other chains, a
+single run) and by a task whose PR is open and unmerged (waiting for review); a task
+with both counts once. The slot frees when the PR is merged or closed, or when the run
+ends without a PR (failed, blocked, stopped). When PRs waiting for review hold the free
+slots, the next ready task is skipped as ``no_slot`` (which PRs and runs hold them). The
+same counting limits ``start_factory`` (the Overview's "Spustit továrnu") and the
+``free_slots`` of the dashboard. A task starts only when its effective ``writes`` do not
+overlap (on path prefixes, ``scope.paths_overlap``) the ``writes`` of any running run
+(of this chain or not) nor the files changed by any open, unmerged PR
+(``gitops.pr_changed_files``; when they cannot be read, the PR's task's ``writes``, else
+everything). Otherwise it is skipped as ``writes_overlap`` (which run or PR, which
+paths) and the chain tries the next one. A task whose ``writes`` cover the whole repo or
+a whole package (``scope.is_wide``, e.g. ``aifactory/``) runs alone: it does not start
+while anything runs, and nothing starts while it runs (``exclusive``);
+``ChainResult.exclusive`` lists such tasks. A failed run stops the filling (``stop ==
+"failed"``); runs already going are left to finish. A blocked run refills its slot as
+described above. With ``auto_merge`` the member process merges its own PR (under the
+store's merge lock); a PR it did not merge stops the filling as above.
+
+Every chain that goes on has a row in ``task_chains`` (``store.TaskChainRow``): its
+runs, the skipped tasks of the last selection with their reasons, the exclusive tasks
+and, at the end, the stop. The row is written from the start when the chain can go on
+then (repository-local ``auto_continue``), otherwise from the moment it does go on
+(the local setting enabled during the run). A run that
+never goes on is a single run, it gets no row. The dashboard shows the rows
+(``/api/chains``). A failure to write a row never affects the chain.
+
+A failed run of a chain that goes on is healed by its kind before the chain stops
+(``heal.py``, switched off by ``auto_heal: false``): a ``process_gone`` run is retried
+once, a ``nothing_to_do`` run with the agent's reason closes its task without changes
+and the chain goes on as after a run that changed nothing; a ``quota`` run has already
+continued on the fallback harness inside the run. Every such action is an event of the
+chain (``task_chains.events``, ``ChainResult.events``). Any other failure stops the chain
+as described above.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+import secrets
+import sqlite3
+import sys
+import time
+from collections.abc import Callable, Iterator, Sequence
+from dataclasses import dataclass, field, replace
+from functools import partial
+from pathlib import Path
+from typing import Any, TypeVar
+
+from aifactory import failure as failures
+from aifactory import gitops
+from aifactory.backlog import (
+    Backlog,
+    Task,
+)
+from aifactory.backlog.snapshot import load_backlog_at
+from aifactory.config import ConfigError, ProjectSettings, RunConfig
+from aifactory.engine.utils import now_iso
+from aifactory.errors import TaskRunError
+from aifactory.providers import GitProvider
+from aifactory.run import heal as heal_mod
+from aifactory.run import task as task_mod
+from aifactory.run.members import ChainRunner, ProcessRunner
+from aifactory.run.policy import DISABLED, DISABLED_MESSAGE, require_enabled
+from aifactory.run.queue_select import (
+    Occupancy,
+    Skip,
+    Slots,
+    Stacker,
+    _blocked_skip,
+    _environment_skip,
+    _may_requeue,
+    _paths_text,
+    auto_continue_enabled,
+    auto_merge_enabled,
+    blockers_of,
+    select_next,
+    select_ready,
+)
+from aifactory.run.stack import stack_tip, unmet_ids
+from aifactory.runstore.rows import (
+    ABORTED,
+    CHAIN_FINISHED,
+    RUNNING,
+    STARTED_AUTO_CONTINUE,
+    STARTED_MANUAL,
+    TaskChainRow,
+    TaskPrRow,
+    TaskRunRow,
+)
+from aifactory.runstore.store import TaskRunStore
+from aifactory.scope import effective_task_writes, is_wide, overlaps
+from aifactory.workflow import CodeRunner
+
+STOP_FAILED, STOP_EXHAUSTED, STOP_DISABLED = "failed", "exhausted", "disabled"
+
+
+STOP_NOT_MERGED = "not_merged"
+
+
+STOP_REASONS: tuple[str, ...] = (STOP_FAILED, STOP_EXHAUSTED, STOP_DISABLED, STOP_NOT_MERGED)
+
+
+_StartResult = TypeVar("_StartResult")
+
+
+_LOCK_START_ATTEMPTS = 3
+
+
+def _start_with_lock_retry(
+    start: Callable[[], _StartResult], *, repo: Path, automatic: bool = True
+) -> _StartResult:
+    """Retry the same unclaimed task; a shared lock says nothing about its readiness.
+
+    Automatic dispatch rechecks the live policy before every attempt; the manual
+    initial Factory batch does not. Each claim already waits up to SERIAL_TIMEOUT.
+    Keep retries bounded and never
+    retry other errors (in particular failures after the run has been claimed).
+    """
+    for attempt in range(_LOCK_START_ATTEMPTS):
+        try:
+            if automatic:
+                require_enabled(repo)
+            return start()
+        except TaskRunError as exc:
+            if exc.code != "trace_db_locked" or attempt == _LOCK_START_ATTEMPTS - 1:
+                raise
+            time.sleep(0.5)
+    raise AssertionError("unreachable")
+
+
+@dataclass
+class ChainResult:
+    runs: list[task_mod.TaskRunResult]  # in start order: runs[0] is the first task
+    stop: str
+    waiting: list[Skip] = field(default_factory=list)
+    max_parallel: int = 1
+    exclusive: list[str] = field(default_factory=list)  # tasks that ran alone (wide writes)
+    chain_id: str | None = None
+    # the chain's automatic actions after a failure (``heal.HealEvent.to_json()``)
+    events: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.stop != STOP_FAILED and all(r.ok or r.closed_by_heal for r in self.runs)
+
+    def to_json(self) -> dict[str, object]:
+        return {
+            "ok": self.ok,
+            "runs": [
+                {
+                    "ok": r.ok,
+                    "run": r.run.to_json(),
+                    "pr": r.pr.to_json() if r.pr is not None else None,
+                    "pr_error": r.pr_error,
+                    "auto_merge": r.auto_merge.to_json() if r.auto_merge is not None else None,
+                    "follow_ups": r.follow_ups.to_json() if r.follow_ups is not None else None,
+                }
+                for r in self.runs
+            ],
+            "stop": self.stop,
+            "stop_detail": DISABLED_MESSAGE if self.stop == STOP_DISABLED else None,
+            "waiting": [s.to_json() for s in self.waiting],
+            "max_parallel_runs": self.max_parallel,
+            "exclusive": list(self.exclusive),
+            "chain_id": self.chain_id,
+            "events": list(self.events),
+        }
+
+
+def _base_backlog(repo: Path, rc: RunConfig | None = None) -> Backlog:
+    """The backlog at the base commit of `rc` (the run config, loaded when None)."""
+    main = gitops.main_root(repo)
+    if rc is None:
+        rc = task_mod._load(main)
+    settings = rc.config.settings
+    try:
+        return load_backlog_at(main, rc.commit, settings)
+    except (OSError, RuntimeError) as exc:
+        raise TaskRunError("invalid_config", f"cannot read the backlog: {exc}") from exc
+
+
+@contextlib.contextmanager
+def _fresh_backlog(repo: Path, rc: RunConfig | None = None) -> Iterator[Backlog]:
+    yield _base_backlog(repo, rc)
+
+
+class _ChainRecord:
+    """The chain's row in ``task_chains``; a failing write only warns on stderr.
+
+    ``enabled=False`` (a run that cannot go on) never writes a row.
+    """
+
+    def __init__(
+        self,
+        db: Path | None,
+        task_id: str,
+        max_parallel: int,
+        *,
+        enabled: bool = True,
+        auto: bool = False,
+    ) -> None:
+        self.db = db
+        self.task_id = task_id
+        self.max_parallel = max_parallel
+        self.enabled = enabled
+        self.auto = auto
+        self.chain_id = secrets.token_hex(4)
+        self.started = False
+        self.events: list[dict[str, Any]] = []
+
+    def _write(self, action: Callable[[TaskRunStore], None]) -> None:
+        if self.db is None:
+            return
+        try:
+            store = TaskRunStore(self.db)
+            try:
+                action(store)
+            finally:
+                store.close()
+        except (sqlite3.Error, TaskRunError, OSError) as exc:
+            print(f"warning: chain {self.chain_id}: cannot record: {exc}", file=sys.stderr)
+
+    def go_on(self, db: Path | None = None) -> None:
+        """The chain goes on after all (auto-continue switched on meanwhile): write its row."""
+        self.enabled = True
+        self.start(db)
+
+    def start(self, db: Path | None = None) -> None:
+        if self.started or not self.enabled:
+            return
+        if db is not None:
+            self.db = db
+        now = str(now_iso())
+        row = TaskChainRow(
+            chain_id=self.chain_id,
+            task_id=self.task_id,
+            pid=os.getpid(),
+            max_parallel=self.max_parallel,
+            state=RUNNING,
+            started_at=now,
+            updated_at=now,
+            events=json.dumps(self.events, ensure_ascii=False),
+            auto=int(self.auto),
+        )
+        self._write(lambda store: store.start_chain(row))
+        self.started = self.db is not None
+
+    def update(self, **fields: object) -> None:
+        if self.started:
+            self._write(lambda store: store.update_chain(self.chain_id, **fields))  # type: ignore[arg-type]
+
+    def event(self, event: heal_mod.HealEvent) -> None:
+        """Record an automatic action (once per run, action and time)."""
+        data = event.to_json()
+        key = (data["run_id"], data["action"], data["at"])
+        if any((e["run_id"], e["action"], e["at"]) == key for e in self.events):
+            return
+        self.events.append(data)
+        self.update(events=list(self.events))
+
+    def finish(self, stop: str, runs: list[str], skipped: list[Skip], exclusive: list[str]) -> None:
+        self.update(
+            run_ids=runs,
+            skipped=[s.to_json() for s in skipped],
+            exclusive=exclusive,
+            state=CHAIN_FINISHED,
+            stop=stop,
+        )
+
+    def abort(self) -> None:
+        if self.started:
+            self._write(lambda store: store.delete_chain(self.chain_id))
+
+
+def _trace_db(repo: Path) -> Path | None:
+    try:
+        main = gitops.main_root(repo)
+        return task_mod._load(main).local.trace_db_path(main)
+    except (TaskRunError, ConfigError, OSError):
+        return None
+
+
+def _first_task(repo: Path, task_id: str) -> Task | None:
+    """`task_id` in the backlog of base; None when it is not there or cannot be read."""
+    try:
+        with _fresh_backlog(repo) as backlog:
+            node = backlog.by_id.get(task_id)
+    except (TaskRunError, ConfigError, OSError):
+        return None  # the run itself reports the problem
+    return node if isinstance(node, Task) else None
+
+
+def stacker(main: Path, settings: ProjectSettings | None = None) -> Stacker | None:
+    """With ``stacked_prs`` in the config (`settings`, loaded when None): the ``stack``
+    check of the selection."""
+    if settings is None:
+        try:
+            settings = task_mod._load(main).config.settings
+        except (TaskRunError, ConfigError, OSError):
+            return None
+    enabled = settings.stacked_prs
+    if not enabled:
+        return None
+    return lambda prs: stack_tip(main, prs) is not None
+
+
+WAITS_FOR_STACK = "waits_for_stack"
+
+
+def _waits_for_stack(merge: object) -> bool:
+    """A stacked PR waits for its dependency's merge: the chain goes on (``run/stack.py``)."""
+    return getattr(merge, "code", None) == WAITS_FOR_STACK
+
+
+def _max_parallel(repo: Path) -> int:
+    try:
+        return task_mod._load(gitops.main_root(repo)).config.settings.max_parallel_runs
+    except (TaskRunError, ConfigError, OSError):
+        return 1  # the run itself reports the problem
+
+
+def _pr_files_default(main: Path) -> Callable[[TaskPrRow], list[str] | None]:
+    """The files an open PR changes, read in the main checkout (``gitops.pr_changed_files``)."""
+
+    def files_of(pr: TaskPrRow) -> list[str] | None:
+        return gitops.pr_changed_files(main, pr.base, pr.branch, pr.base_sha)
+
+    return files_of
+
+
+@dataclass
+class FactoryStart:
+    """What ``start_factory`` started: claimed rows, or task ids whose claim was not seen yet."""
+
+    max_parallel: int
+    running: int  # tasks with a live run before the start
+    free_slots: int  # max(0, max_parallel - running - len(in_review))
+    in_review: list[str] = field(default_factory=list)  # tasks holding a slot with an open PR
+    started: list[TaskRunRow | str] = field(default_factory=list)
+    skipped: list[Skip] = field(default_factory=list)
+
+    def to_json(self) -> dict[str, object]:
+        return {
+            "max_parallel_runs": self.max_parallel,
+            "running": self.running,
+            "in_review": list(self.in_review),
+            "free_slots": self.free_slots,
+            "started": [
+                {"task_id": s, "run_id": None}
+                if isinstance(s, str)
+                else {"task_id": s.task_id, "run_id": s.run_id}
+                for s in self.started
+            ],
+            "skipped": [s.to_json() for s in self.skipped],
+        }
+
+
+@dataclass
+class _Pending:
+    """A ``conflict`` that adds the started but not yet claimed tasks to an ``Occupancy``."""
+
+    occupancy: Occupancy
+    pending: list[tuple[str, tuple[str, ...]]]
+
+    def __call__(self, task: Task) -> Skip | None:
+        clash = self.occupancy(task)
+        if clash is not None:
+            return clash
+        writes = effective_task_writes(task)
+        if not writes:
+            return None
+        root = self.occupancy.root
+        for task_id, other in self.pending:
+            if is_wide(writes, root) or is_wide(other, root):
+                return Skip(
+                    task.id,
+                    "exclusive",
+                    f"spouští se {task_id}; široké writes běží jen samostatně",
+                    [task_id],
+                )
+            hit = overlaps(writes, other)
+            if hit:
+                return Skip(
+                    task.id,
+                    "writes_overlap",
+                    f"spouští se {task_id}: {_paths_text(hit)}",
+                    [task_id],
+                )
+        return None
+
+
+def start_factory(
+    repo: Path,
+    start: Callable[[str], TaskRunRow | None],
+    *,
+    max_parallel: int | None = None,
+    pr_files: Callable[[TaskPrRow], list[str] | None] | None = None,
+) -> FactoryStart:
+    """Start ready tasks of the whole repository, as many as there are free parallel slots.
+
+    The Overview's "Spustit továrnu": the tasks are chosen like auto-continue does
+    (``select_ready``: the kanban's queue first, excluded tasks, dependencies, open PRs
+    and write collisions with running runs, open PRs and the tasks started just before)
+    and each is started with `start` as an explicit manual run. Only subsequent
+    continuation follows the live repository-local policy. At most
+    ``max_parallel_runs`` minus the taken slots (``Slots``: tasks with a live run or an
+    open PR waiting for review, each once) are started. When PRs waiting for review hold
+    a slot the next ready task that found none is skipped as ``no_slot``. A task `start`
+    refuses with a ``TaskRunError`` is skipped as ``cannot_start`` and the next one is
+    tried. A missing trace DB is not created here.
+    """
+    main = gitops.main_root(repo)
+    # One configuration for the whole selection: starting runs does not move base.
+    rc = task_mod._load(main)
+    limit = max_parallel if max_parallel is not None else rc.config.settings.max_parallel_runs
+    db = rc.local.trace_db_path(main)
+    stack = stacker(main, rc.config.settings)
+    files_of = pr_files if pr_files is not None else _pr_files_default(main)
+
+    def taken() -> Slots:
+        if not db.is_file():
+            return Slots()
+        store = TaskRunStore(db)
+        try:
+            return Slots.of(store)
+        finally:
+            store.close()
+
+    slots = taken()
+    result = FactoryStart(
+        limit, len(slots.running), slots.free(limit), in_review=list(slots.in_review)
+    )
+    exclude: set[str] = set()
+    pending: list[tuple[str, tuple[str, ...]]] = []
+    start_skips: list[Skip] = []
+    last_skips: list[Skip] = []
+    while True:
+        full = len(result.started) >= result.free_slots
+        if full and not slots.in_review:
+            break
+        deps: list[str] = []
+        with _fresh_backlog(repo, rc) as backlog:
+            if db.is_file():
+                store = TaskRunStore(db)
+                try:
+                    occupancy = Occupancy.build(backlog, store, main, files_of)
+                    selection = select_ready(
+                        backlog,
+                        open_pr=store.open_pr,
+                        latest_pr=store.latest_pr,
+                        running=store.running,
+                        exclude=exclude,
+                        conflict=_Pending(occupancy, pending),
+                        prefs=store.queue_prefs(),
+                        stack=stack,
+                    )
+                    if selection.next is not None:
+                        deps = unmet_ids(backlog, selection.next) or []
+                finally:
+                    store.close()
+            else:
+                selection = select_ready(
+                    backlog,
+                    open_pr=lambda _: None,
+                    running=lambda _: None,
+                    exclude=exclude,
+                    conflict=_Pending(Occupancy([], [], main), pending),
+                )
+        last_skips = selection.skipped
+        nxt = selection.next
+        if nxt is None:
+            break
+        if full and not slots.yields_to(deps):
+            # PRs waiting for review hold the slot this task would take
+            last_skips = [*last_skips, slots.skip(nxt.id)]
+            break
+        if full:  # stacked on a PR: it takes that PR's slot, once
+            slots = replace(slots, in_review=tuple(t for t in slots.in_review if t not in deps))
+        exclude.add(nxt.id)
+        try:
+            row = _start_with_lock_retry(partial(start, nxt.id), repo=repo, automatic=False)
+        except TaskRunError as exc:
+            start_skips.append(Skip(nxt.id, "cannot_start", f"{exc.code}: {exc.message}"))
+            if exc.code in (DISABLED, "trace_db_locked"):
+                break
+            continue
+        if row is None:
+            pending.append((nxt.id, effective_task_writes(nxt) or ("",)))
+            result.started.append(nxt.id)
+        else:
+            result.started.append(row)
+    result.skipped = [*start_skips, *last_skips]
+    return result
+
+
+def _failed(result: task_mod.TaskRunResult) -> bool:
+    """Whether the chain cannot go on after `result` as after a success."""
+    if result.closed_by_heal:
+        return False
+    return not result.ok or (result.pr is None and not result.done_without_pr)
+
+
+def _note_switch(record: _ChainRecord, result: task_mod.TaskRunResult, since: str) -> None:
+    """Record the automatic quota fallback of `result` (started during the chain)."""
+    event = heal_mod.switch_event(result, since)
+    if event is not None:
+        record.event(event)
+
+
+def _heal_in_chain(
+    repo: Path,
+    result: task_mod.TaskRunResult,
+    *,
+    auto: bool,
+    record: _ChainRecord,
+    healed: set[str],
+    since: str,
+    code: CodeRunner | None,
+    provider: GitProvider | None,
+) -> tuple[task_mod.TaskRunResult, bool]:
+    """The newest result of the failed `result` after healing it, and whether to go on.
+
+    Only a chain that would go on after the task heals it, each run once.
+    """
+    if result.run.run_id in healed:
+        return result, False
+    with _fresh_backlog(repo) as backlog:
+        task = backlog.by_id.get(result.run.task_id)
+    if not isinstance(task, Task) or not auto_continue_enabled(repo):
+        return result, False
+    healed.add(result.run.run_id)
+    healing = heal_mod.heal(repo, result, task, code=code, provider=provider)
+    if healing is None:
+        return result, False
+    if not record.started:
+        record.go_on(result.trace_db)
+    record.event(healing.event)
+    newest = healing.result if healing.result is not None else result
+    _note_switch(record, newest, since)
+    return newest, healing.goes_on
+
+
+def run_chain(
+    repo: Path,
+    task_id: str,
+    *,
+    auto: bool = False,
+    note: str | None = None,
+    force: bool = False,
+    code: CodeRunner | None = None,
+    provider: GitProvider | None = None,
+    max_parallel: int | None = None,
+    runner: ChainRunner | None = None,
+    pr_files: Callable[[TaskPrRow], list[str] | None] | None = None,
+    agents_override: dict[str, str] | None = None,
+    first_run: Callable[[], task_mod.TaskRunResult] | None = None,
+    automatic: bool = False,
+) -> ChainResult:
+    """Run `task_id`, then (auto-continue) the next ready tasks.
+
+    ``first_run`` replaces the first ``run_task`` of `task_id` (``retry_chain``: the
+    retry's attempt); it runs in this process, also in a parallel chain.
+
+    ``agents_override`` (``task run --harness/--model/--thinking``) applies to the first
+    run only; the rest of the chain runs on the roster.
+    Automatically selected tasks resume their newest failed ordinary run when present.
+
+    A finished task with ``auto_merge`` has its PR merged by ``try_auto_merge``
+    before anything else starts; nothing else is ever approved or merged.
+    A `TaskRunError` of the first run propagates; a later task that cannot start
+    is reported as a ``cannot_start`` skip and the chain tries the next one.
+
+    ``max_parallel`` (default: ``max_parallel_runs`` of the config) above 1 runs the
+    chain in parallel through `runner` (default ``ProcessRunner``); `pr_files` gives the
+    files of an open PR (default ``gitops.pr_changed_files`` in the main checkout).
+    `code` and `provider` apply to the sequential chain only.
+    """
+    limit = max_parallel if max_parallel is not None else _max_parallel(repo)
+    if limit <= 1:
+        return _run_sequential(
+            repo,
+            task_id,
+            auto=auto,
+            note=note,
+            force=force,
+            code=code,
+            provider=provider,
+            agents_override=agents_override,
+            first_run=first_run,
+            automatic=automatic,
+        )
+    return _run_parallel(
+        repo,
+        task_id,
+        auto=auto,
+        note=note,
+        force=force,
+        max_parallel=limit,
+        runner=runner if runner is not None else ProcessRunner(repo),
+        pr_files=pr_files,
+        agents_override=agents_override,
+        first_run=first_run,
+        automatic=automatic,
+        code=code,
+    )
+
+
+def continue_after_merge(
+    repo: Path,
+    task_id: str,
+    *,
+    start: Callable[[str, bool], TaskRunRow | None] | None = None,
+    provider: GitProvider | None = None,
+    code: CodeRunner | None = None,
+    runner: ChainRunner | None = None,
+    pr_files: Callable[[TaskPrRow], list[str] | None] | None = None,
+) -> ChainResult | None:
+    """Resume the latest not-merged chain after an operator merged its last task.
+
+    Claim before starting anything: repeated or concurrent approvals consume the old
+    chain only once. A consumed chain stays visible with its original stop reason.
+    With ``start``, hand the next task and the chain's ``auto`` flag to an external
+    launcher and return None after dispatch; the new process owns the continued chain.
+    """
+    main = gitops.main_root(repo)
+    db = _trace_db(repo)
+    if db is None:
+        return None
+    store = TaskRunStore(db)
+    try:
+        row = store.latest_chain_ending_with(task_id)
+        if row is None or row.stop != STOP_NOT_MERGED or row.continued_at is not None:
+            return None
+        pr = store.latest_pr(task_id)
+        if pr is None or pr.state != "merged":
+            return None
+        with _fresh_backlog(repo) as backlog:
+            after = backlog.by_id.get(task_id)
+            if not isinstance(after, Task) or not auto_continue_enabled(repo):
+                return None
+            if not store.claim_chain_continuation(row.chain_id):
+                return None
+        excluded: set[str] = set()
+        start_skips: list[Skip] = []
+        while True:
+            with _fresh_backlog(repo) as backlog:
+                after = backlog.by_id.get(task_id)
+                if not isinstance(after, Task):
+                    return None
+                slots = Slots.of(store)
+                occupancy = Occupancy.build(
+                    backlog, store, main, pr_files or _pr_files_default(main)
+                )
+
+                def conflict(
+                    task: Task,
+                    *,
+                    slots: Slots = slots,
+                    occupancy: Occupancy = occupancy,
+                    backlog: Backlog = backlog,
+                ) -> Skip | None:
+                    if slots.taken >= row.max_parallel and not slots.yields_to(
+                        unmet_ids(backlog, task) or []
+                    ):
+                        return slots.skip(task.id)
+                    return occupancy(task)
+
+                selection = select_next(
+                    backlog,
+                    after,
+                    open_pr=store.open_pr,
+                    latest_pr=store.latest_pr,
+                    running=store.running,
+                    exclude=excluded,
+                    conflict=conflict,
+                    require_auto_continue=False,
+                    prefs=store.queue_prefs(),
+                    stack=stacker(main),
+                )
+            if selection.next is None:
+                return ChainResult(
+                    [],
+                    STOP_EXHAUSTED,
+                    [*start_skips, *selection.skipped],
+                    max_parallel=row.max_parallel,
+                )
+            next_id = selection.next.id
+            excluded.add(next_id)
+
+            def start_next(next_id: str = next_id) -> task_mod.TaskRunResult:
+                return _start_with_lock_retry(
+                    lambda: task_mod.run_task(
+                        repo,
+                        next_id,
+                        provider=provider,
+                        code=code,
+                        started_by=STARTED_AUTO_CONTINUE,
+                    ),
+                    repo=repo,
+                )
+
+            try:
+                if start is not None:
+                    _start_with_lock_retry(partial(start, next_id, bool(row.auto)), repo=repo)
+                    return None
+                chain = run_chain(
+                    repo,
+                    next_id,
+                    auto=bool(row.auto),
+                    provider=provider,
+                    code=code,
+                    max_parallel=row.max_parallel,
+                    runner=runner,
+                    pr_files=pr_files,
+                    first_run=start_next,
+                )
+            except TaskRunError as exc:
+                start_skips.append(Skip(next_id, "cannot_start", f"{exc.code}: {exc.message}"))
+                if exc.code in (DISABLED, "trace_db_locked"):
+                    return ChainResult(
+                        [],
+                        STOP_DISABLED if exc.code == DISABLED else STOP_FAILED,
+                        start_skips,
+                        max_parallel=row.max_parallel,
+                    )
+                continue
+            chain.waiting = [*start_skips, *chain.waiting]
+            if start_skips and chain.chain_id is not None:
+                store.update_chain(chain.chain_id, skipped=[s.to_json() for s in chain.waiting])
+            return chain
+    finally:
+        store.close()
+
+
+def retry_chain(
+    repo: Path,
+    task_id: str,
+    *,
+    run_id: str | None = None,
+    note: str | None = None,
+    from_phase: str | None = None,
+    auto: bool = False,
+    code: CodeRunner | None = None,
+    provider: GitProvider | None = None,
+    max_parallel: int | None = None,
+    runner: ChainRunner | None = None,
+    pr_files: Callable[[TaskPrRow], list[str] | None] | None = None,
+    agents_override: dict[str, str] | None = None,
+) -> ChainResult:
+    """``factory task retry``: the retry of a run, then auto-merge and auto-continue.
+
+    ``agents_override`` continues the run on another harness (``retry_run``).
+
+    After a successful attempt the chain goes on exactly as after ``run_chain``: the
+    PR is merged with ``auto_merge`` and the next ready task starts when the live
+    repository policy permits, in the kanban's queue order. A `TaskRunError` of
+    the retry propagates.
+    """
+    # Local import and module attribute: a patched `retry_run` applies here too.
+    from aifactory.run import retry as retry_mod
+
+    def first() -> task_mod.TaskRunResult:
+        return retry_mod.retry_run(
+            repo,
+            task_id,
+            run_id=run_id,
+            note=note,
+            from_phase=from_phase,
+            code=code,
+            provider=provider,
+            agents_override=agents_override,
+        )
+
+    return run_chain(
+        repo,
+        task_id,
+        auto=auto,
+        code=code,
+        provider=provider,
+        max_parallel=max_parallel,
+        runner=runner,
+        pr_files=pr_files,
+        first_run=first,
+    )
+
+
+def member_auto_merge(
+    repo: Path, result: task_mod.TaskRunResult, *, code: CodeRunner | None = None
+) -> task_mod.TaskRunResult:
+    """Auto-merge of a finished run of a parallel chain, under the merge lock.
+
+    A PR in conflict is resolved once (``resolve_and_merge``) outside the lock and merged
+    under it, as the sequential chain does; the resolve run is ``result.resolve_run``.
+    Nothing happens without repository-local auto merge enabled.
+    """
+    if not result.ok or result.pr is None:
+        return result
+    with _fresh_backlog(repo) as backlog:
+        task = backlog.by_id.get(result.run.task_id)
+        if not isinstance(task, Task) or not auto_merge_enabled(repo):
+            return result
+        # Local import: aifactory.review imports aifactory.run.
+        from aifactory.review.automerge import resolve_and_merge, try_auto_merge
+
+        store = TaskRunStore(result.trace_db)
+        try:
+            with store.merge_lock():
+                result.auto_merge = try_auto_merge(repo, result, task, code=code)
+            if not result.auto_merge.merged and result.auto_merge.code == "conflict":
+                result.resolve_run, result.auto_merge = resolve_and_merge(
+                    repo, result, task, code=code, merge_lock=store.merge_lock
+                )
+        finally:
+            store.close()
+    return result
+
+
+def _run_sequential(
+    repo: Path,
+    task_id: str,
+    *,
+    auto: bool,
+    note: str | None,
+    force: bool,
+    code: CodeRunner | None,
+    provider: GitProvider | None,
+    agents_override: dict[str, str] | None = None,
+    first_run: Callable[[], task_mod.TaskRunResult] | None = None,
+    automatic: bool = False,
+) -> ChainResult:
+    """One run after another (``max_parallel_runs: 1``)."""
+    db = _trace_db(repo)
+    goes_on = auto_continue_enabled(repo)
+    record = _ChainRecord(db, task_id, 1, enabled=goes_on, auto=auto)
+    if db is not None and db.is_file():
+        record.start()
+    try:
+        chain = _sequential(
+            repo,
+            task_id,
+            auto=auto,
+            note=note,
+            force=force,
+            code=code,
+            provider=provider,
+            record=record,
+            agents_override=agents_override,
+            first_run=first_run,
+            automatic=automatic,
+        )
+    except TaskRunError:
+        record.abort()
+        raise
+    except BaseException:
+        record.update(state=ABORTED)
+        raise
+    chain.chain_id = record.chain_id if record.started else None
+    chain.events = list(record.events)
+    record.finish(chain.stop, [r.run.run_id for r in chain.runs], chain.waiting, [])
+    return chain
+
+
+def _sequential(
+    repo: Path,
+    task_id: str,
+    *,
+    auto: bool,
+    note: str | None,
+    force: bool,
+    code: CodeRunner | None,
+    provider: GitProvider | None,
+    record: _ChainRecord,
+    agents_override: dict[str, str] | None = None,
+    first_run: Callable[[], task_mod.TaskRunResult] | None = None,
+    automatic: bool = False,
+) -> ChainResult:
+    since = str(now_iso())
+    if first_run is not None:
+        first = first_run()
+    else:
+        # Through the module attribute, so a patched `run_task` applies to the whole chain.
+        first = task_mod.run_task(
+            repo,
+            task_id,
+            note=note,
+            force=force,
+            code=code,
+            provider=provider,
+            agents_override=agents_override,
+            started_by=STARTED_AUTO_CONTINUE if automatic else STARTED_MANUAL,
+        )
+    runs = [first]
+    record.start(first.trace_db)
+    record.update(run_ids=[first.run.run_id])
+    _note_switch(record, first, since)
+    exclude = {task_id}
+    requeued: set[str] = set()
+    start_skips: list[Skip] = []
+    healed: set[str] = set()
+    last = first
+    while True:
+        blocked: list[str] | None = None
+        needs_environment = last.run.shown_failure_kind == failures.NEEDS_ENVIRONMENT
+        if _failed(last) and not needs_environment:
+            if not auto_continue_enabled(repo):
+                return ChainResult(runs, STOP_DISABLED)
+            blocked = task_mod.run_blockers(last.run)
+            if blocked is None:
+                fixed, goes_on = _heal_in_chain(
+                    repo,
+                    last,
+                    auto=auto,
+                    record=record,
+                    healed=healed,
+                    since=since,
+                    code=code,
+                    provider=provider,
+                )
+                runs[runs.index(last)] = fixed
+                if not goes_on:
+                    return ChainResult(
+                        runs, STOP_FAILED if auto_continue_enabled(repo) else STOP_DISABLED
+                    )
+                record.update(run_ids=[r.run.run_id for r in runs])
+                last = fixed
+                continue
+        prefer: list[str] = []
+        with _fresh_backlog(repo) as backlog:
+            after = backlog.by_id.get(last.run.task_id)
+            if not isinstance(after, Task):
+                return ChainResult(runs, STOP_FAILED if blocked is not None else STOP_DISABLED)
+            cont = auto_continue_enabled(repo)
+            if blocked is not None:
+                # blocked during its run: no PR, no merge; on with its blockers first
+                if not cont:
+                    return ChainResult(runs, STOP_DISABLED)
+                prefer = blockers_of(backlog, after, blocked)
+                start_skips.append(_blocked_skip(after, blocked))
+                if after.id not in requeued and _may_requeue(backlog, after, blocked):
+                    # it starts again once its blockers are done (priority record)
+                    requeued.add(after.id)
+                    exclude.discard(after.id)
+            if needs_environment:
+                if not cont:
+                    return ChainResult(runs, STOP_DISABLED)
+                skip = _environment_skip(last)
+                if skip not in start_skips:
+                    start_skips.append(skip)
+            if cont and not record.started:
+                record.go_on(last.trace_db)
+                record.update(run_ids=[r.run.run_id for r in runs])
+            merged = False
+            if (
+                blocked is None
+                and not needs_environment
+                and not last.closed_by_heal
+                and not last.done_without_pr
+                and last.auto_merge is None
+                and auto_merge_enabled(repo)
+            ):
+                # Local import: aifactory.review imports aifactory.run.
+                from aifactory.review.automerge import try_auto_merge
+
+                last.auto_merge = try_auto_merge(repo, last, after, provider=provider, code=code)
+                if not last.auto_merge.merged and last.auto_merge.code == "conflict":
+                    # one auto-resolve (whole suite, reviewed resolution), then merge
+                    from aifactory.review.automerge import resolve_and_merge
+
+                    resolved, last.auto_merge = resolve_and_merge(
+                        repo, last, after, provider=provider, code=code
+                    )
+                    if resolved is not None:
+                        runs.append(resolved)
+                cont = auto_continue_enabled(repo)
+                if not last.auto_merge.merged and not _waits_for_stack(last.auto_merge):
+                    return ChainResult(runs, STOP_NOT_MERGED if cont else STOP_DISABLED)
+                merged = last.auto_merge.merged
+            if not cont:
+                return ChainResult(runs, STOP_DISABLED)
+            if merged:  # base moved: the next task starts from the merged change
+                backlog = _base_backlog(repo)
+                found = backlog.by_id.get(last.run.task_id)
+                if not isinstance(found, Task):
+                    return ChainResult(runs, STOP_DISABLED)
+                after = found
+            store = TaskRunStore(last.trace_db)
+            try:
+                selection = select_next(
+                    backlog,
+                    after,
+                    open_pr=store.open_pr,
+                    latest_pr=store.latest_pr,
+                    running=store.running,
+                    exclude=exclude,
+                    require_auto_continue=False,
+                    prefs=store.queue_prefs(),
+                    prefer=prefer,
+                    stack=stacker(gitops.main_root(repo)),
+                )
+            finally:
+                store.close()
+        nxt = selection.next
+        if nxt is None:
+            return ChainResult(runs, STOP_EXHAUSTED, [*start_skips, *selection.skipped])
+        exclude.add(nxt.id)
+        try:
+            result = _start_with_lock_retry(
+                partial(
+                    task_mod.run_task,
+                    repo,
+                    nxt.id,
+                    code=code,
+                    provider=provider,
+                    started_by=STARTED_AUTO_CONTINUE,
+                ),
+                repo=repo,
+            )
+        except TaskRunError as exc:
+            # Nothing was started (a race with another process, no writes, ...): try the next one.
+            start_skips.append(Skip(nxt.id, "cannot_start", f"{exc.code}: {exc.message}"))
+            if exc.code == DISABLED:
+                return ChainResult(runs, STOP_DISABLED, start_skips)
+            if exc.code == "trace_db_locked":
+                return ChainResult(runs, STOP_FAILED, start_skips)
+            continue
+        runs.append(result)
+        record.update(run_ids=[r.run.run_id for r in runs])
+        _note_switch(record, result, since)
+        last = result
+
+
+def _run_parallel(
+    repo: Path,
+    task_id: str,
+    *,
+    auto: bool,
+    note: str | None,
+    force: bool,
+    max_parallel: int,
+    runner: ChainRunner,
+    pr_files: Callable[[TaskPrRow], list[str] | None] | None,
+    agents_override: dict[str, str] | None = None,
+    first_run: Callable[[], task_mod.TaskRunResult] | None = None,
+    code: CodeRunner | None = None,
+    automatic: bool = False,
+) -> ChainResult:
+    """Up to `max_parallel` runs at once, none overlapping another's writes or an open PR.
+
+    With `first_run` (a retry) the first run runs in this process, merges like a member
+    (``member_auto_merge``, `code` reaches its resolve run) and only then the chain fills.
+    """
+    main = gitops.main_root(repo)
+    db = task_mod._load(main).local.trace_db_path(main)
+    files_of = pr_files if pr_files is not None else _pr_files_default(main)
+    first_task = _first_task(repo, task_id)
+    goes_on = auto_continue_enabled(repo)
+    record = _ChainRecord(db, task_id, max_parallel, enabled=goes_on, auto=auto)
+    record.start()
+    order: list[str] = []  # run ids in start order
+    results: dict[str, task_mod.TaskRunResult] = {}
+    exclude: set[str] = {task_id}
+    requeued: set[str] = set()
+    start_skips: list[Skip] = []
+    last_skips: list[Skip] = []
+    exclusive: list[str] = []
+    halt: str | None = None
+    last_cont = True
+    healed: set[str] = set()
+    since = str(now_iso())
+
+    def save(**extra: object) -> None:
+        record.update(
+            run_ids=list(order),
+            skipped=[s.to_json() for s in [*start_skips, *last_skips]],
+            exclusive=list(exclusive),
+            **extra,
+        )
+
+    def started(task: Task | None, row: TaskRunRow) -> None:
+        if row.run_id not in order:  # a requeued task may resume the same run
+            order.append(row.run_id)
+        if task is not None and is_wide(effective_task_writes(task), main):
+            exclusive.append(task.id)
+        save()
+
+    def fill(after_id: str, prefer: Sequence[str] = ()) -> None:
+        nonlocal last_skips, halt
+        while halt is None:
+            if not auto_continue_enabled(repo):
+                halt = STOP_DISABLED
+                return
+            if len(runner.active()) >= max_parallel:
+                return
+            with _fresh_backlog(repo) as backlog:
+                after = backlog.by_id.get(after_id)
+                if not isinstance(after, Task):
+                    return
+                store = TaskRunStore(db)
+                try:
+                    # Runs of other chains, single runs and PRs waiting for review take
+                    # slots of the repo too.
+                    slots = Slots.of(store, runner.active())
+                    full = slots.taken >= max_parallel
+                    if full and not slots.in_review:
+                        save()
+                        return
+                    occupancy = Occupancy.build(backlog, store, main, files_of)
+                    selection = select_next(
+                        backlog,
+                        after,
+                        open_pr=store.open_pr,
+                        latest_pr=store.latest_pr,
+                        running=store.running,
+                        exclude=exclude,
+                        conflict=occupancy,
+                        require_auto_continue=False,
+                        prefs=store.queue_prefs(),
+                        prefer=prefer,
+                        stack=stacker(main),
+                    )
+                    deps = unmet_ids(backlog, selection.next) or [] if selection.next else []
+                finally:
+                    store.close()
+            last_skips = selection.skipped
+            nxt = selection.next
+            if nxt is None:
+                save()
+                return
+            if full and not slots.yields_to(deps):
+                # PRs waiting for review hold the slot this task would take
+                last_skips = [*last_skips, slots.skip(nxt.id)]
+                save()
+                return
+            exclude.add(nxt.id)
+            try:
+                row = _start_with_lock_retry(
+                    partial(runner.start, nxt.id, started_by=STARTED_AUTO_CONTINUE),
+                    repo=repo,
+                )
+            except TaskRunError as exc:
+                start_skips.append(Skip(nxt.id, "cannot_start", f"{exc.code}: {exc.message}"))
+                save()
+                if exc.code in (DISABLED, "trace_db_locked"):
+                    halt = STOP_DISABLED if exc.code == DISABLED else STOP_FAILED
+                    return
+                continue
+            started(nxt, row)
+
+    def finished(result: task_mod.TaskRunResult) -> None:
+        nonlocal halt, last_cont
+        if result.run.run_id not in order:
+            order.append(result.run.run_id)
+        results[result.run.run_id] = result
+        resolved = result.resolve_run
+        if resolved is not None:  # the member's auto-resolve run belongs to the chain
+            if resolved.run.run_id not in order:
+                order.insert(order.index(result.run.run_id) + 1, resolved.run.run_id)
+            results[resolved.run.run_id] = resolved
+        save()
+        _note_switch(record, result, since)
+        if halt is not None:
+            return
+        if not auto_continue_enabled(repo):
+            halt = STOP_DISABLED
+            return
+        blocked: list[str] | None = None
+        needs_environment = result.run.shown_failure_kind == failures.NEEDS_ENVIRONMENT
+        if _failed(result) and not needs_environment:
+            blocked = task_mod.run_blockers(result.run)
+            if blocked is None:
+                # a retry runs in this process, like the first run of a retry chain
+                fixed, goes_on = _heal_in_chain(
+                    repo,
+                    result,
+                    auto=auto,
+                    record=record,
+                    healed=healed,
+                    since=since,
+                    code=code,
+                    provider=None,
+                )
+                results[fixed.run.run_id] = fixed
+                if not goes_on:
+                    halt = STOP_FAILED if auto_continue_enabled(repo) else STOP_DISABLED
+                    return
+                if not fixed.closed_by_heal:
+                    fixed = member_auto_merge(repo, fixed, code=code)
+                finished(fixed)
+                return
+        prefer: list[str] = []
+        with _fresh_backlog(repo) as backlog:
+            found = backlog.by_id.get(result.run.task_id)
+            after = found if isinstance(found, Task) else None
+            if after is not None and blocked is not None:
+                prefer = blockers_of(backlog, after, blocked)
+                if after.id not in requeued and _may_requeue(backlog, after, blocked):
+                    # it starts again once its blockers are done (priority record)
+                    requeued.add(after.id)
+                    exclude.discard(after.id)
+        if after is None:
+            if blocked is not None:
+                halt = STOP_FAILED
+            else:
+                last_cont = False
+            return
+        cont = auto_continue_enabled(repo)
+        if needs_environment:
+            if not cont:
+                halt = STOP_DISABLED
+                return
+            start_skips.append(_environment_skip(result))
+            last_cont = True
+            if not record.started:
+                record.go_on()
+            save()
+            fill(after.id)
+            return
+        if blocked is not None:
+            # blocked during its run: no PR, no merge; on with its blockers first
+            if not cont:
+                halt = STOP_DISABLED
+                return
+            start_skips.append(_blocked_skip(after, blocked))
+            last_cont = True
+            if not record.started:
+                record.go_on()
+            save()
+            fill(after.id, prefer)
+            return
+        last_cont = cont
+        if cont and not record.started:
+            record.go_on()
+            save()
+        merge = result.auto_merge
+        closed = result.closed_by_heal or result.done_without_pr
+        if not closed and auto_merge_enabled(repo) and (merge is None or not merge.merged):
+            if merge is None or not _waits_for_stack(merge):
+                halt = STOP_NOT_MERGED if cont else STOP_DISABLED
+                return
+        if cont:
+            fill(after.id)
+
+    try:
+        if first_run is not None:
+            try:
+                first = first_run()
+            except TaskRunError:
+                record.abort()
+                raise
+            started(first_task, first.run)
+            finished(member_auto_merge(repo, first, code=code))
+        else:
+            try:
+                first_row = runner.start(
+                    task_id,
+                    note=note,
+                    force=force,
+                    agents_override=agents_override,
+                    started_by=STARTED_AUTO_CONTINUE if automatic else STARTED_MANUAL,
+                )
+            except TaskRunError:
+                record.abort()
+                raise
+            started(first_task, first_row)
+            if goes_on:
+                fill(task_id)
+        while runner.active():
+            finished(runner.wait_any())
+    except BaseException:
+        record.update(state=ABORTED)
+        raise
+    runs = [results[rid] for rid in order if rid in results]
+    waiting: list[Skip] = []
+    if halt is not None:
+        stop = halt
+        waiting = [*start_skips, *last_skips]
+    elif not last_cont:
+        stop = STOP_DISABLED
+    else:
+        stop, waiting = STOP_EXHAUSTED, [*start_skips, *last_skips]
+    record.finish(stop, [r.run.run_id for r in runs], [*start_skips, *last_skips], exclusive)
+    return ChainResult(
+        runs,
+        stop,
+        waiting,
+        max_parallel=max_parallel,
+        exclusive=exclusive,
+        chain_id=record.chain_id if record.started else None,
+        events=list(record.events),
+    )

@@ -212,7 +212,7 @@ def test_obs_text_output(tmp_path: Path, capsys: pytest.CaptureFixture[str], ser
 def test_obs_opens_the_backlog_of_a_ready_repo(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], served: Calls
 ) -> None:
-    from aifactory.web.registry import Registry
+    from aifactory.registry import Registry
     from aifactory.web.repos import repo_status
 
     root = init_repo(tmp_path / "ready")

@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T13
 title: "Aliasy HAIFA_* na jednom místě"
-status: todo
+status: done
 depends_on: [OPT-S05-T01]
 ---
 
@@ -17,4 +17,4 @@ Hotovo znamená:
 - Stávající proměnné `HAIFA_*` dál fungují.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

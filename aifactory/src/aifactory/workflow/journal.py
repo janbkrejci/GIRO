@@ -21,6 +21,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from aifactory.oscompat import atomic_write
+
 __all__ = ["JOURNAL_FILE", "Journal", "JournalEntry", "read_journal"]
 
 JOURNAL_FILE = "workflow_journal.json"
@@ -113,10 +115,7 @@ class Journal:
     def save(self) -> None:
         if self.path is None:
             return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_name(self.path.name + ".tmp")
-        tmp.write_text(json.dumps(self.to_json(), indent=1), encoding="utf-8", newline="\n")
-        tmp.replace(self.path)
+        atomic_write(self.path, json.dumps(self.to_json(), indent=1))
 
 
 def read_journal(path: Path) -> Journal:

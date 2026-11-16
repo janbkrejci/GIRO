@@ -1,8 +1,8 @@
-"""aifactory: machine-wide slots of the ``test`` step (``test_slots``).
+"""Machine-wide slots of the ``test`` step (``test_slots``).
 
 At most ``slots`` test commands run at once on the machine; the other runs wait in a
 queue in the order they asked for a slot. The state is a directory (by default
-``<HAIFA home>/test_slots``) shared by every run on the machine:
+``<GIRO home>/test_slots``) shared by every run on the machine:
 
 - ``queue/<ns>-<pid>-<token>`` is a ticket of a waiting run. Tickets sort by the time
   they were created; a ticket whose process no longer exists is removed by whoever
@@ -27,15 +27,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from aifactory import oscompat
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 
 DEFAULT_TEST_SLOTS = 1
 POLL_SECONDS = 0.5
 
 
 def default_slots_dir() -> Path:
-    """``<HAIFA home>/test_slots``: shared by every run on the machine."""
-    return haifa_home() / "test_slots"
+    """``<GIRO home>/test_slots``: shared by every run on the machine."""
+    return giro_home() / "test_slots"
 
 
 def _alive(pid: int) -> bool:

@@ -1,8 +1,8 @@
-"""The ``library`` rule group: the library in ``$HAIFA_HOME`` and the installed HAIFA.
+"""The ``library`` rule group: the library in ``$GIRO_HOME`` and the installed GIRO.
 
 Everything comes from one ``library_status(fetch=False)``: ahead/behind compare the
 library with its local remote-tracking ref, so they are as of the last fetch. Nothing
-is fetched and nothing is written (no lock, no ``$HAIFA_HOME``). The rules run outside a
+is fetched and nothing is written (no lock, no ``$GIRO_HOME``). The rules run outside a
 git repository too.
 """
 

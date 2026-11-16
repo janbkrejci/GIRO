@@ -1,7 +1,6 @@
-"""GIRO's machine home, with explicit HAIFA aliases and guarded legacy discovery.
+"""GIRO's machine home: explicit GIRO_HOME, else the default.
 
 Defaults use XDG_CONFIG_HOME/giro or ~/.config/giro (Path.home on Windows).
-Legacy-only defaults require confirmed migration; ambiguous directories fail closed.
 Environment files cannot redirect the already selected home.
 """
 
@@ -18,7 +17,7 @@ from dotenv import dotenv_values
 
 from aifactory import oscompat
 
-HOME_ENV = "HAIFA_HOME"
+HOME_ENV = "GIRO_HOME"
 XDG_ENV = "XDG_CONFIG_HOME"
 ENV_FILE = "env"
 
@@ -28,11 +27,10 @@ def _env(environ: Mapping[str, str], name: str) -> str | None:
     return value if value else None
 
 
-def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
-    """Explicit GIRO_HOME/HAIFA_HOME, otherwise the guarded GIRO default."""
+def giro_home(environ: Mapping[str, str] | None = None) -> Path:
+    """Explicit GIRO_HOME, otherwise ``giro`` under XDG_CONFIG_HOME or ~/.config."""
     env = os.environ if environ is None else environ
     from aifactory.environment import value
-    from aifactory.upgrade import UpgradeError
 
     explicit = value("HOME", env)
     if explicit is not None:
@@ -41,31 +39,12 @@ def haifa_home(environ: Mapping[str, str] | None = None) -> Path:
     home = _env(env, "HOME")
     base = Path(home) if home is not None else Path.home()
     parent = Path(xdg).expanduser() if xdg is not None else base / ".config"
-    target, legacy = parent / "giro", parent / "haifa"
-    if legacy.exists() and target.resolve() != legacy.resolve():
-        if target.exists():
-            from aifactory.migration_guard import MARKER, check_home
-
-            if (target / MARKER).exists():
-                check_home(target, expected_source=legacy)
-                return target
-            raise UpgradeError(
-                "migration_collision",
-                f"Both {legacy} and {target} exist without a completed migration. "
-                "Stop writers, back up both and inspect them; select GIRO_HOME explicitly.",
-            )
-        raise UpgradeError(
-            "migration_required",
-            f"Legacy data found at {legacy}. Stop HAIFA and use its transition button, "
-            "or run giro migrate --confirm --haifa-bundle PATH to the verified last HAIFA ZIP. "
-            "Nothing has been written.",
-        )
-    return target
+    return parent / "giro"
 
 
 def logs_dir(environ: Mapping[str, str] | None = None) -> Path:
     """``<home>/logs``; created (mode 0700) when missing."""
-    path = haifa_home(environ) / "logs"
+    path = giro_home(environ) / "logs"
     if not path.is_dir():
         path.mkdir(parents=True, exist_ok=True)
         os.chmod(path, 0o700)
@@ -85,7 +64,7 @@ def create_private(path: Path) -> BinaryIO:
 
 def env_file(environ: Mapping[str, str] | None = None) -> Path:
     """``<home>/env``: KEY=VALUE lines loaded into the environment at ``factory`` start."""
-    return haifa_home(environ) / ENV_FILE
+    return giro_home(environ) / ENV_FILE
 
 
 def load_env_file(

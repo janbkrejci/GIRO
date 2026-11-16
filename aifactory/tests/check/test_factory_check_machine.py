@@ -6,7 +6,6 @@ No test starts a harness, ``gh`` or ``az``; the library remote is a bare repo on
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from aifactory.check import CheckReport, Finding, Probe, run_check
 from aifactory.check.machine import SystemMachine
 from aifactory.home import env_file
 from aifactory.library.store import init_library, library_root
+from gitutil import git
 
 PI_ROSTER = """\
 defaults:
@@ -250,26 +250,14 @@ def test_offline_skips_every_login(repo: Path, outside: Path) -> None:
 # -- library --
 
 
-def _git(cwd: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", "-c", "commit.gpgsign=false", *args],
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        check=True,
-        encoding="utf-8",
-    )
-    return proc.stdout.strip()
-
-
 @pytest.fixture
 def lib(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A library in the test's HAIFA_HOME, pushed to a bare remote on disk."""
+    """A library in the test's GIRO_HOME, pushed to a bare remote on disk."""
     for key, value in GIT_IDENTITY.items():
         monkeypatch.setenv(key, value)
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     bare = tmp_path / "remote.git"
-    _git(tmp_path, "init", "--bare", "--quiet", "-b", "main", str(bare))
+    git(tmp_path, "init", "--bare", "--quiet", "-b", "main", str(bare))
     init_library(remote=str(bare))
     return library_root()
 
@@ -283,7 +271,7 @@ def _meta(lib: Path, **changes: object) -> None:
         else:
             meta[key] = value
     path.write_text(yaml.safe_dump(meta), encoding="utf-8")
-    _git(lib, "commit", "-q", "-am", "meta")
+    git(lib, "commit", "-q", "-am", "meta")
 
 
 def _library_codes(report: CheckReport) -> list[str]:
@@ -309,8 +297,8 @@ def test_library_dirty(outside: Path, lib: Path) -> None:
 
 def test_library_unpushed(outside: Path, lib: Path) -> None:
     write(lib, "notes.txt", "draft\n")
-    _git(lib, "add", "-A")
-    _git(lib, "commit", "-q", "-m", "local")
+    git(lib, "add", "-A")
+    git(lib, "commit", "-q", "-m", "local")
     report = _outside(outside, FakeMachine())
     finding = _one(report, "library_unpushed", "library", "warning")
     assert "1 commit(s)" in finding.message and "as of the last fetch" in finding.message
@@ -320,13 +308,13 @@ def test_library_unpushed(outside: Path, lib: Path) -> None:
 
 def test_library_behind(outside: Path, lib: Path, tmp_path: Path) -> None:
     other = tmp_path / "other"
-    _git(tmp_path, "clone", "-q", str(tmp_path / "remote.git"), str(other))
+    git(tmp_path, "clone", "-q", str(tmp_path / "remote.git"), str(other))
     write(other, "notes.txt", "remote\n")
-    _git(other, "add", "-A")
-    _git(other, "commit", "-q", "-m", "remote")
-    _git(other, "push", "-q", "origin", "main")
+    git(other, "add", "-A")
+    git(other, "commit", "-q", "-m", "remote")
+    git(other, "push", "-q", "origin", "main")
     assert "library_behind" not in _codes(_outside(outside, FakeMachine()))  # no fetch yet
-    _git(lib, "fetch", "-q", "origin")  # the test fetches; the check never does
+    git(lib, "fetch", "-q", "origin")  # the test fetches; the check never does
     finding = _one(_outside(outside, FakeMachine()), "library_behind", "library", "warning")
     assert finding.fix == "giro library pull"
 

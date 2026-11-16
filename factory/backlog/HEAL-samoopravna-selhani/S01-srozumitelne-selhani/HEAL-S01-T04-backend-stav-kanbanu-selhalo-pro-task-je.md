@@ -36,5 +36,5 @@ Hotovo znamená:
 - `uv run pytest tests/web/test_web_backlog.py tests/web/test_web_overview.py -n0` v `aifactory/` projde.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-02 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/200 · náklady $2.14

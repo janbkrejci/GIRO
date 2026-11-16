@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T02
 title: Live watcher bez stat každého souboru
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -16,4 +16,4 @@ Hotovo znamená:
 - Testy ověří, že změna, přidání i smazání souboru v `backlog/` a `.factory/` dál vyvolá událost.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

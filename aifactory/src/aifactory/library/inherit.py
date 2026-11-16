@@ -1,4 +1,4 @@
-"""The library a repo inherits from: HEAD of ``$HAIFA_HOME/library``, else the seed.
+"""The library a repo inherits from: HEAD of ``$GIRO_HOME/library``, else the seed.
 
 Agents, workflows, skills and extensions are looked up in the repo's ``.factory/`` first
 and here second; the repo copy wins. The library is read from the tree of its HEAD
@@ -13,6 +13,7 @@ A snapshot is cached per library commit, so loading the configuration again cost
 from __future__ import annotations
 
 import copy
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -171,7 +172,8 @@ def _write_item(dest: Path, item: Item) -> None:
         path = dest / f.path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(f.data)
-        path.chmod(0o755 if f.executable else 0o644)
+        if sys.platform != "win32":  # the mode has no effect there
+            path.chmod(0o755 if f.executable else 0o644)
     (dest / ".gitignore").write_text(IGNORE_ALL, encoding="utf-8")
 
 

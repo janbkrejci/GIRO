@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T12
 title: Engine jako vlastní kód
-status: todo
+status: done
 depends_on: [OPT-S05-T11, OPT-S02-T01]
 writes: [aifactory/, justfile, CLAUDE.md, docs/decisions.md]
 ---
@@ -20,4 +20,4 @@ Hotovo znamená:
 - Testy `tests/engine/` a `tests/harness/` projdou.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

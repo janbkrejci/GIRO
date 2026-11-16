@@ -72,16 +72,6 @@ def branch_cost(trace_db: Path, run_ids: Sequence[str]) -> tuple[float, int]:
 
 
 @dataclass(frozen=True)
-class StepInfo:
-    """An agent step of a run, as the trace recorded it."""
-
-    step: str
-    agent: str
-    harness: str | None
-    model: str | None
-
-
-@dataclass(frozen=True)
 class CheckInfo:
     """A gate verdict or a test/quality/command step result of a run."""
 
@@ -98,33 +88,6 @@ def _payload(raw: object) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return data if isinstance(data, dict) else {}
-
-
-def run_steps(trace_db: Path, run_id: str) -> list[StepInfo]:
-    """Agent phases of `run_id` in order, with the harness and model each one used."""
-    rows = _query(
-        trace_db,
-        "SELECT p.phase_id, p.name, p.owner, e.payload_json FROM phases p "
-        "LEFT JOIN events e ON e.phase_id = p.phase_id AND e.type = 'log' "
-        "WHERE p.adw_id = ? AND p.kind = 'agent' ORDER BY p.seq, e.started_at",
-        (run_id,),
-    )
-    steps: dict[str, StepInfo] = {}
-    for phase_id, name, owner, payload_json in rows:
-        known = steps.get(str(phase_id))
-        if known is not None and known.harness is not None:
-            continue
-        payload = _payload(payload_json)
-        if known is None or "harness" in payload:
-            harness = payload.get("harness") if "harness" in payload else None
-            model = payload.get("model") if "harness" in payload else None
-            steps[str(phase_id)] = StepInfo(
-                step=str(name or ""),
-                agent=str(owner or ""),
-                harness=str(harness) if harness is not None else None,
-                model=str(model) if model is not None else None,
-            )
-    return list(steps.values())
 
 
 def run_checks(trace_db: Path, run_id: str) -> list[CheckInfo]:

@@ -21,5 +21,5 @@ Task `HAIFA-TODO-T08` na tomto tasku závisí a do jeho dokončení zůstává b
 <!-- factory: follow-up-of=HAIFA-TODO-T08 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-16 · workflow build-review · PR https://github.com/janbkrejci/HAIFA/pull/56 · náklady $0.32

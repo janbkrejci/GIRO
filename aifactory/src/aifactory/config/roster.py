@@ -10,8 +10,6 @@ from __future__ import annotations
 import copy
 import difflib
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +20,8 @@ from aifactory import yamlload
 from aifactory.config.errors import ConfigError, ConfigIssue
 from aifactory.config.loader import AGENTS_FILE, load_config
 from aifactory.config.source import OverlaySource, WorktreeSource, repo_root
-from aifactory.harness import canonical, load
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS, canonical, load
+from aifactory.oscompat import atomic_write
 
 PRESETS = {
     "codex": {"harness": "codex", "model": "gpt-6.1-sol", "thinking": "medium"},
@@ -90,7 +88,7 @@ def _render(text: str, raw: dict[str, Any], updated: dict[str, Any]) -> tuple[st
     Flow mappings/aliases fall back to the existing YAML serializer, with a warning.
     Always verify the patched document has exactly the intended data before using it.
     """
-    root = yaml.compose(text)
+    root = yamlload.compose(text)
     edits: list[tuple[int, int, str]] = []
 
     def patch(node: MappingNode, before: dict[str, Any], after: dict[str, Any]) -> None:
@@ -192,17 +190,7 @@ def _finish(
         comments_preserved=preserved,
     )
     if diff and not dry_run:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(prefix=".agents-", suffix=".yaml", dir=path.parent)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-                stream.write(rendered)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, path)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+        atomic_write(path, rendered, fsync=True)
     return result
 
 

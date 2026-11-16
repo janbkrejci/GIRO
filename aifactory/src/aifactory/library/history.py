@@ -2,7 +2,7 @@
 
 ``git log -- <item path>`` lists the commits that touched the item; the version of the
 item in each of them is its content hash there. A commit's version never changes, so it
-is kept in ``$HAIFA_HOME/cache/library/<type>/<name>.json`` (``{commit: version}``); a
+is kept in ``$GIRO_HOME/cache/library/<type>/<name>.json`` (``{commit: version}``); a
 deleted cache is computed again.
 """
 
@@ -10,16 +10,15 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
-import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.library.model import ItemType
 from aifactory.library.tree import item_tree_path, item_versions
+from aifactory.oscompat import atomic_write
 from aifactory.providers.git import run_bytes
 
 _SEP = "\x1f"
@@ -61,7 +60,7 @@ class Revision:
 
 
 def cache_dir(environ: Mapping[str, str] | None = None) -> Path:
-    return haifa_home(environ) / "cache" / "library"
+    return giro_home(environ) / "cache" / "library"
 
 
 def changes(root: Path, path: str, rev: str = "HEAD") -> list[Change]:
@@ -98,11 +97,7 @@ def _load(path: Path) -> dict[str, str | None]:
 
 def _save(path: Path, commits: Mapping[str, str | None]) -> None:
     with contextlib.suppress(OSError):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=path.parent)
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            json.dump({"commits": dict(commits)}, handle, indent=1, sort_keys=True)
-        os.replace(tmp, path)
+        atomic_write(path, json.dumps({"commits": dict(commits)}, indent=1, sort_keys=True))
 
 
 def versions(

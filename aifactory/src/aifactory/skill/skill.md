@@ -19,12 +19,7 @@ with `giro --skill` and replace the saved copy.
 
 Goal in. Release out.
 
-To move from older HAIFA, first update to the last HAIFA with the “HAIFA is becoming GIRO” alert. Once GIRO is released, click the migration action: it verifies the bundle, preserves a backup and restores the dashboard at the same address. Successful GIRO shows no migration alert and uses the new repository for normal updates. Backups are never automatically deleted. Standalone startup with old data may return `migration_required`; after stopping all processes, use `giro migrate --confirm --haifa-bundle /path/haifa-H.zip` with the verified last HAIFA bundle. Two distinct unmarked homes block startup. For rollback, stop all writes, preserve the new state too, then restore every original path and the software from the verified backup; do not remove the marker to bypass recovery. The source repository documents the full protocol in `docs/rebranding/release.md`.
-
-`factory` remains a compatibility alias of `giro`; `HAIFA_*` are legacy aliases of `GIRO_*`. A nonempty new name wins within a layer; process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY). Browser preferences keep their storage keys at the same origin. Purging a marked migration home is refused; use `--keep-data` / `-KeepData` to preserve data.
-
-Target `janbkrejci/GIRO` releases become a public installation source only after
-verified cutover T06; active `janbkrejci/HAIFA` releases still contain HAIFA bundles.
+`factory` remains a compatibility alias of `giro`. Settings are read only from `GIRO_*` variables; a legacy `HAIFA_*` (or `AIFACTORY_GH`/`AIFACTORY_AZ`) variable is ignored with a warning naming its `GIRO_*` replacement. Process environment wins over `<home>/env`. `.factory/`, `factory/backlog/`, Python distribution `aifactory`, and item `skill/factory` remain technical compatibility names. The default team library is [GIRO-LIBRARY](https://github.com/janbkrejci/GIRO-LIBRARY).
 
 ## Prerequisites
 
@@ -1119,7 +1114,7 @@ credential helper).
    unsent local commits as one pull request (`data.pull_request`: `branch`, `url`,
    `number`, `fork`; `pushed: 0` and `pull_request: null` when nothing is unsent;
    `library_behind`, `library_diverged`, `push_failed`, `pr_failed`); `no_remote` without
-   a remote. On GitHub the branch `haifa-library/...` goes to the library repo when the
+   a remote. On GitHub the branch `giro-library/...` goes to the library repo when the
    user may write to it, else to the user's fork (`gh repo fork`); `gh pr create` opens the
    pull request. Other remotes get only the branch. Never merge, approve or force it.
 4. `giro library pull --json` fast-forwards; local commits the remote lacks are rebased

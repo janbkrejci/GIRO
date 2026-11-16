@@ -1,7 +1,7 @@
 ---
 id: OPT-S02-T05
 title: Follow-upy bez rozbalení backlogu na disk
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 
@@ -18,4 +18,4 @@ Hotovo znamená:
 - Test ověří, že záznam follow-upů nevytvoří rozbalený backlog na disku a počet procesů gitu nezávisí na počtu souborů.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

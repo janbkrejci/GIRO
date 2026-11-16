@@ -7,12 +7,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from starlette.testclient import TestClient
 from trace_fixture import T1, make_trace_db
 
-from aifactory.run.store import TaskRunRow, TaskRunStore
-from aifactory.web import create_app, runs
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
+from aifactory.web import runs
 from aifactory.web.live import LiveWatcher
+from single_repo import RepoClient, repo_app
 
 
 def test_paging_filters_before_hydrating_and_rejects_invalid_bounds(
@@ -29,7 +30,7 @@ def test_paging_filters_before_hydrating_and_rejects_invalid_bounds(
         return original(store, rows, titles)
 
     monkeypatch.setattr(runs, "_summaries", summaries)
-    with TestClient(create_app(root), base_url="http://127.0.0.1:4700") as client:
+    with RepoClient(repo_app(root), base_url="http://127.0.0.1:4700") as client:
         first = client.get(f"/api/runs?task={T1}&limit=1").json()["data"]
         assert first["total"] == 2
         assert [r["run_id"] for r in first["runs"]] == ["r-fail"]

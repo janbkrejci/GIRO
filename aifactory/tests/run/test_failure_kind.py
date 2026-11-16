@@ -20,8 +20,9 @@ from run_repo import T01, Script, commit_all, fake_env, make_run_repo, ok, plan_
 
 from aifactory import failure
 from aifactory.cli import main
-from aifactory.run import TaskRunRow, TaskRunStore, run_task
-from aifactory.run.store import ABORTED, FAILED, STOPPED, SUCCEEDED
+from aifactory.run import run_task
+from aifactory.runstore.rows import ABORTED, FAILED, STOPPED, SUCCEEDED, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.web.runs import run_detail
 from cli_json import read_envelope
 

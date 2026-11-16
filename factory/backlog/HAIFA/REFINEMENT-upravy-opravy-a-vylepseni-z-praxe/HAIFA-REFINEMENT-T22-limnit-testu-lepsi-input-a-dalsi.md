@@ -16,5 +16,5 @@ v detailu tasku:
 - hlášku o necommitnutém backlogu přesunout jako červený chip do topbaru
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-14 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/34 · náklady $3.88

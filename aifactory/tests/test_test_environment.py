@@ -67,7 +67,7 @@ def test_home_guard_retains_the_session_baseline(
     real_home = tmp_path / "real-home"
     real_home.mkdir()
     baseline = environment._snapshot(real_home)
-    guard = inspect.unwrap(environment._haifa_home)(
+    guard = inspect.unwrap(environment._giro_home)(
         real_home, baseline, tmp_path_factory, monkeypatch
     )
     if write_at == "before":
@@ -79,7 +79,7 @@ def test_home_guard_retains_the_session_baseline(
         with pytest.raises(StopIteration):
             next(guard)
     else:
-        with pytest.raises(AssertionError, match="the real HAIFA home"):
+        with pytest.raises(AssertionError, match="the real GIRO home"):
             next(guard)
 
 
@@ -88,16 +88,16 @@ def test_home_guard_isolates_both_product_environment_aliases(
     tmp_path_factory: pytest.TempPathFactory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
 
     real_home = tmp_path / "real-home"
     real_home.mkdir()
     for prefix in ("GIRO_", "HAIFA_"):
         monkeypatch.setenv(prefix + "RUN_ID", "outer-factory-run")
         monkeypatch.setenv(prefix + "SANDBOX_REPO", "live/sandbox")
-    guard = inspect.unwrap(environment._haifa_home)(real_home, {}, tmp_path_factory, monkeypatch)
+    guard = inspect.unwrap(environment._giro_home)(real_home, {}, tmp_path_factory, monkeypatch)
     isolated = next(guard)
-    assert haifa_home() == isolated
+    assert giro_home() == isolated
     for prefix in ("GIRO_", "HAIFA_"):
         assert prefix + "RUN_ID" not in os.environ
         assert prefix + "SANDBOX_REPO" not in os.environ

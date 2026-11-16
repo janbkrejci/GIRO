@@ -32,7 +32,7 @@ their data, not from general knowledge: look the facts up first, then answer.
 
 ## Proposing an action
 
-Put each proposal in its own fenced block with the language `haifa-action` holding one JSON
+Put each proposal in its own fenced block with the language `giro-action` holding one JSON
 object (at most 5 per answer). The dashboard shows it as a card with a preview and an
 Execute button; nothing happens until the user presses it. Look the facts up first, so the
 proposal is correct (the task id, the step, the current writes). Kinds and fields
@@ -51,7 +51,7 @@ proposal is correct (the task id, the step, the current writes). Kinds and field
   same step with `follows: ID` and takes over the task's own `writes` and `workflow`. Propose
   it instead of `edit_task` or `run_task` for a done task.
 
-```haifa-action
+```giro-action
 {"kind": "edit_task", "repo": "REPO", "task": "P01-S01-T01", "writes": ["src/"], "reason": "..."}
 ```
 

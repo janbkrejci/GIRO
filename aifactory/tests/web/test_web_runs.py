@@ -16,16 +16,16 @@ from starlette.testclient import TestClient
 from trace_fixture import T1, T2, make_repo, make_trace_db
 
 from aifactory import oscompat
-from aifactory.run import TaskRunStore
 from aifactory.run.stop import StopResult
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
+from single_repo import RepoClient, repo_app
 
 BASE = "http://127.0.0.1:4700"
 
 
 def _client(root: Path, tmp_path: Path) -> TestClient:
-    return TestClient(create_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
+    return RepoClient(repo_app(root, static_dir=tmp_path / "nostatic"), base_url=BASE)
 
 
 def _get(client: TestClient, url: str, status: int = 200) -> Any:
@@ -491,8 +491,8 @@ class _RetryLauncher:
 
 def test_retry_starts_a_failed_run_and_refuses_others(repo: Path, tmp_path: Path) -> None:
     launcher = _RetryLauncher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
 
     response = client.post("/api/runs/r-fail/retry", json={"note": " go on ", "from": "test"})
     body = response.json()
@@ -522,8 +522,8 @@ def test_publish_auto_merge_uses_launcher(
 ) -> None:
     from thread_launcher import ThreadLauncher
 
-    from aifactory.run import queue
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
+    from aifactory.run import chain, queue_select
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
     from run_repo import T01, make_run_repo
@@ -531,7 +531,7 @@ def test_publish_auto_merge_uses_launcher(
     root = make_run_repo(tmp_path / "publish-repo")
     # A completed run whose branch could not be published. The launcher is the API's
     # boundary: it owns all hosting/CI work and reports immediate CLI errors.
-    from aifactory.run.store import TaskRunRow
+    from aifactory.runstore.rows import TaskRunRow
 
     store = TaskRunStore(root / ".factory" / "trace.db")
     try:
@@ -553,7 +553,8 @@ def test_publish_auto_merge_uses_launcher(
         store.set_pr_error("publish-me", "push_failed: server error")
     finally:
         store.close()
-    monkeypatch.setattr(queue, "auto_merge_enabled", lambda repo: isinstance(repo, Path))
+    for module in (chain, queue_select):
+        monkeypatch.setattr(module, "auto_merge_enabled", lambda repo: isinstance(repo, Path))
     called: list[str] = []
 
     class Launcher(ThreadLauncher):
@@ -562,7 +563,7 @@ def test_publish_auto_merge_uses_launcher(
             if error:
                 raise TaskRunError(error, "cannot publish")
 
-    client = TestClient(create_app(root, launcher=Launcher()), base_url=BASE)
+    client = RepoClient(repo_app(root, launcher=Launcher()), base_url=BASE)
     response = client.post("/api/runs/publish-me/publish")
     assert called == [T01]
     assert response.status_code == (409 if error in ("pr_exists", "no_succeeded_run") else 200)
@@ -581,7 +582,7 @@ def test_allow_writes_does_not_launch_when_writes_are_not_committed(
 ) -> None:
     from importlib import import_module
 
-    from aifactory.run import TaskRunError
+    from aifactory.errors import TaskRunError
 
     module = import_module("aifactory.run.allow_writes")
     calls: list[tuple[Path, str, str | None]] = []
@@ -594,8 +595,8 @@ def test_allow_writes_does_not_launch_when_writes_are_not_committed(
 
     monkeypatch.setattr(module, "allow_writes", uncommitted)
     launcher = _RetryLauncher()
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)  # type: ignore[arg-type]
-    client = TestClient(app, base_url=BASE)
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=launcher)
+    client = RepoClient(app, base_url=BASE)
     response = client.post("/api/runs/r-fail/allow-writes", json={})
     body = response.json()
     assert response.status_code == 409, body
@@ -617,7 +618,8 @@ def test_delete_archived_cleans_session_and_absent_worktree(
     shared_active: bool,
 ) -> None:
     from aifactory.harness.agent_dirs import claude_project_dirs
-    from aifactory.run.task import existing_store, session_dir_of
+    from aifactory.run.task import session_dir_of
+    from aifactory.runstore.read import existing_store
 
     monkeypatch.setenv(
         "CLAUDE_CONFIG_DIR", ("\\\\?\\" if os.name == "nt" else "") + str(tmp_path / "claude")
@@ -662,11 +664,11 @@ def test_local_off_during_fake_worker_keeps_accepted_run_and_blocks_next(
 ) -> None:
     import threading
 
-    from aifactory.run.errors import TaskRunError
+    from aifactory.errors import TaskRunError
     from aifactory.run.policy import acceptance
 
     home = tmp_path / "home"
-    monkeypatch.setenv("HAIFA_HOME", str(home))
+    monkeypatch.setenv("GIRO_HOME", str(home))
     root = make_repo(tmp_path / "repo")
     accepted = threading.Event()
     finish = threading.Event()

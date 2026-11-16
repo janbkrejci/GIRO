@@ -17,8 +17,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
 from trace_fixture import T1, T2, make_trace_db  # noqa: E402
 
 from aifactory import oscompat  # noqa: E402
-from aifactory.run import STOPPED, TaskRunError, TaskRunStore, stop_run  # noqa: E402
-from aifactory.run.store import FAILED  # noqa: E402
+from aifactory.errors import TaskRunError
+from aifactory.run import stop_run  # noqa: E402
+from aifactory.runstore.rows import (
+    FAILED,  # noqa: E402
+    STOPPED,
+)
+from aifactory.runstore.store import TaskRunStore
 from cli_json import run_json  # noqa: E402
 
 Capsys = pytest.CaptureFixture[str]

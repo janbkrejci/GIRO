@@ -27,13 +27,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+from aifactory.registry import RepoError
 from aifactory.web.backlog import UsageError
-from aifactory.web.registry import RepoError
 
 if TYPE_CHECKING:
     from aifactory.check.machine import Machine
     from aifactory.check.model import CheckReport
-    from aifactory.web.registry import RegistryState
+    from aifactory.registry import RegistryState
 
 JsonDict = dict[str, Any]
 
@@ -101,6 +101,7 @@ STATUS: dict[str, int] = {
     "pull_failed": 502,
     "gh_failed": 502,
     "gh_missing": 502,
+    "gh_timeout": 502,
     "az_failed": 502,
     "az_missing": 502,
     "az_not_logged_in": 502,
@@ -178,7 +179,7 @@ def _now() -> str:
 
 def _trace_db_finding(root: Path, registry_state: RegistryState) -> Any:
     from aifactory.check.model import Finding
-    from aifactory.web.repos import check_trace_db
+    from aifactory.repo_vet import check_trace_db
 
     try:
         check_trace_db(root, registry_state)
@@ -633,9 +634,9 @@ def roster(root: Path) -> JsonDict:
     """
     from aifactory.config.loader import load_worktree_config
     from aifactory.config.roster import PRESETS, inherited_bindings
-    from aifactory.harness import canonical
-    from aifactory.harness.override import THINKING_LEVELS
-    from aifactory.library.config_edit import _base_tasks, read_state
+    from aifactory.harness import THINKING_LEVELS, canonical
+    from aifactory.library.config_edit.plan import _base_tasks
+    from aifactory.library.config_edit.state import read_state
 
     with _core_errors():
         cfg = load_worktree_config(root)

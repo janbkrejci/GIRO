@@ -1,7 +1,7 @@
 ---
 id: OPT-S01-T01
 title: Start CLI bez importu celé aplikace
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -21,4 +21,4 @@ Hotovo znamená:
 - PR uvádí počet modulů načtených pro `giro --help` před a po.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

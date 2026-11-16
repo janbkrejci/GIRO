@@ -13,6 +13,7 @@ from run_repo import Script, commit_all, fake_env, git, make_run_repo, ok, write
 
 from aifactory.backlog import Task, load_backlog
 from aifactory.cli import main
+from aifactory.errors import TaskRunError
 from aifactory.repo_settings import RepositorySettings
 from aifactory.review import approve_task
 from aifactory.run import (
@@ -21,23 +22,20 @@ from aifactory.run import (
     STOP_FAILED,
     ChainResult,
     Skip,
-    TaskPrRow,
-    TaskRunError,
-    TaskRunRow,
-    TaskRunStore,
     run_chain,
     run_task,
     select_next,
 )
 from aifactory.run import task as task_mod
-from aifactory.run.queue import (
+from aifactory.run.queue_select import (
     SKIP_REASONS,
     blockers_of,
     priority_map,
     priority_order,
     select_ready,
 )
-from aifactory.run.store import Priority, QueuePrefs
+from aifactory.runstore.rows import Priority, QueuePrefs, TaskPrRow, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from cli_json import read_envelope
 
 Capsys = pytest.CaptureFixture[str]
@@ -236,50 +234,6 @@ def test_local_auto_continue_enabled_during_first_run_records_the_chain(
     assert row is not None and row.run_id_list() == [r.run.run_id for r in chain.runs]
 
 
-def test_auto_flag_continues(repo: Path, script: Script) -> None:
-    setup_chain(repo)
-    for name in ("one", "two", "three"):
-        build(script, name)
-    chain = run_chain(repo, T01, auto=True)
-    assert ids(chain) == [T01, T02, T03]
-    assert chain.stop == STOP_EXHAUSTED
-
-
-def test_module_switch_continues_across_steps(repo: Path, script: Script) -> None:
-    setup_chain(repo, module_auto=True, s02_writes="writes: [src/other/]\n")
-    for name in ("one", "two", "three"):
-        build(script, name)
-    build(script, "other", "src/other/other.py")
-    chain = run_chain(repo, T01)
-    assert ids(chain) == [T01, T02, T03, S02_T01]
-    assert chain.ok, [(r.run.error, r.pr_error) for r in chain.runs]
-    assert chain.stop == STOP_EXHAUSTED
-
-
-def test_local_switch_covers_steps_without_legacy_metadata(repo: Path, script: Script) -> None:
-    """Local policy covers all steps, independent of legacy metadata."""
-    setup_chain(repo, step_auto=True, s02_writes="writes: [src/other/]\n")
-    for name in ("one", "two", "three"):
-        build(script, name)
-    build(script, "other", "src/other/other.py")
-    chain = run_chain(repo, T01)
-    assert ids(chain) == [T01, T02, T03, S02_T01]
-    assert (chain.stop, chain.waiting) == (STOP_EXHAUSTED, [])
-    assert len(runs_of(repo, S02_T01)) == 1
-
-
-def test_legacy_step_off_does_not_override_local_on(repo: Path, script: Script) -> None:
-    """Legacy step off cannot override repository-local on."""
-    setup_chain(repo, module_auto=True, s02_writes="writes: [src/other/]\nauto_continue: false\n")
-    for name in ("one", "two", "three"):
-        build(script, name)
-    build(script, "other", "src/other/other.py")
-    chain = run_chain(repo, T01)
-    assert ids(chain) == [T01, T02, T03, S02_T01]
-    assert (chain.stop, chain.waiting) == (STOP_EXHAUSTED, [])
-    assert len(runs_of(repo, S02_T01)) == 1
-
-
 def test_dependent_task_stacks_on_the_open_pr(repo: Path, script: Script) -> None:
     write(repo, ".factory/config.yaml", "base: main\ndocs_root: .\nstacked_prs: true\n")
     setup_chain(repo, t02_depends=True)
@@ -364,7 +318,7 @@ def test_locked_start_retries_same_task_without_exhausting_queue(
         return original(root, task_id, **kwargs)
 
     monkeypatch.setattr(task_mod, "run_task", run)
-    monkeypatch.setattr("aifactory.run.queue.time.sleep", lambda _: None)
+    monkeypatch.setattr("aifactory.run.chain.time.sleep", lambda _: None)
     chain = run_chain(repo, T01, auto=True)
     if persistent:
         assert attempts == [T01, T02, T02, T02]
@@ -646,63 +600,6 @@ def test_blocked_task_continues_with_its_blocker(repo: Path, script: Script) -> 
     assert [r.ok for r in chain.runs] == [False, True, True, True]
     assert (T01, "blocked") in [(s.task_id, s.reason) for s in chain.waiting]
     assert open_pr(repo, T01) is None
-
-
-def test_blocked_task_without_startable_blocker_takes_the_next(repo: Path, script: Script) -> None:
-    setup_chain(repo, module_auto=True)
-    _todo_step(repo, "writes: [src/todo/]\nworkflow: null\n")  # the blocker cannot run
-    commit_all(repo, "todo step")
-    blocked_build(script, "one")
-    build(script, "two")
-    build(script, "three")
-    chain = run_chain(repo, T01)
-    assert ids(chain) == [T01, T02, T03]
-    assert chain.stop == STOP_EXHAUSTED
-    reasons = [(s.task_id, s.reason) for s in chain.waiting]
-    assert (T01, "blocked") in reasons and (BLOCKER, "no_workflow") in reasons
-    assert runs_of(repo, BLOCKER) == []
-
-
-def test_blocked_task_with_nothing_else_is_exhausted(repo: Path, script: Script) -> None:
-    setup_chain(repo, module_auto=True)
-    _todo_step(repo, "writes: [src/todo/]\nworkflow: null\n")
-    commit_all(repo, "todo step")
-    store = _store(repo)
-    try:
-        store.set_excluded(T02, True)
-        store.set_excluded(T03, True)
-    finally:
-        store.close()
-    blocked_build(script, "one")
-    chain = run_chain(repo, T01)
-    assert ids(chain) == [T01]
-    assert chain.stop == STOP_EXHAUSTED
-    assert (T01, "blocked") in [(s.task_id, s.reason) for s in chain.waiting]
-
-
-def test_blocked_task_without_auto_continue_stops(repo: Path, script: Script) -> None:
-    setup_chain(repo)
-    RepositorySettings(repo).update({"auto_continue": False})
-    _todo_step(repo, "writes: [src/todo/]\n")
-    commit_all(repo, "todo step")
-    blocked_build(script, "one")
-    chain = run_chain(repo, T01)
-    assert ids(chain) == [T01]
-    assert chain.stop == STOP_DISABLED
-    assert runs_of(repo, BLOCKER) == [] and runs_of(repo, T02) == []
-
-
-def test_blocked_task_with_auto_flag_continues(repo: Path, script: Script) -> None:
-    setup_chain(repo)
-    _todo_step(repo, "writes: [src/todo/]\n")
-    commit_all(repo, "todo step")
-    blocked_build(script, "one")
-    build(script, "blocker", path="src/todo/blocker.py")
-    build(script, "two")
-    build(script, "three")
-    chain = run_chain(repo, T01, auto=True)
-    assert ids(chain) == [T01, BLOCKER, T02, T03]
-    assert chain.stop == STOP_EXHAUSTED
 
 
 def test_other_failure_still_stops_the_chain(repo: Path, script: Script) -> None:
@@ -1003,7 +900,7 @@ def test_blocked_task_runs_again_in_its_chain_after_its_blocker(repo: Path, scri
 def test_chain_continuation_columns_migrate_and_preserve_claim(tmp_path: Path) -> None:
     import sqlite3
 
-    from aifactory.run.store import TaskChainRow
+    from aifactory.runstore.rows import TaskChainRow
 
     db = tmp_path / "trace.db"
     conn = sqlite3.connect(db)
@@ -1042,7 +939,7 @@ def test_chain_continuation_columns_migrate_and_preserve_claim(tmp_path: Path) -
 
 
 def test_latest_chain_ending_with_task_includes_ineligible_newer_chains(tmp_path: Path) -> None:
-    from aifactory.run.store import TaskChainRow
+    from aifactory.runstore.rows import TaskChainRow
 
     store = TaskRunStore(tmp_path / "trace.db")
     try:

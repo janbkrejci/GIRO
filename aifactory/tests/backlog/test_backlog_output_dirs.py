@@ -12,7 +12,7 @@ from backlog_repo import M01_S01, T01, rewrite, sample_repo
 from aifactory.backlog import Task, load_backlog
 from aifactory.cli import main
 from aifactory.config import ProjectSettings, check_relative_dir
-from aifactory.run.scope import output_paths
+from aifactory.scope import output_paths
 
 Capsys = pytest.CaptureFixture[str]
 PROJECT_INDEX = "backlog/M01-core/index.md"

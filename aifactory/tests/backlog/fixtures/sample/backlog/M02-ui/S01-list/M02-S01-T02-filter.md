@@ -9,4 +9,4 @@ depends_on: [M02-S01-T01, M01-S02-T01]
 Filtrování seznamu.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

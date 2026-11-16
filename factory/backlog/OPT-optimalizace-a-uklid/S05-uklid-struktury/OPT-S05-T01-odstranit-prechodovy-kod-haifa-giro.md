@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T01
 title: Odstranit přechodový kód HAIFA → GIRO
-status: todo
+status: done
 depends_on: []
 writes: [aifactory/, justfile, .github/workflows/, docs/, README.md, AGENTS.md, CLAUDE.md]
 ---
@@ -26,4 +26,4 @@ Hotovo znamená:
 - Rozhodnutí je zapsané v `docs/decisions.md`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

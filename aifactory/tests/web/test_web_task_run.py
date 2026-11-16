@@ -1,7 +1,7 @@
 """Start a task run from the API: a real ``factory task run`` process over the fake harness.
 
 The launcher's command prefix is ``python -m validation.worker``; with
-``HAIFA_VALIDATE_FAKE`` the worker installs the scripted fake harness of
+``GIRO_VALIDATE_FAKE`` the worker installs the scripted fake harness of
 ``validation.fake`` in the run process. ``claude``, ``codex``, ``pi`` and ``gh`` point at a
 tripwire, so no test calls a model or the network. The launcher itself (stop,
 concurrency, errors, cleanup) is covered with a stub process in ``test_web_launcher``.
@@ -21,10 +21,11 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from aifactory.run import TaskRunRow, TaskRunStore
+from aifactory.runstore.rows import TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 from aifactory.skill import envelope_problems
-from aifactory.web import create_app
 from aifactory.web.launcher import RunLauncher
+from single_repo import RepoClient, repo_app
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "run"))
 
@@ -35,7 +36,7 @@ from fake_exe import make_executable
 BASE = "http://127.0.0.1:4700"
 AIFACTORY = Path(__file__).resolve().parents[2]
 WORKER = [sys.executable, "-m", "validation.worker"]
-TRIPWIRE_ENV = ("AIFACTORY_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH")
+TRIPWIRE_ENV = ("GIRO_GH", "CODEX_PATH", "CLAUDE_CODE_PATH", "PI_PATH")
 
 
 @dataclass
@@ -78,7 +79,7 @@ def worker_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
         f'#!/bin/sh\necho "$0 $*" >> "{marker}"\nexit 97\n', encoding="utf-8", newline="\n"
     )
     wire = make_executable(wire)
-    monkeypatch.setenv("HAIFA_VALIDATE_FAKE", str(script))
+    monkeypatch.setenv("GIRO_VALIDATE_FAKE", str(script))
     old = os.environ.get("PYTHONPATH")
     monkeypatch.setenv("PYTHONPATH", str(AIFACTORY) + (os.pathsep + old if old else ""))
     monkeypatch.setenv("UV_NO_SYNC", "1")
@@ -89,7 +90,7 @@ def worker_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[
         monkeypatch.setenv(key, "test@example.com")
     for key in TRIPWIRE_ENV:
         monkeypatch.setenv(key, str(wire))
-    for key in ("HAIFA_VALIDATE_HIDDEN", "HAIFA_SANDBOX_REPO"):
+    for key in ("GIRO_VALIDATE_HIDDEN", "GIRO_SANDBOX_REPO"):
         monkeypatch.delenv(key, raising=False)
     worker = Worker(script, marker)
     yield worker
@@ -103,7 +104,7 @@ def repo_fixture(tmp_path: Path) -> Path:
 
 @pytest.fixture(name="app")
 def app_fixture(repo: Path, tmp_path: Path, worker: Worker) -> Iterator[Starlette]:
-    app = create_app(repo, static_dir=tmp_path / "nostatic", launcher=RunLauncher(command=WORKER))
+    app = repo_app(repo, static_dir=tmp_path / "nostatic", launcher=RunLauncher(command=WORKER))
     try:
         yield app
     finally:
@@ -112,7 +113,7 @@ def app_fixture(repo: Path, tmp_path: Path, worker: Worker) -> Iterator[Starlett
 
 @pytest.fixture(name="client")
 def client_fixture(app: Starlette) -> TestClient:
-    return TestClient(app, base_url=BASE)
+    return RepoClient(app, base_url=BASE)
 
 
 def wait(app: Starlette) -> None:
@@ -228,10 +229,12 @@ def test_run_check_reports_uncommitted_config(client: TestClient, repo: Path) ->
 def test_run_check_reads_committed_dependencies_without_extracting_files(
     client: TestClient, repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def no_archive(*args: object, **kwargs: object) -> None:
-        pytest.fail("run-check must read the committed backlog in memory")
+    from gitspy import GitCall, spy_git
 
-    monkeypatch.setattr("aifactory.run.gitops.extract_backlog", no_archive)
+    def no_archive(call: GitCall) -> None:
+        assert "archive" not in call.argv, "run-check must read the committed backlog in memory"
+
+    spy_git(monkeypatch, no_archive)
     path = repo / "backlog/M01-core/S01-model/M01-S01-T01-schema.md"
     path.write_text(
         path.read_text(encoding="utf-8").replace("status: todo", "status: done"), encoding="utf-8"

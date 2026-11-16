@@ -45,10 +45,10 @@ def _server(state: str) -> Callable[[Route], None]:
                 # Deliberately reversed: the UI owns the stable provider order.
                 data = {"providers": [_provider("codex", state), _provider("claude", state)]}
             elif path == "/api/health":
-                data = {"app": "haifa-dashboard", "version": "2.14.0", "home": "C:/haifa"}
+                data = {"app": "giro-dashboard", "version": "2.14.0", "home": "C:/giro"}
             elif path == "/api/repos":
                 data = {
-                    "home": "C:/haifa",
+                    "home": "C:/giro",
                     "repos": [
                         {
                             "id": "haifa",
@@ -87,7 +87,7 @@ def test_stacked_limits_do_not_overlap_topbar_controls(state: str) -> None:
         page.route("**/*", serve)
         for width in (1600, 1366, 1280):
             page.set_viewport_size({"width": width, "height": 900})
-            page.goto("http://haifa.test/#/r/haifa/backlog")
+            page.goto("http://giro.test/#/r/haifa/backlog")
             page.locator('[data-test="limits-codex"]').wait_for()
             page.locator(".repo-switcher").wait_for()
             page.evaluate("document.fonts.ready")
@@ -158,7 +158,7 @@ def test_repo_tabbar_has_no_vertical_scrollbar() -> None:
         page = browser.new_page(viewport={"width": 1280, "height": 800})
         page.route("**/*", _server("live"))
         for screen in ("backlog", "runs", "review", "factory"):
-            page.goto(f"http://haifa.test/#/r/haifa/{screen}")
+            page.goto(f"http://giro.test/#/r/haifa/{screen}")
             tabs = page.locator("nav.screen-tabs")
             tabs.wait_for()
             page.evaluate("document.fonts.ready")

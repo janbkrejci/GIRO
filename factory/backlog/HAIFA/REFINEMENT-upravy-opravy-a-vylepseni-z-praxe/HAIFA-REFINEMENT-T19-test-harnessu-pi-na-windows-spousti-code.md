@@ -23,5 +23,5 @@ Hotovo znamená:
 - Dotčené testy projdou podle AGENTS.md, celou sadu ověří CI.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-14 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/32 · náklady $1.81

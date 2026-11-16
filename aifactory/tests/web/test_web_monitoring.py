@@ -9,7 +9,8 @@ from typing import Any
 import pytest
 from starlette.testclient import TestClient
 
-from aifactory.web import create_multi_app, machine
+from aifactory.web import machine
+from aifactory.web.app import create_multi_app
 from aifactory.web.limits import LimitsSource
 from aifactory.web.updates import Updates
 

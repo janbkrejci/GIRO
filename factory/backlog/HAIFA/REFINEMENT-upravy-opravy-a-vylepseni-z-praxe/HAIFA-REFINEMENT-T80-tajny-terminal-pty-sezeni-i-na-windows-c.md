@@ -29,5 +29,5 @@ Hotovo znamená:
 - `uv lock --check` je v pořádku a `pywinpty` má marker `sys_platform == 'win32'`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-25 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/169 · náklady $0.00

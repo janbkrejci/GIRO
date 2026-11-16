@@ -25,5 +25,5 @@ Hotovo znamená:
 - Existující testy `test_web_app.py` procházejí.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-27 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/180 · náklady $0.00

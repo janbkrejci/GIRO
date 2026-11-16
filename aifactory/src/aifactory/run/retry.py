@@ -36,7 +36,7 @@ What the retry does, in order; any refusal before the claim changes nothing:
    replay ends at the last ``test`` before the first review, so the tests run again on
    the rebased code before anything is reviewed.
 7. Runs the workflow replaying the journal (``aifactory.workflow.journal``) and publishes
-   the PR like ``task run``. ``queue.retry_chain`` (``factory task retry`` and the
+   the PR like ``task run``. ``chain.retry_chain`` (``factory task retry`` and the
    dashboard) then auto-merges and auto-continues like ``task run``.
 """
 
@@ -51,28 +51,29 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aifactory import failure as failures
+from aifactory import gitops
 from aifactory.backlog import Task
 from aifactory.backlog.derived import is_done
 from aifactory.backlog.snapshot import load_backlog_at
 from aifactory.config import ProjectSettings, load_run_config
+from aifactory.config.runtime import apply_agents_override, data_dir, prepare_cfg
+from aifactory.errors import TaskRunError
 from aifactory.providers import GitProvider, ProviderError, get_provider
 from aifactory.providers import git as provider_git
-from aifactory.run import gitops
-from aifactory.run.errors import TaskRunError
 from aifactory.run.follows import followed_task
 from aifactory.run.resolve import (
-    CI_FIX_WORKFLOW,
-    INTERNAL_WORKFLOWS,
     ConflictWriteGuard,
     ResolveSpec,
     explain_allowed_repair_request,
     resolve_prompt,
     restore,
 )
-from aifactory.run.scope import OutputPaths, output_paths, task_scope
 from aifactory.run.stack import open_stack, stack_point
-from aifactory.run.store import MERGED_BY_AUTO, RUNNING, TaskRunRow, TaskRunStore, _now
 from aifactory.run.workdir import project_workdir
+from aifactory.runstore.base import _now
+from aifactory.runstore.rows import MERGED_BY_AUTO, RUNNING, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
+from aifactory.scope import OutputPaths, output_paths, task_scope
 from aifactory.workflow import (
     JOURNAL_FILE,
     CodeRunner,
@@ -88,11 +89,17 @@ from aifactory.workflow import (
     walk,
 )
 from aifactory.workflow.interpreter import PLAN_REVIEW_PHASE
+from aifactory.workflow.parse import (
+    CI_FIX_WORKFLOW,
+    INTERNAL_WORKFLOWS,
+    resolve_test_timeout,
+    resolve_workflow,
+)
 from aifactory.workflow.rebase import rebase_onto
 
 if TYPE_CHECKING:  # task.py imports this module at run time
+    from aifactory.guard import TaskWriteGuard
     from aifactory.harness.config import SSSFConfig
-    from aifactory.run.guard import TaskWriteGuard
     from aifactory.run.task import TaskRunResult
 
 ACCEPT_NOT_MET = "accept not met"  # the error of a resolve whose accept failed
@@ -444,7 +451,7 @@ def retry_run(
         row = _pick_run(store, task_id, run_id)
         busy = store.running(task_id)
         if busy is not None:
-            from aifactory.run.store import already_running
+            from aifactory.runstore.rows import already_running
 
             raise already_running(busy)
         if row.state == RUNNING or row.state not in ("failed", "stopped", "aborted"):
@@ -483,7 +490,7 @@ def retry_run(
         previous = _note_override(row.note)
         switching = {k: v for k, v in (agents_override or {}).items() if v and v.strip()}
         try:
-            snapshot = run_mod.data_dir(main, rc) / "sessions" / row.run_id / "roster.json"
+            snapshot = data_dir(main, rc) / "sessions" / row.run_id / "roster.json"
             if snapshot.exists():
                 from aifactory.harness.config import SSSFConfig
 
@@ -494,7 +501,7 @@ def retry_run(
                 # then apply the override recorded when they started.
                 roster = load_run_config(main, row.base_sha).config.agents
                 rc = replace(rc, config=replace(rc.config, agents=roster))
-                rc = run_mod.apply_agents_override(rc, previous)
+                rc = apply_agents_override(rc, previous)
             if switching:
                 target = switching.get("harness") or (previous or {}).get("harness")
                 if not target:
@@ -502,7 +509,7 @@ def retry_run(
                 binding = effective_override(
                     {}, {**({"harness": target} if target else {}), **switching}, repo=main
                 )
-                rc = run_mod.apply_agents_override(rc, binding)
+                rc = apply_agents_override(rc, binding)
             else:
                 # Never re-resolve a session against today's local defaults.
                 binding = previous or {}
@@ -527,10 +534,10 @@ def retry_run(
         outputs = output_paths(task, settings)
         workdir = project_workdir(settings)
         scope = task_scope(task, outputs)
-        test_timeout = run_mod.resolve_test_timeout(task, settings)
-        workflow = run_mod.resolve_workflow(task, rc.config)
+        test_timeout = resolve_test_timeout(task, settings)
+        workflow = resolve_workflow(task, rc.config)
         with tempfile.TemporaryDirectory(prefix="factory-prompts-") as prompts_tmp:
-            probe = run_mod.prepare_cfg(main, rc, Path(prompts_tmp))
+            probe = prepare_cfg(main, rc, Path(prompts_tmp))
             try:
                 preflight(workflow, probe)
             except WorkflowError as exc:
@@ -565,7 +572,7 @@ def retry_run(
             if published_tip and provider_git.is_ancestor(main, published_tip, tip):
                 lease = published_tip
 
-        session_dir = run_mod.data_dir(main, rc) / "sessions" / row.run_id
+        session_dir = data_dir(main, rc) / "sessions" / row.run_id
         journal = read_journal(session_dir / JOURNAL_FILE)
         if not journal.entries and journal.current is None:
             warnings.append(

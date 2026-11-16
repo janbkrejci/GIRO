@@ -68,15 +68,15 @@ def test_safe_rmtree_refuses_a_root_it_does_not_own(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "value",
     [
-        "acme/haifa-sandbox",
-        "https://github.com/acme/haifa-sandbox",
-        "https://github.com/acme/haifa-sandbox.git",
-        "git@github.com:acme/haifa-sandbox.git",
-        "  acme/haifa-sandbox  ",
+        "acme/giro-sandbox",
+        "https://github.com/acme/giro-sandbox",
+        "https://github.com/acme/giro-sandbox.git",
+        "git@github.com:acme/giro-sandbox.git",
+        "  acme/giro-sandbox  ",
     ],
 )
 def test_normalize_repo(value: str) -> None:
-    assert sandbox.normalize_repo(value) == "acme/haifa-sandbox"
+    assert sandbox.normalize_repo(value) == "acme/giro-sandbox"
 
 
 @pytest.mark.parametrize("value", [None, "", "just-a-name", "https://gitlab.com/a/b"])
@@ -106,7 +106,7 @@ def test_github_without_sandbox_repo_exits_2_before_any_subprocess(
         ]
     )
     assert code == runner.EXIT_SETUP
-    assert "HAIFA_SANDBOX_REPO" in capsys.readouterr().err
+    assert "GIRO_SANDBOX_REPO" in capsys.readouterr().err
     assert not (tmp_path / "results").exists()
     assert not (tmp_path / "work").exists()
 
@@ -384,7 +384,7 @@ def test_fake_gate_rejects_unbounded_timeout(tmp_path: Path, timeout: float) -> 
         harness_.run(_Request(tmp_path))
 
 
-def test_isolated_haifa_home_leaves_out_machine_harness_choices(tmp_path: Path) -> None:
+def test_isolated_giro_home_leaves_out_machine_harness_choices(tmp_path: Path) -> None:
     real = tmp_path / "real"
     (real / "library").mkdir(parents=True)
     (real / "env").write_text("KEY=value\n", encoding="utf-8")
@@ -392,7 +392,7 @@ def test_isolated_haifa_home_leaves_out_machine_harness_choices(tmp_path: Path) 
     (real / "harness-tests.json").write_text("{}", encoding="utf-8")
     workdir = tmp_path / "work"
 
-    home = runner.isolated_haifa_home(workdir, real)
+    home = runner.isolated_giro_home(workdir, real)
 
     assert sorted(p.name for p in home.iterdir()) == ["env", "library"]
     assert (home / "env").read_text(encoding="utf-8") == "KEY=value\n"
@@ -402,6 +402,6 @@ def test_isolated_haifa_home_leaves_out_machine_harness_choices(tmp_path: Path) 
     assert (real / "env").exists() and (real / "library").is_dir()
 
 
-def test_isolated_haifa_home_without_a_real_home_is_empty(tmp_path: Path) -> None:
-    home = runner.isolated_haifa_home(tmp_path / "work", tmp_path / "missing")
+def test_isolated_giro_home_without_a_real_home_is_empty(tmp_path: Path) -> None:
+    home = runner.isolated_giro_home(tmp_path / "work", tmp_path / "missing")
     assert home.is_dir() and not any(home.iterdir())

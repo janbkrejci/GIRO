@@ -1,7 +1,7 @@
 ---
 id: OPT-S03-T02
 title: Přehled řízený live událostmi
-status: todo
+status: done
 depends_on: [OPT-S03-T01, OPT-S05-T01]
 ---
 
@@ -18,4 +18,4 @@ Hotovo znamená:
 - Test nového endpointu, browser test přehledu projde, `just web-build`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

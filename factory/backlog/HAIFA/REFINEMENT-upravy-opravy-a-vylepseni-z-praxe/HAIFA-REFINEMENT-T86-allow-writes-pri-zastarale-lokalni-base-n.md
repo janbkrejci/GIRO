@@ -30,5 +30,5 @@ writes: [aifactory/src/aifactory/run/allow_writes.py, aifactory/src/aifactory/ru
 - Testy pokrývají base pozadu, base aktuální a cesty už obsažené v origin.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-26 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/175 · náklady $0.00

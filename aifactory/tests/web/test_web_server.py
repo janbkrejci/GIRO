@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 import uvicorn
 
-from aifactory.web import HOST, PortInUseError, check_port, create_app, dashboard_url, serve
+from aifactory.web.app import create_multi_app
+from aifactory.web.server import HOST, PortInUseError, check_port, dashboard_url, serve
 
 
 def test_host_is_loopback() -> None:
@@ -59,7 +60,7 @@ def test_serve_binds_loopback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.setattr(uvicorn.Server, "run", fake_run)
     monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
-    serve(create_app(tmp_path), 4799, open_browser=False)
+    serve(create_multi_app(home=tmp_path / "home"), 4799, open_browser=False)
     assert len(configs) == 1
     assert configs[0].host == "127.0.0.1"
     assert configs[0].port == 4799

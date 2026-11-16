@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import tempfile
 import threading
@@ -18,6 +17,7 @@ from aifactory.harness.check import installed_path
 from aifactory.harness.codex import launch_command
 from aifactory.harness.settings import TEST_FILE, read_tests
 from aifactory.harness.thinking import validate
+from aifactory.oscompat import atomic_write
 
 _lock = threading.Lock()
 PROMPT = "Reply with exactly OK. Do not use tools."
@@ -33,7 +33,7 @@ def run_probe(name: str, model: str, thinking: str | None = None) -> dict[str, A
     binary = installed_path(name)
     if binary is None:
         return {"ok": False, "error": "Harness není nainstalovaný."}
-    with tempfile.TemporaryDirectory(prefix="haifa-harness-test-") as folder:
+    with tempfile.TemporaryDirectory(prefix="giro-harness-test-") as folder:
         output = Path(folder) / "answer.txt"
         if name == "claude":
             command = [
@@ -153,13 +153,5 @@ def test_and_record(
     with _lock:
         data = read_tests(home)
         data.setdefault(name, {})[model] = result
-        home.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(prefix=".harness-test-", dir=home)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                json.dump(data, stream)
-            os.replace(temporary, home / TEST_FILE)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+        atomic_write(home / TEST_FILE, json.dumps(data))
     return result

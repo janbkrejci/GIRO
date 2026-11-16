@@ -1,7 +1,7 @@
 ---
 id: OPT-S03-T01
 title: Sdílená cache stavu repa pro přehled a obrazovky
-status: todo
+status: done
 depends_on: [OPT-S02-T02]
 ---
 
@@ -28,4 +28,4 @@ Hotovo znamená:
 - Stavy `timeout` a `stale` a `REPO_TIMEOUT` fungují jako dnes.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

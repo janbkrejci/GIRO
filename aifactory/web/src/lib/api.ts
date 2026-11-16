@@ -180,7 +180,7 @@ function toIssues(raw: unknown): ApiIssue[] {
 export interface Health {
   app: string
   version: string
-  /** The dashboard's home folder (HAIFA_HOME) with the registry. */
+  /** The dashboard's home folder (GIRO_HOME) with the registry. */
   home: string
 }
 
@@ -461,25 +461,32 @@ export interface OverviewData {
 }
 
 /** What runs, waits for review and failed in every registered repo; reads only. */
+/** Lists an older server leaves out become empty lists. */
+function normalizeOverviewRepo(r: OverviewRepo): OverviewRepo {
+  return {
+    ...r,
+    projects: r.projects ?? [],
+    running: r.running ?? [],
+    review: r.review ?? [],
+    automerge: r.automerge ?? [],
+    approved: r.approved ?? [],
+    failed: r.failed ?? [],
+    auto_actions: r.auto_actions ?? [],
+    merged_outside: r.merged_outside ?? [],
+    sync_pr: r.sync_pr ?? null,
+    warnings: r.warnings ?? [],
+  }
+}
+
 export async function fetchOverview(signal?: AbortSignal): Promise<OverviewData> {
   const data = await getGlobal<Partial<OverviewData>>('/overview', signal)
   const repos = Array.isArray(data.repos) ? data.repos : []
-  return {
-    repos: repos.map((r) => ({
-      ...r,
-      projects: r.projects ?? [],
-      running: r.running ?? [],
-      review: r.review ?? [],
-      automerge: r.automerge ?? [],
-      approved: r.approved ?? [],
-      failed: r.failed ?? [],
-      auto_actions: r.auto_actions ?? [],
-      merged_outside: r.merged_outside ?? [],
-      sync_pr: r.sync_pr ?? null,
-      warnings: r.warnings ?? [],
-    })),
-    totals: data.totals ?? {},
-  }
+  return { repos: repos.map(normalizeOverviewRepo), totals: data.totals ?? {} }
+}
+
+/** One repo of the overview (GET /api/repos/<id>/overview). */
+export async function fetchRepoOverview(repoId: string, signal?: AbortSignal): Promise<OverviewRepo> {
+  return normalizeOverviewRepo(await getGlobal<OverviewRepo>(`/repos/${encodeURIComponent(repoId)}/overview`, signal))
 }
 
 function controlPath(repoId: string, action: string): string {

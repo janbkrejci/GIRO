@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '@/lib/i18n'
 import { setupErrorText } from '@/lib/setupMessages'
-// The library section of #/setup (page Knihovna, #/setup/library): the library lives in $HAIFA_HOME
+// The library section of #/setup (page Knihovna, #/setup/library): the library lives in $GIRO_HOME
 // of this computer. Without a library it sets one up (from the seed or a clone of the team library).
 // On top, the library findings of the machine check. Items of the library by type on the left, the selected item on the right
 // with the registered repos that override it with their own copy ("Diff", "move the repo copy
@@ -310,7 +310,7 @@ onBeforeUnmount(() => { generation++ })
         <button :disabled="busy || !!library.dirty || !library.unsent" data-test="library-push" @click="syncWith('push')">{{ t('setup.push') }}</button>
       </div>
       <form v-else class="actions" @submit.prevent="connect">
-        <label>{{ t('setup.emptyRepo') }} <input v-model="remoteUrl" data-test="library-remote-url" :disabled="busy" placeholder="git@github.com:tym/haifa-knihovna.git" /></label>
+        <label>{{ t('setup.emptyRepo') }} <input v-model="remoteUrl" data-test="library-remote-url" :disabled="busy" placeholder="git@github.com:tym/giro-knihovna.git" /></label>
         <button type="submit" :disabled="busy || !remoteUrl.trim()" data-test="library-connect">{{ t('setup.connect') }}</button>
       </form>
     </section>

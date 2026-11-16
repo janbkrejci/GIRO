@@ -2,7 +2,7 @@
 
 PATH holds only the fakes and the directory of the real git, so ``uv`` and ``node`` are
 missing on purpose. Every fake logs its argv; ``--offline`` must log no login or hosting
-call. The check must change nothing in the repo, the library or ``$HAIFA_HOME``.
+call. The check must change nothing in the repo, the library or ``$GIRO_HOME``.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import pytest
 from factory_check_repo import GIT_IDENTITY, commit_all, make_check_repo, write
 
 from aifactory.cli import main
-from aifactory.home import haifa_home
+from aifactory.home import giro_home
 from aifactory.library.store import init_library, library_root
 from cli_json import run_json
 from fake_exe import make_executable
@@ -76,7 +76,7 @@ def log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("PATH", os.pathsep.join([str(bin_dir), str(git_dir)]))
     monkeypatch.setenv("FAKE_LOG", str(calls))
     monkeypatch.delenv("FAKE_RC", raising=False)
-    monkeypatch.delenv("HAIFA_LIBRARY", raising=False)
+    monkeypatch.delenv("GIRO_LIBRARY", raising=False)
     for name in ("CLAUDE_CODE_PATH", "CODEX_PATH", "PI_PATH", "AZURE_DEVOPS_EXT_PAT"):
         monkeypatch.delenv(name, raising=False)
     for key, value in GIT_IDENTITY.items():
@@ -197,7 +197,7 @@ def _snapshot(repo: Path) -> dict[str, Any]:
         "library_head": _git(lib, "rev-parse", "HEAD") if lib.exists() else None,
         "library_status": _git(lib, "status", "--porcelain=v1", "-uall") if lib.exists() else None,
         "library_refs": _git(lib, "for-each-ref") if lib.exists() else None,
-        "home": _tree(haifa_home()),
+        "home": _tree(giro_home()),
     }
 
 
@@ -241,7 +241,7 @@ def test_check_changes_nothing(
             if before[key] != after[key]
         }
         assert changed == {}, (cwd, offline)
-    home = haifa_home()
+    home = giro_home()
     if with_library:
         assert {"repo_installed", "library_dirty"} <= repo_codes
         assert not (home / "cache").exists()

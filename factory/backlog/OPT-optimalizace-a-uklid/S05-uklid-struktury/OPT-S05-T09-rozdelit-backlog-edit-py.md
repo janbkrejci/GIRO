@@ -1,7 +1,7 @@
 ---
 id: OPT-S05-T09
 title: Rozdělit backlog/edit.py
-status: todo
+status: done
 depends_on: [OPT-S05-T03, OPT-S05-T02]
 ---
 
@@ -15,4 +15,4 @@ Hotovo znamená:
 - Testy `tests/backlog/` a přímých volajících projdou beze změny chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

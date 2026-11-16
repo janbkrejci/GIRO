@@ -13,6 +13,8 @@ import { CLEAN_STATUS, DIRTY_STATUS } from './test/settingsFixtures'
 import { runsResponse, summary } from './test/runsFixtures'
 import { FakeEventSource, filesEvent } from './test/fakeEventSource'
 import { LIVE_DEBOUNCE_MS, resetLiveForTests } from './lib/live'
+import { resetSharedOverviewForTests } from './lib/overview'
+import { resetOverviewLiveForTests } from './lib/overviewLive'
 import { nameTip, resetNamesForTests } from './lib/names'
 import { resetBacklogStatusForTests } from './lib/backlogStatus'
 import type { RepoItem } from './lib/api'
@@ -26,7 +28,7 @@ function envelope(data: unknown) {
   return new Response(JSON.stringify({ ok: true, data, error: null, warnings: [] }))
 }
 
-const HEALTH = { app: 'haifa-dashboard', version: '0.1.0', home: '/home/me/.haifa' }
+const HEALTH = { app: 'giro-dashboard', version: '0.1.0', home: '/home/me/.giro' }
 
 function repo(id: string, name: string, path: string, status: RepoItem['status'] = 'ok'): RepoItem {
   return { id, name, path, added_at: '2026-10-01T10:00:00+00:00', status, factory: null }
@@ -82,6 +84,8 @@ afterEach(() => {
   resetConfigStatusForTests()
   resetBacklogStatusForTests()
   resetLiveForTests()
+  resetOverviewLiveForTests()
+  resetSharedOverviewForTests()
   FakeEventSource.reset()
   resetNamesForTests()
   document.body.innerHTML = ''
@@ -735,6 +739,28 @@ describe('App', () => {
     wrapper.unmount()
   })
 
+  it('fills the switcher counts from the overview already read, without another read', async () => {
+    let calls = 0
+    stubApi({
+      repos: [HAIFA, OTHER],
+      handler: (url) => {
+        if (url !== '/api/overview') return undefined
+        calls += 1
+        return envelope(overview([ovRepo('haifa', { running: [running()] }), ovRepo('other')]))
+      },
+    })
+    go('#/overview')
+    const wrapper = mount(App, { attachTo: document.body })
+    await flushPromises()
+    const read = calls
+    expect(read).toBeGreaterThan(0)
+    await wrapper.get('[data-test="switcher-button"]').trigger('click')
+    await flushPromises()
+    expect(calls).toBe(read)
+    expect(wrapper.get('[data-test="switch-repo-haifa"] [data-test="count-running"]').text()).toBe('1')
+    wrapper.unmount()
+  })
+
   it('shows the limits on global pages from /api/limits and on a repo page from the repo', async () => {
     const providers = [{ harness: 'claude', label: 'Claude', error: null, windows: [{ id: '5h', label: '5h', used: 10, left: 90, resets_at: null }] }]
     const fetchMock = stubApi({ handler: (url) => (url.endsWith('/limits') ? envelope({ providers }) : undefined) })
@@ -911,8 +937,8 @@ describe('App', () => {
 
   it('restores the selected thread on a page reload with the panel open', async () => {
     resetAssistantForTests()
-    sessionStorage.setItem('haifa.assistant.open', '1')
-    sessionStorage.setItem('haifa.assistant.thread', 'aaaaaaaaaaaa')
+    sessionStorage.setItem('giro.assistant.open', '1')
+    sessionStorage.setItem('giro.assistant.thread', 'aaaaaaaaaaaa')
     stubApi({ handler: (url) => url === '/api/assistant/threads/aaaaaaaaaaaa' ? envelope({
       id: 'aaaaaaaaaaaa', harness: 'claude', model: 'opus', busy: false,
       messages: [{ id: 'a', role: 'assistant', text: 'Restored answer' }], seq: 0,
@@ -1005,7 +1031,7 @@ it('offers the global language preference with no repositories and keeps it acro
   expect(wrapper.get('[data-test="language-select"]').attributes('aria-label')).toBe('Language')
   await chooseOption(wrapper, '[data-test="language-select"]', 'cs')
   expect(document.documentElement.lang).toBe('cs')
-  expect(localStorage.getItem('haifa.dashboard.locale')).toBe('cs')
+  expect(localStorage.getItem('giro.dashboard.locale')).toBe('cs')
   for (const hash of ['#/r/first/backlog', '#/r/second/runs', '#/setup']) {
     go(hash)
     await flushPromises()
@@ -1013,5 +1039,5 @@ it('offers the global language preference with no repositories and keeps it acro
   }
   await chooseOption(wrapper, '[data-test="language-select"]', 'en')
   expect(document.documentElement.lang).toBe('en')
-  expect(localStorage.getItem('haifa.dashboard.locale')).toBe('en')
+  expect(localStorage.getItem('giro.dashboard.locale')).toBe('en')
 })

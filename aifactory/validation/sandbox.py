@@ -3,7 +3,7 @@
 The main checkout the scenarios work in is always ``<workdir>/repo``. Nothing
 outside the workdir is written, except in ``--remote github`` and ``--remote
 azure`` the sandbox repo on the hosting: a new base branch
-``haifa-validate/<stamp>`` and the ``factory/*`` / ``factory-sync/*`` branches and
+``giro-validate/<stamp>`` and the ``factory/*`` / ``factory-sync/*`` branches and
 PRs the runs create. The default branch of the sandbox is never changed; only
 ``task resolve`` force-pushes (with a lease) a ``factory/*`` branch.
 
@@ -28,14 +28,14 @@ from urllib.parse import quote, unquote
 
 VALIDATION_DIR = Path(__file__).resolve().parent
 AIFACTORY_DIR = VALIDATION_DIR.parent
-HAIFA_ROOT = AIFACTORY_DIR.parent
+GIRO_ROOT = AIFACTORY_DIR.parent
 TEMPLATE_DIR = VALIDATION_DIR / "template"
 PROMPT_AGENTS = ("planner", "builder", "tester", "test-reviewer", "reviewer", "documenter")
-SENTINEL = "haifa-validate: committed prompt"
+SENTINEL = "giro-validate: committed prompt"
 SENTINEL_LINE = f"<!-- {SENTINEL} -->"
-BASE_PREFIX = "haifa-validate/"
-GIT_NAME = "HAIFA Validate"
-GIT_EMAIL = "haifa-validate@example.invalid"
+BASE_PREFIX = "giro-validate/"
+GIT_NAME = "GIRO Validate"
+GIT_EMAIL = "giro-validate@example.invalid"
 
 
 class SetupError(RuntimeError):
@@ -193,18 +193,18 @@ def normalize_repo(value: str | None) -> str:
     text = (value or "").strip()
     if not text:
         raise SetupError(
-            "HAIFA_SANDBOX_REPO is not set: put the GitHub sandbox repo "
+            "GIRO_SANDBOX_REPO is not set: put the GitHub sandbox repo "
             "(owner/name or its URL) into .env"
         )
     for form in _GITHUB_FORMS:
         match = form.match(text)
         if match:
             return f"{match.group(1)}/{match.group(2)}"
-    raise SetupError(f"HAIFA_SANDBOX_REPO={text!r} is not a GitHub repo (owner/name or URL)")
+    raise SetupError(f"GIRO_SANDBOX_REPO={text!r} is not a GitHub repo (owner/name or URL)")
 
 
 def gh_executable() -> str:
-    return os.environ.get("AIFACTORY_GH") or "gh"
+    return os.environ.get("GIRO_GH") or "gh"
 
 
 def gh(cwd: Path, *args: str, check: bool = True) -> str:
@@ -254,7 +254,7 @@ def setup_github(
 
 # ── azure ────────────────────────────────────────────────────────────────────
 
-AZURE_SANDBOX_ENV = "HAIFA_AZURE_SANDBOX_REPO"
+AZURE_SANDBOX_ENV = "GIRO_AZURE_SANDBOX_REPO"
 AZURE_DEVOPS_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
 AZ_TAIL = ("--detect", "false", "--output", "json", "--only-show-errors")
 _SEGMENT = r"[^/?#\s]+"
@@ -297,7 +297,7 @@ def normalize_azure_repo(value: str | None) -> AzureRepo:
 
 
 def az_executable() -> str:
-    return os.environ.get("AIFACTORY_AZ") or "az"
+    return os.environ.get("GIRO_AZ") or "az"
 
 
 def az(cwd: Path, *args: str, check: bool = True) -> str:
@@ -330,7 +330,7 @@ def azure_credential_helper() -> str:
         )
     )
     return (
-        '!f() { test "$1" = get || exit 0; echo username=haifa; '
+        '!f() { test "$1" = get || exit 0; echo username=giro; '
         f'echo "password=${{AZURE_DEVOPS_EXT_PAT:-$({token})}}"; }}; f'
     )
 
@@ -380,7 +380,7 @@ def setup_azure(
     )
     if result.returncode != 0:
         raise SetupError(f"git clone {url}: {result.stderr.strip()}")
-    # repo-local, so every worktree HAIFA creates authenticates the same way
+    # repo-local, so every worktree GIRO creates authenticates the same way
     git(repo, "config", "credential.helper", "")
     git(repo, "config", "--add", "credential.helper", azure_credential_helper())
     base = f"{BASE_PREFIX}{stamp(when)}"

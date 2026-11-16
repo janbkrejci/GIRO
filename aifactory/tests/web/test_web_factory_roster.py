@@ -9,7 +9,7 @@ import yaml
 from test_web_factory import AGENTS, Api, api, git, home, install
 
 from aifactory.config.roster import PRESETS
-from aifactory.harness.override import THINKING_LEVELS
+from aifactory.harness import THINKING_LEVELS
 from aifactory.workflow import DEFAULT_WORKFLOWS_DIR
 
 __all__ = ["api", "home"]
@@ -145,7 +145,7 @@ def test_roster_reset_returns_an_override_to_the_inherited_value(api: Api, tmp_p
 
 
 def test_roster_summary_never_reads_base_backlog(api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
-    from aifactory.library import config_edit
+    from aifactory.library.config_edit import plan as config_edit_plan
 
     install(api, "a")
     full = api.get("a", "factory/roster")["data"]
@@ -153,5 +153,5 @@ def test_roster_summary_never_reads_base_backlog(api: Api, monkeypatch: pytest.M
     def forbidden(*args: object) -> None:
         pytest.fail("readiness must not read base backlog")
 
-    monkeypatch.setattr(config_edit, "_base_tasks", forbidden)
+    monkeypatch.setattr(config_edit_plan, "_base_tasks", forbidden)
     assert api.get("a", "factory/roster?summary=1")["data"] == {"agents": len(full["agents"])}

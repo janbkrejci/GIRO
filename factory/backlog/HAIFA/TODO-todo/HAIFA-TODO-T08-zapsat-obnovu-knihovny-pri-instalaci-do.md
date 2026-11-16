@@ -17,4 +17,4 @@ Důvod: HAIFA-REFINEMENT-T35 mění sémantiku semínka: instalace a upgrade spo
 <!-- factory: follow-up-of=HAIFA-REFINEMENT-T35 -->
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->

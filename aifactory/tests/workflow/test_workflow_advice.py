@@ -38,6 +38,20 @@ def test_no_advice_for_a_task_with_an_open_pr() -> None:
     }
 
 
+def test_context_refuses_a_closed_task_state(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path / "repo")
+    seen: list[str] = []
+
+    def state(backlog: Any, task: Any) -> str:
+        seen.append(task.id)
+        return "in review"
+
+    with pytest.raises(UsageError, match="unavailable for this task state"):
+        context(repo, "P01-S01-T01", {}, task_state=state)
+    assert seen == ["P01-S01-T01"]
+    assert context(repo, "P01-S01-T01", {}, task_state=lambda b, t: "failed")["task_id"]
+
+
 def test_context_and_committed_catalog(tmp_path: Path) -> None:
     repo = make_repo(tmp_path / "repo")
     (repo / ".factory/workflows/unpublished.yaml").write_text("name: unpublished\nsteps: [plan]")
@@ -133,7 +147,7 @@ def test_engine_lifecycle_in_thread(
         )
     )
     from aifactory.harness import settings
-    from aifactory.home import haifa_home
+    from aifactory.home import giro_home
     from aifactory.repo_settings import RepositorySettings
 
     settings.write(
@@ -145,7 +159,7 @@ def test_engine_lifecycle_in_thread(
                 "pi": {"enabled": False},
             },
         },
-        haifa_home(),
+        giro_home(),
     )
     RepositorySettings(repo).update({"harness": "codex"})
     seen: list[Any] = []
@@ -200,17 +214,17 @@ def test_environment_is_scoped_to_worker(tmp_path: Path, monkeypatch: pytest.Mon
     barrier = threading.Barrier(2)
 
     def worker(identifier: str) -> str:
-        with agent_environment({"HAIFA_RUN_ID": identifier, "PI_SAFE_MODE": "1"}):
+        with agent_environment({"GIRO_RUN_ID": identifier, "PI_SAFE_MODE": "1"}):
             barrier.wait(timeout=5)
             assert env_flag("PI_SAFE_MODE")
-            return operator_env()["HAIFA_RUN_ID"]
+            return operator_env()["GIRO_RUN_ID"]
 
     with ThreadPoolExecutor(2) as pool:
         one = pool.submit(worker, "one")
         two = pool.submit(worker, "two")
         assert (one.result(), two.result()) == ("one", "two")
     assert dict(os.environ) == before
-    assert operator_env().get("HAIFA_RUN_ID") == before.get("HAIFA_RUN_ID")
+    assert operator_env().get("GIRO_RUN_ID") == before.get("GIRO_RUN_ID")
 
 
 def test_domain_module_imports_without_dashboard_initialization(tmp_path: Path) -> None:
@@ -309,7 +323,7 @@ def test_missing_planner_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 def test_missing_planner_agent_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from aifactory.config import load_run_config
-    from aifactory.run.task import prepare_cfg
+    from aifactory.config.runtime import prepare_cfg
 
     repo = make_repo(tmp_path / "repo")
     ctx = context(repo, "P01-S01-T01", {})

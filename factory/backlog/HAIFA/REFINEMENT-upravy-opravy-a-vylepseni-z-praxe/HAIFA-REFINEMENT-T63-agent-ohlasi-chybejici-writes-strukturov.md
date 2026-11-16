@@ -48,5 +48,5 @@ Princip: chybějící cesta ve `writes` tasku je problém rozsahu tohoto tasku, 
 - `just lint`, `just typecheck`, `just web-test` a pytest dotčených balíčků (`tests/run`, `tests/review`, `tests/web`, `tests/test_skill.py`) jsou zelené.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-21 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/136 · náklady $8.65

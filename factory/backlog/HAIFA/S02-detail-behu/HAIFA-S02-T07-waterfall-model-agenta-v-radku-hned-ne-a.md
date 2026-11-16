@@ -37,5 +37,5 @@ Hotovo znamená:
 - `aifactory/src/aifactory/web/static/` je přegenerovaný přes `just web-build`.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-10-23 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/146 · náklady $0.00

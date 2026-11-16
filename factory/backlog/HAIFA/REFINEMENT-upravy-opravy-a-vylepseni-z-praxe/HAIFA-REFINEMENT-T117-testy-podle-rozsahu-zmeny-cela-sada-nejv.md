@@ -48,5 +48,5 @@ Vzor už v HAIFA existuje: workflow `heal` opravuje se `scoped` kontrolami a cel
 - Projdou `just lint`, `just typecheck` a cílené `just pytest` pro změněné chování.
 
 ## Běhy
-<!-- doplňuje HAIFA při schválení PR -->
+<!-- doplňuje GIRO při schválení PR -->
 - 2026-11-11 · workflow build-test-review · PR https://github.com/janbkrejci/HAIFA/pull/219 · náklady $0.00

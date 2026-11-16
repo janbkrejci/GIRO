@@ -3,7 +3,7 @@ import { createI18n } from 'vue-i18n'
 import { cs, en, type MessageKey } from './catalogs'
 
 export type Locale = 'en' | 'cs'
-export const LOCALE_STORAGE_KEY = 'haifa.dashboard.locale'
+export const LOCALE_STORAGE_KEY = 'giro.dashboard.locale'
 
 /** Deliberately ignore navigator.language; locale is a browser preference, never repo data. */
 export function readStoredLocale(): Locale {

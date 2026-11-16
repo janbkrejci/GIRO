@@ -186,7 +186,7 @@ def test_learner_computer_binding(
     from aifactory.engine.data_types import AgentResult
     from aifactory.harness import settings, thinking
 
-    monkeypatch.setenv("HAIFA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path / "home"))
     monkeypatch.setattr(thinking, "codex_models", lambda: [])
     if configured or local:
         settings.write(

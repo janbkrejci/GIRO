@@ -12,9 +12,10 @@ from aifactory.backlog import check_backlog
 from aifactory.backlog.loader import iter_tasks, load_backlog
 from aifactory.check import run_check
 from aifactory.demo import BASE, create_demo, default_dir
-from aifactory.home import haifa_home
-from aifactory.web.registry import Registry
+from aifactory.home import giro_home
+from aifactory.registry import Registry
 from cli_json import run_json
+from gitutil import git
 
 
 @pytest.fixture(autouse=True)
@@ -25,24 +26,18 @@ def _git_identity(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(f"GIT_{kind}_EMAIL", "ada@example.com")
 
 
-def _git(root: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True, check=True
-    ).stdout.strip()
-
-
-def test_creates_a_committed_local_repo_in_the_haifa_home() -> None:
+def test_creates_a_committed_local_repo_in_the_giro_home() -> None:
     result = create_demo()
 
     assert result.created and result.registered
     assert result.path == default_dir().absolute()
     root = result.path
-    assert _git(root, "branch", "--show-current") == BASE
-    assert _git(root, "status", "--porcelain") == ""
-    assert _git(root, "remote") == ""
+    assert git(root, "branch", "--show-current") == BASE
+    assert git(root, "status", "--porcelain") == ""
+    assert git(root, "remote") == ""
     config = (root / ".factory" / "config.yaml").read_text(encoding="utf-8")
     assert "git_provider: local" in config
-    tracked = _git(root, "ls-files").splitlines()
+    tracked = git(root, "ls-files").splitlines()
     assert ".factory/config.yaml" in tracked and "textstats.py" in tracked
     assert not any("__pycache__" in path for path in tracked)
     for path in (root / "factory/backlog").rglob("*.md"):
@@ -53,7 +48,7 @@ def test_creates_a_committed_local_repo_in_the_haifa_home() -> None:
         )
     gitignore = (root / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert ".factory/worktrees/" in gitignore and ".factory/trace.db*" in gitignore
-    state, _warnings = Registry(haifa_home()).snapshot()
+    state, _warnings = Registry(giro_home()).snapshot()
     assert [Path(e.path).resolve() for e in state.repos] == [root.resolve()]
 
 
@@ -87,7 +82,7 @@ def test_again_changes_nothing_and_returns_the_path(tmp_path: Path) -> None:
     first = create_demo(tmp_path / "sample")
     readme = first.path / "README.md"
     readme.write_text("mine\n", encoding="utf-8")
-    head = _git(first.path, "rev-parse", "HEAD")
+    head = git(first.path, "rev-parse", "HEAD")
 
     again = create_demo(tmp_path / "sample")
 
@@ -95,8 +90,8 @@ def test_again_changes_nothing_and_returns_the_path(tmp_path: Path) -> None:
     assert not again.created and again.registered
     assert again.repo_id == first.repo_id
     assert readme.read_text(encoding="utf-8") == "mine\n"
-    assert _git(first.path, "rev-parse", "HEAD") == head
-    state, _warnings = Registry(haifa_home()).snapshot()
+    assert git(first.path, "rev-parse", "HEAD") == head
+    state, _warnings = Registry(giro_home()).snapshot()
     assert len(state.repos) == 1
 
 
@@ -155,7 +150,7 @@ def test_env_identity_without_git_config_is_enough(
     result = create_demo(tmp_path / "sample")
 
     assert result.created
-    assert _git(result.path, "log", "--format=%an <%ae>") == "Ada Tester <ada@example.com>"
+    assert git(result.path, "log", "--format=%an <%ae>") == "Ada Tester <ada@example.com>"
 
 
 def test_missing_git_identity_leaves_nothing(

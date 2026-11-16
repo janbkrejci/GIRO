@@ -21,8 +21,10 @@ import pytest
 
 from aifactory.engine.data_types import EventRecord
 from aifactory.engine.tracer import Tracer
-from aifactory.run import TaskRunError, TaskRunStore
-from aifactory.run.store import RUNNING, SUCCEEDED, TaskRunRow, is_db_busy
+from aifactory.errors import TaskRunError
+from aifactory.runstore.base import is_db_busy
+from aifactory.runstore.rows import RUNNING, SUCCEEDED, TaskRunRow
+from aifactory.runstore.store import TaskRunStore
 
 HOLD_SECONDS = 6.5  # longer than the old 5 s busy_timeout
 
@@ -143,7 +145,7 @@ def test_serialized_is_exclusive_across_threads_and_reentrant(db: Path) -> None:
 def test_a_lock_that_outlasts_the_wait_is_db_busy(
     db: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("aifactory.run.store.BUSY_TIMEOUT", 0.2)
+    monkeypatch.setattr("aifactory.runstore.base.BUSY_TIMEOUT", 0.2)
     holder = hold_write_lock(db, 2.0)
     try:
         store = TaskRunStore(db)

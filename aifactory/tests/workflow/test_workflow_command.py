@@ -81,7 +81,7 @@ def test_nonzero_exit_fails(workflow_env: EngineEnv) -> None:
 
 
 def test_missing_binary_fails_with_127(workflow_env: EngineEnv) -> None:
-    result = _command(workflow_env, _step("no-such-binary-for-haifa-tests"), "c0000003")
+    result = _command(workflow_env, _step("no-such-binary-for-giro-tests"), "c0000003")
     assert result.passed is False
     assert result.checks[0].returncode == 127
 
