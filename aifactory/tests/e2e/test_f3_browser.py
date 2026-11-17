@@ -637,24 +637,39 @@ def _index(repo: Path, container_id: str) -> Path:
 
 
 def test_project_archive_from_tree(page: Page, server: Server, net: Net) -> None:
+    def project_option(available: bool) -> None:
+        page.locator('[data-test="project-filter"]').click()
+        expect(page.locator('[role="option"][data-value=""]')).to_be_visible()
+        expect(page.locator('[role="option"][data-value="M01"]')).to_have_count(
+            1 if available else 0
+        )
+        page.keyboard.press("Escape")
+
     page.goto(f"/#/r/{server.repo_id}/backlog")
     task_id = _create_task(page, "Archive project task", "Keep this task unchanged.")
     page.goto(f"/#/r/{server.repo_id}/backlog")
+    project_option(True)
+    _choose(page, '[data-test="project-filter"]', "M01")
     project = page.locator('[data-node="M01"]')
     project.locator('[data-test="project-archive-toggle"]').click()
     expect(project).to_have_count(0, timeout=SERVER_TIMEOUT_MS)
+    expect(page.locator('[data-test="project-filter"]')).to_contain_text("vše")
+    project_option(False)
     index = server.repo / "backlog/M01-core/index.md"
     assert yaml.safe_load(index.read_text(encoding="utf-8").split("---")[1])["archived"] is True
     page.locator('[data-test="show-archived-projects"]').check()
     expect(project).to_contain_text("Archivováno")
+    project_option(False)
     page.locator('[data-test="mode-kanban"]').click()
     expect(page.locator(f'[data-item="{task_id}"]')).to_have_count(0)
+    project_option(False)
     page.reload()
     page.locator('[data-test="mode-tree"]').click()
     expect(project).to_have_count(0)
     page.locator('[data-test="show-archived-projects"]').check()
     project.get_by_role("button", name="Obnovit projekt").click()
     expect(project.get_by_role("button", name="Archivovat projekt")).to_be_visible()
+    project_option(True)
     page.locator('[data-test="show-archived-projects"]').uncheck()
     expect(project).to_be_visible()
     page.locator('[data-test="mode-kanban"]').click()

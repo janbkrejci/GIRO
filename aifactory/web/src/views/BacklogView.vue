@@ -143,7 +143,7 @@ watch(repoId, (id) => {
   project.value = id ? backlogProject(id) : undefined
 })
 const filters = computed<Filters>(() => ({
-  project: projects.value.some((p) => p.id === project.value) ? project.value : undefined,
+  project: filterProjects.value.some((p) => p.id === project.value) ? project.value : undefined,
 }))
 const mode = ref<BacklogMode>('tree')
 const detail = ref<TaskDetailData | null>(null)
@@ -232,7 +232,8 @@ const newLevel = computed(() =>
 const graphChildLevel = computed(() =>
   graph.value ? childLevel(level.levels.value, graph.value.container.level) : null,
 )
-const projects = computed(() => projectOptions(items.value, steps.value, names.value))
+const projects = computed(() => projectOptions(items.value, steps.value, names.value, true))
+const filterProjects = computed(() => projectOptions(items.value, steps.value, names.value))
 const listChildLevel = computed(() => childLevel(level.levels.value, level.top.value))
 const projectChoices = computed(() => projects.value.map((p) => ({
   value: p.id,
@@ -291,8 +292,9 @@ async function loadList() {
     const list = await fetchBacklog()
     if (seq === loadSeq) {
       data.value = list
+      if (project.value && !filterProjects.value.some((p) => p.id === project.value)) onFilters({})
       if (isProjectBacklog.value) {
-        const selected = items.value.find((n) => n.kind === 'container' && n.id === params.value[1])
+        const selected = items.value.find((n) => n.kind === 'container' && !n.archived && n.id === params.value[1])
         project.value = selected?.id ?? undefined
         if (repoId.value) setBacklogProject(repoId.value, project.value)
         mode.value = 'tree'
@@ -872,7 +874,7 @@ watch(
         :filters="filters"
         :mode="mode"
         :levels="levels"
-        :projects="projects"
+        :projects="filterProjects"
         :hide-done="hideDone"
         @update:filters="onFilters"
         @update:hide-done="onHideDone"

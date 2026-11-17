@@ -196,6 +196,28 @@ describe('kanban filter by project', () => {
     expect(filterKanban(data.tasks, undefined, { project: 'M01' })).toEqual([])
   })
 
+  it('excludes archived roots even when steps reference them, but keeps completed projects', async () => {
+    const { backlogData } = await import('@/test/backlogFixtures')
+    const { projectOptions } = await import('./backlog')
+    const data = backlogData()
+    const items = data.items.map((n) => n.kind === 'container'
+      ? { ...n, archived: n.id === 'M01', done: true } : n)
+    expect(projectOptions(items, data.steps)).toEqual([{ id: 'M02', title: 'Web' }])
+    expect(projectOptions(items, data.steps, {}, true)).toEqual([
+      { id: 'M01', title: 'Core' },
+      { id: 'M02', title: 'Web' },
+    ])
+    // In a two-level backlog, steps reference the archived root by their own id.
+    const roots = data.items.flatMap((n) => n.kind === 'container' ? n.children : [])
+      .map((n) => n.kind === 'container' ? { ...n, archived: n.id === 'M01-S01' } : n)
+    const steps = data.steps.map((s) => ({ ...s, project: null }))
+    expect(projectOptions(roots, steps)).toEqual([{ id: 'M02-S01', title: 'UI' }])
+    expect(projectOptions(items.map((n) => ({ ...n, archived: false })), data.steps)).toEqual([
+      { id: 'M01', title: 'Core' },
+      { id: 'M02', title: 'Web' },
+    ])
+  })
+
   it('offers projects and the steps of the chosen project', async () => {
     const { backlogData } = await import('@/test/backlogFixtures')
     const { projectOptions, stepOptions } = await import('./backlog')
