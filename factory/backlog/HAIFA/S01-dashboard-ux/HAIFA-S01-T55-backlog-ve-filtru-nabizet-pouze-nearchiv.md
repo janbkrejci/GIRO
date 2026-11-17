@@ -1,7 +1,7 @@
 ---
 id: HAIFA-S01-T55
 title: "Backlog: ve filtru nabízet pouze nearchivované projekty"
-status: todo
+status: done
 workflow: build-test-review
 depends_on: [HAIFA-REFINEMENT-T114]
 writes: [aifactory/web/src/lib/backlog.ts, aifactory/web/src/lib/backlog.test.ts, aifactory/web/src/views/BacklogView.vue, aifactory/web/src/views/BacklogView.test.ts, aifactory/tests/e2e/test_f3_browser.py, aifactory/src/aifactory/web/static/]
@@ -26,3 +26,4 @@ Hotovo znamená:
 
 ## Běhy
 <!-- doplňuje GIRO při schválení PR -->
+- 2026-11-17 · workflow build-test-review · PR https://github.com/janbkrejci/GIRO/pull/8 · náklady $0.00
