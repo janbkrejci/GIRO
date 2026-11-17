@@ -3,6 +3,9 @@ name: GIRO release
 on:
   push:
     branches: [main]
+    # backlog, task specs and task docs are not part of the bundle
+    paths-ignore:
+      - 'factory/**'
   workflow_dispatch:
 
 permissions:

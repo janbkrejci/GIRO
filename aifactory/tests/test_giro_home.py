@@ -127,6 +127,8 @@ def test_giro_publication_is_gated_to_new_repository() -> None:
     workflow: dict[str, Any] = yaml.safe_load(
         (root / ".github/workflows/giro-release.yml").read_text()
     )
+    # PyYAML reads the bare key `on` as True
+    assert workflow[True]["push"]["paths-ignore"] == ["factory/**"]
     job = workflow["jobs"]["release"]
     assert "github.repository == 'janbkrejci/GIRO'" in job["if"]
     assert "GIRO_RELEASE_ENABLED == 'true'" in job["if"]
