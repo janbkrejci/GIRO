@@ -92,12 +92,14 @@ function activity(iso: string | null): string {
   <section v-else class="overview-view" data-test="repo-page">
     <div class="head">
       <h1>{{ t('dashboard.overview') }}</h1>
-      <label v-if="hasProjects" class="project-switch">
-        <input v-model="byProject" type="checkbox" class="switch" role="switch" data-test="by-project" /> {{ t('dashboard.byProject') }}
-      </label>
-      <label v-if="byProject && hasProjects" class="project-switch">
-        <input v-model="showFinished" type="checkbox" class="switch" role="switch" data-test="show-finished" /> {{ t('dashboard.showFinished') }}
-      </label>
+      <div v-if="hasProjects" class="switches">
+        <label class="project-switch">
+          <input v-model="byProject" type="checkbox" class="switch" role="switch" data-test="by-project" /> {{ t('dashboard.byProject') }}
+        </label>
+        <label v-if="byProject" class="project-switch">
+          <input v-model="showFinished" type="checkbox" class="switch" role="switch" data-test="show-finished" /> {{ t('dashboard.showFinished') }}
+        </label>
+      </div>
       <button
         type="button"
         class="refresh"
@@ -209,7 +211,8 @@ h1 {
   letter-spacing: 0.02em;
 }
 
-.project-switch { display: flex; align-items: center; gap: 8px; margin-left: auto; margin-right: 16px; color: var(--dim); }
+.switches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-left: auto; margin-right: 16px; }
+.project-switch { display: flex; align-items: center; gap: 8px; color: var(--dim); }
 
 .refresh {
   display: inline-flex;
@@ -269,6 +272,9 @@ h1 {
 }
 
 .total-label {
+  /* two lines in every language, so switching it does not move the cards */
+  min-height: 40px;
+  line-height: 20px;
   overflow-wrap: anywhere;
   color: var(--dim);
   font-size: 14px;
@@ -378,7 +384,7 @@ h1 {
 @media (max-width: 640px) {
   .overview-view { padding: 16px; }
   .totals { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .project-switch { margin: 0; }
+  .switches { margin: 0; }
   .calm-head { flex-wrap: wrap; white-space: normal; }
   .calm-name { overflow-wrap: anywhere; min-width: 0; }
 }

@@ -592,8 +592,7 @@ it('switches panel labels without changing the draft, messages, proposals or str
   for (const language of ['cs', 'en'] as const) {
     await chooseOption(wrapper, '[data-test="language-select"]', language)
     const languageTrigger = wrapper.get('[data-test="language-select"]')
-    expect(languageTrigger.findAll('svg')).toHaveLength(1)
-    expect(languageTrigger.text()).toBe('')
+    expect(languageTrigger.text()).toBe(language.toUpperCase())
     expect(languageTrigger.attributes('aria-label')).toBe(language === 'cs' ? 'Jazyk' : 'Language')
     expect(languageTrigger.attributes('data-value')).toBe(language)
     expect(localStorage.getItem('giro.dashboard.locale')).toBe(language)

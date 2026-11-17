@@ -171,7 +171,9 @@ onBeforeUnmount(() => listen(false))
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  max-width: 280px;
+  /* a fixed width: neither the language nor the repository name moves the header icons */
+  width: 280px;
+  max-width: 100%;
   padding: 2px 6px;
   border: 1px solid transparent;
   border-radius: 8px;

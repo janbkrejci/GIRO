@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Languages } from 'lucide-vue-next'
 import { locale, setLocale, t } from '@/lib/i18n'
 import SelectMenu from './ui/SelectMenu.vue'
 import Tooltip from './ui/Tooltip.vue'
@@ -16,7 +15,7 @@ import Tooltip from './ui/Tooltip.vue'
       @update:model-value="setLocale"
     >
       <template #trigger>
-        <Languages :size="18" aria-hidden="true" />
+        <span class="language-code" aria-hidden="true">{{ locale.toUpperCase() }}</span>
       </template>
     </SelectMenu>
   </Tooltip>
@@ -36,6 +35,12 @@ import Tooltip from './ui/Tooltip.vue'
 
 [data-theme="light"] .language-select {
   background: rgba(255, 255, 255, 0.7);
+}
+
+.language-code {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .select-trigger.language-select:hover:not(:disabled) {

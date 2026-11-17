@@ -1036,8 +1036,7 @@ it('offers the global language preference with no repositories and keeps it acro
     go(hash)
     await flushPromises()
     const language = wrapper.get('[data-test="language-select"]')
-    expect(language.text()).toBe('')
-    expect(language.findAll('svg')).toHaveLength(1)
+    expect(language.text()).toBe('CS')
     expect(language.attributes('data-value')).toBe('cs')
     expect(language.attributes('aria-label')).toBe('Jazyk')
   }

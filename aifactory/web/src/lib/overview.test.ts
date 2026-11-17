@@ -68,6 +68,40 @@ it('cancels superseded overview reads and the final read on scope disposal', asy
   }
 })
 
+it('reads again at once while a repository is past its time limit', async () => {
+  const bodies = [overview([repo('slow', { state: 'timeout' })]), overview([repo('slow')])]
+  const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+    ok: true, data: bodies.shift() ?? overview([repo('slow')]), error: null, warnings: [],
+  }))))
+  vi.stubGlobal('fetch', fetchMock)
+  const scope = effectScope()
+  try {
+    const poll = scope.run(() => useOverview())!
+    await vi.waitFor(() => expect(poll.data.value?.repos[0].state).toBe('ok'))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  } finally {
+    scope.stop()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('stops the immediate re-reads of a repository that never finishes', async () => {
+  const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+    ok: true, data: overview([repo('stuck', { state: 'timeout' })]), error: null, warnings: [],
+  }))))
+  vi.stubGlobal('fetch', fetchMock)
+  const scope = effectScope()
+  try {
+    scope.run(() => useOverview())
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  } finally {
+    scope.stop()
+    vi.unstubAllGlobals()
+  }
+})
+
 describe('fetchOverview projects', () => {
   afterEach(() => vi.unstubAllGlobals())
 

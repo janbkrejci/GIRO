@@ -126,7 +126,7 @@ from aifactory.web.repostate import REPO_STATES, RepoSnapshot
 JsonDict = dict[str, Any]
 T = TypeVar("T")
 
-TASKS_TTL = 60.0  # s, task titles and statuses per repository
+TASKS_TTL = 600.0  # s, task titles and statuses; a backlog change rereads them sooner
 REPO_TIMEOUT = 2.0  # s, per repository
 if sys.platform == "win32":  # a cold repository runs ~8 git processes, each 0.15-0.3 s there
     REPO_TIMEOUT = 10.0
@@ -1012,6 +1012,12 @@ class Overview:
                     if self._inflight.get(key) is future:
                         del self._inflight[key]
                         self._delayed.discard(key)
+
+    async def warm(self) -> None:
+        """Compute every repository once without a time limit, only to fill the caches."""
+        state, _warnings = await asyncio.to_thread(self.registry.snapshot)
+        futures = [asyncio.wrap_future(self._pool.submit(self.repo, e)) for e in state.repos]
+        await asyncio.gather(*futures, return_exceptions=True)
 
     async def item(self, entry: RepoEntry) -> JsonDict:
         """One repository item, as in ``collect`` (``REPO_TIMEOUT``, ``timeout``/``stale``)."""

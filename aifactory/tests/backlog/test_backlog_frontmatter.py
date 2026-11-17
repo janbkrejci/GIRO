@@ -30,3 +30,13 @@ def test_empty_header() -> None:
 def test_invalid(text: str, message: str) -> None:
     with pytest.raises(FrontmatterError, match=message):
         parse_frontmatter(text)
+
+
+def test_a_cached_header_is_returned_as_an_independent_copy() -> None:
+    text = "---\nid: X-T01\nwrites:\n  - a.py\n---\nbody\n"
+    first, _ = parse_frontmatter(text)
+    first["id"] = "changed"
+    first["writes"].append("b.py")  # type: ignore[attr-defined]
+    second, body = parse_frontmatter(text)
+    assert second == {"id": "X-T01", "writes": ["a.py"]}
+    assert body == "body\n"

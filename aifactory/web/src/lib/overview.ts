@@ -19,6 +19,9 @@ import { repoHref } from './router'
 import { dashboardStateLabel, dashboardFailureLabel, dashboardError } from './dashboardMessages'
 import { onOverviewLive } from './overviewLive'
 
+/** Immediate re-reads in a row while a repository is past its time limit. */
+const QUICK_READS = 3
+
 /** The fallback read while live events drive the overview. */
 export const OVERVIEW_FALLBACK_MS = 15000
 
@@ -429,6 +432,7 @@ export function useOverview(intervalMs = OVERVIEW_FALLBACK_MS): OverviewPoll {
   let timer: ReturnType<typeof setInterval> | undefined
   // a live event during a read: read once more when it ends
   let again = false
+  let quickReads = 0
 
   async function refresh(): Promise<void> {
     const mine = ++generation
@@ -441,6 +445,15 @@ export function useOverview(intervalMs = OVERVIEW_FALLBACK_MS): OverviewPoll {
       data.value = next
       sharedOverview.value = { data: next, at: Date.now() }
       failure.value = null
+      // The server keeps computing a repository past its time limit and the next read waits
+      // for that computation, so read again now instead of after the fallback interval.
+      // Bounded: a repository that never finishes falls back to the regular interval.
+      if (next.repos.some((r) => r.state === 'timeout') && !hidden() && quickReads < QUICK_READS) {
+        quickReads += 1
+        again = true
+      } else {
+        quickReads = 0
+      }
     } catch (err) {
       if (mine !== generation) return
       failure.value = err

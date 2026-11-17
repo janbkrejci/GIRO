@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+import copy
+import threading
+
 import yaml
 
 from aifactory import yamlload
+
+# Parsed headers by their text: the dashboard rereads whole backlogs after any one file
+# changes, and YAML parsing is most of that cost. Values are copied out, never shared.
+_CACHE_LIMIT = 20000
+_cache: dict[str, dict[str, object]] = {}
+_cache_lock = threading.Lock()
 
 
 class FrontmatterError(Exception):
@@ -23,12 +32,24 @@ def parse_frontmatter(text: str) -> tuple[dict[str, object], str]:
             break
     else:
         raise FrontmatterError("YAML header is not closed with '---'")
+    with _cache_lock:
+        cached = _cache.get(header)
+    if cached is None:
+        cached = _parse_header(header)
+        with _cache_lock:
+            if len(_cache) >= _CACHE_LIMIT:
+                _cache.clear()
+            _cache[header] = cached
+    return copy.deepcopy(cached), body
+
+
+def _parse_header(header: str) -> dict[str, object]:
     try:
         data = yamlload.safe_load(header)
     except yaml.YAMLError as exc:
         raise FrontmatterError(f"invalid YAML in header: {exc}") from exc
     if data is None:
-        return {}, body
+        return {}
     if not isinstance(data, dict):
         raise FrontmatterError("YAML header must be a mapping")
-    return {str(k): v for k, v in data.items()}, body
+    return {str(k): v for k, v in data.items()}

@@ -16,17 +16,15 @@ const SELECTOR = '[data-test="language-select"]'
 
 describe('LanguageSelect', () => {
   it.each([['en', 'Language'], ['cs', 'Jazyk']] as const)(
-    'shows only the Languages SVG with a localized name and tooltip in %s',
+    'shows the selected language code with a localized name and tooltip in %s',
     async (language, label) => {
       setLocale(language)
       const wrapper = mount(LanguageSelect, { attachTo: document.body })
       const trigger = wrapper.get(SELECTOR)
       expect(trigger.attributes('aria-label')).toBe(label)
       expect(trigger.attributes('aria-expanded')).toBe('false')
-      expect(trigger.text()).toBe('')
-      expect(trigger.findAll('svg')).toHaveLength(1)
-      expect(trigger.get('svg').classes()).toContain('lucide-languages')
-      expect(trigger.get('svg').attributes('aria-hidden')).toBe('true')
+      expect(trigger.text()).toBe(language.toUpperCase())
+      expect(trigger.get('.language-code').attributes('aria-hidden')).toBe('true')
       expect(trigger.find('.select-value').exists()).toBe(false)
       expect(trigger.find('.chevron').exists()).toBe(false)
       await wrapper.get('[data-test="tip-anchor"]').trigger('mouseenter')
@@ -47,7 +45,7 @@ describe('LanguageSelect', () => {
     for (const trigger of [first!, second!]) {
       expect(trigger.attributes('data-value')).toBe('cs')
       expect(trigger.attributes('aria-label')).toBe('Jazyk')
-      expect(trigger.text()).toBe('')
+      expect(trigger.text()).toBe('CS')
     }
     const selected = await openSelect(wrapper, SELECTOR)
     expect(selected.map((o) => o.getAttribute('aria-selected'))).toEqual(['false', 'true'])

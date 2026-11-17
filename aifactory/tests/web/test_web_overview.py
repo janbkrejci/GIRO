@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import sqlite3
@@ -396,6 +397,26 @@ def test_busy_trace_db_answers_within_a_second(repo_a: Path, tmp_path: Path) -> 
     assert T_RUN in {r["task_id"] for r in data["repos"][0]["running"]}
 
 
+def test_warm_fills_the_task_cache_without_a_time_limit(
+    repo_a: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    counts = {"tasks": 0}
+    real_load = getattr(overview, "load_for_edit")  # noqa: B009
+
+    def slow_load(*args: Any, **kwargs: Any) -> Any:
+        counts["tasks"] += 1
+        time.sleep(2.0)
+        return real_load(*args, **kwargs)
+
+    monkeypatch.setattr(overview, "load_for_edit", slow_load)
+    ov = Overview(register(tmp_path / "home", repo_a), timeout=1.0)
+    asyncio.run(ov.warm())
+    assert counts == {"tasks": 1}
+    data, _ = asyncio.run(ov.collect())
+    assert data["repos"][0]["state"] == "ok"  # the first read is warm, not a timeout
+    assert counts == {"tasks": 1}
+
+
 def _app_with(home: Path, tmp_path: Path, ov: Overview) -> TestClient:
     app = create_multi_app(home=home, static_dir=tmp_path / "nostatic")
     app.state.overview = ov
@@ -493,7 +514,7 @@ def test_config_and_task_caches_per_repo(
         assert (again["config"], again["backlog"]) == (first["config"], first["backlog"])
     assert count.total == 0, count.commands  # a poll without a change starts no git
     assert counts == {"tasks": 1}
-    now[0] += 2  # 61 s after the first
+    now[0] += 2  # one second past the time limit
     ov.repo(entry)
     assert counts == {"tasks": 2}
 

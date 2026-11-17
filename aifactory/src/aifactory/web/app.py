@@ -322,7 +322,7 @@ def create_multi_app(
 
     @asynccontextmanager
     async def lifespan(app: Starlette) -> AsyncIterator[None]:
-        from aifactory.web.monitoring import once, periodic
+        from aifactory.web.monitoring import once, periodic, warm_overview
 
         checks: list[asyncio.Task[None]] = []
         if background_checks:
@@ -338,6 +338,8 @@ def create_multi_app(
                         )
                     )
                 ),
+                # The first overview parses every backlog; start it before the first page asks.
+                asyncio.create_task(warm_overview(app.state.overview)),
                 # Advice directories left behind by a dashboard that ended mid-advice.
                 asyncio.create_task(once(cleanup_orphans)),
                 asyncio.create_task(periodic(app.state.updates.check, 60)),

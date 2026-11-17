@@ -223,10 +223,12 @@ defineExpose({ reload: load })
                 <td><SelectMenu v-model="row.harness" :label="t('factoryUi.agentHarness', { name: agent.name })" :options="harnessOptions" :disabled="locked" data-test="roster-harness" /></td>
                 <td><input v-model="row.model" :list="`roster-models-${repoId}`" :aria-label="t('factoryUi.agentModel', { name: agent.name })" :disabled="locked" data-test="roster-model" /></td>
                 <td><SelectMenu v-model="row.thinking" :label="t('factoryUi.agentThinking', { name: agent.name })" :options="thinkingOptions" :disabled="locked" data-test="roster-thinking" /></td>
-                <td class="row-actions">
-                  <button type="button" class="btn" :disabled="locked || !rowChange(agent) || rowBlank(agent)" data-test="roster-preview" @click="previewAgent(agent)">{{ t('factoryUi.previewChange') }}</button>
+                <td>
+                  <div class="row-actions">
+  <button type="button" class="btn" :disabled="locked || !rowChange(agent) || rowBlank(agent)" data-test="roster-preview" @click="previewAgent(agent)">{{ t('factoryUi.previewChange') }}</button>
                   <button type="button" class="btn" :disabled="working || !!pending" data-test="roster-cancel" @click="cancel">{{ t('factoryUi.cancel') }}</button>
                   <small v-if="rowBlank(agent)" class="note">{{ t('factoryUi.cannotClear') }}</small>
+                  </div>
                 </td>
               </template>
               <template v-else>
@@ -239,10 +241,12 @@ defineExpose({ reload: load })
                     <span v-else class="state" :data-test="`roster-inherited-${field}`">{{ t('factoryUi.inherited') }}</span>
                   </template>
                 </td>
-                <td class="row-actions">
-                  <button type="button" class="btn" :disabled="locked || editing !== null" data-test="roster-edit" @click="edit(agent)">{{ t('factoryUi.edit') }}</button>
+                <td>
+                  <div class="row-actions">
+  <button type="button" class="btn" :disabled="locked || editing !== null" data-test="roster-edit" @click="edit(agent)">{{ t('factoryUi.edit') }}</button>
                   <button v-if="resettable(agent).length" type="button" class="btn" :disabled="locked || editing !== null"
                     data-test="roster-reset" @click="previewReset(agent)">{{ t('factoryUi.resetInherited') }}</button>
+                  </div>
                 </td>
               </template>
             </tr>

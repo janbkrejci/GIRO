@@ -340,6 +340,7 @@ function select(p: PhaseRow) {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
+  background: var(--panel-2);
 }
 
 .wf-scroll {

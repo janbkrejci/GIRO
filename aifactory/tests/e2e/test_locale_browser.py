@@ -21,9 +21,8 @@ def _assert_language_icons(page: Page, language: str) -> None:
         expect(trigger).to_have_attribute("aria-expanded", "false")
         expect(trigger).to_have_attribute("aria-label", label)
         expect(trigger).to_have_attribute("data-value", language)
-        expect(trigger).to_have_text("")
-        expect(trigger.locator("svg")).to_have_count(1)
-        expect(trigger.locator("svg.lucide-languages")).to_have_attribute("aria-hidden", "true")
+        expect(trigger).to_have_text(language.upper())
+        expect(trigger.locator(".language-code")).to_have_attribute("aria-hidden", "true")
         size = trigger.bounding_box()
         assert size is not None and size["width"] == 36 and size["height"] == 36
 
