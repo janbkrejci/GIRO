@@ -314,6 +314,50 @@ def test_scan_all_saves_each_lesson_in_its_target_repo(
     assert "[test_triage app:run-b]" in out
 
 
+def test_scan_of_one_repo_sends_a_factory_lesson_to_the_factory_repo(
+    two_repos: dict[str, Path],
+    fake: tuple[list[Any], list[dict[str, Any]]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    seen, answers = fake
+    app_lesson = {**TESTS_LESSON, "repo": "app"}
+    answers.append(_lessons({**SEED_LESSON, "complaints": ["c1", "c3"]}, app_lesson))
+    data = _scan(capsys, two_repos["app"])
+    assert data["all"] is False
+    assert (data["objections"], data["runs"]) == (3, 2)
+    context = _context(seen[0])
+    assert context["repos"] == [
+        {"id": "haifa", "name": "haifa", "is_factory": True},
+        {"id": "app", "name": "app", "is_factory": False},
+    ]
+    assert [o["repo"] for o in context["objections"]] == ["app"] * 3
+    assert "seed" in context["targets"]
+    by_repo = {lesson["repo"]: lesson for lesson in data["lessons"]}
+    assert (by_repo["haifa"]["target"], by_repo["haifa"]["origin"]) == ("seed", ["app"])
+    [in_haifa] = _stored(two_repos["haifa"])
+    assert all(k.startswith("app:") for k in in_haifa.complaints)
+    [in_app] = _stored(two_repos["app"])
+    assert in_app.rule == TESTS_RULE
+
+    assert main(["learn", "scan", "--repo", str(two_repos["app"])]) == 0
+    out = capsys.readouterr().out
+    assert "of 2 repo(s)" not in out
+    assert "-> seed (builder)  in haifa (objections from 1 repo(s))" in out
+    assert "-> AGENTS.md\n" in out
+
+
+def test_scan_of_the_factory_repo_itself_has_no_repos(
+    two_repos: dict[str, Path],
+    fake: tuple[list[Any], list[dict[str, Any]]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    seen, answers = fake
+    answers.append(_lessons(TESTS_LESSON))
+    [lesson] = _scan(capsys, two_repos["haifa"])["lessons"]
+    assert "repos" not in _context(seen[0])
+    assert lesson["repo"] == "haifa"
+
+
 def test_scan_all_unknown_repo_and_seed_outside_factory_are_corrected(
     two_repos: dict[str, Path],
     fake: tuple[list[Any], list[dict[str, Any]]],

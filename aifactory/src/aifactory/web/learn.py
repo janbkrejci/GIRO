@@ -72,8 +72,9 @@ def _optional_text(body: dict[str, Any], key: str, limit: int) -> str | None:
 
 
 def _result(data: dict[str, Any], own: str | None) -> dict[str, Any]:
-    """The counts of a scan; with ``own`` (a scan of all repos, ``own`` the repo's id) also
-    the repos and the lessons saved in other repos, by repo id."""
+    """The counts of a scan; for a scan of all repos, or one that saved lessons in another
+    repo (the factory repo), also the repos and those lessons by repo id (``own`` is the
+    id of the repo the scan runs in)."""
     found = data.get("lessons") or []
     result: dict[str, Any] = {
         "objections": data.get("objections", 0),
@@ -81,13 +82,13 @@ def _result(data: dict[str, Any], own: str | None) -> dict[str, Any]:
         "lessons": len(found),
         "repeats": sum(int(r.get("added") or 0) for r in data.get("repeats") or []),
     }
-    if own is None:
-        return result
     elsewhere: dict[str, int] = {}
     for lesson in found:
         target = str(lesson.get("repo") or "")
         if target and target != own:
             elsewhere[target] = elsewhere.get(target, 0) + 1
+    if not data.get("all") and not elsewhere:
+        return result
     result["repos"] = data.get("repos", 0)
     result["elsewhere"] = elsewhere
     result["warnings"] = [str(w) for w in data.get("warnings") or []]
@@ -136,7 +137,7 @@ class LearnManager:
     def _run(self, job: ScanJob) -> None:
         try:
             data = self.scanner(job.repo, job.since, job.all_repos)
-            result = _result(data, _repo_id(job.repo) if job.all_repos else None)
+            result = _result(data, _repo_id(job.repo))
         except BaseException as exc:
             with self.lock:
                 job.state, job.error, job.finished_at = "failed", _error_text(exc), now_iso()

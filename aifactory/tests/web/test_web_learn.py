@@ -209,3 +209,19 @@ def test_scan_all_through_the_api_shows_origin_and_repos(
     [there] = view_lessons(repos["app"])
     assert there["rule"] == RULE and there["origin"] == ["app"]
     assert {c["repo"] for c in there["complaints"]} == {"app"}
+
+
+def test_result_of_a_one_repo_scan_lists_lessons_sent_to_the_factory_repo() -> None:
+    from aifactory.web.learn import _result
+
+    data = {
+        "objections": 3,
+        "runs": 2,
+        "repos": 1,
+        "all": False,
+        "lessons": [{"repo": "haifa"}, {"repo": "app"}],
+        "warnings": [],
+    }
+    assert _result(data, "app")["elsewhere"] == {"haifa": 1}
+    kept = {**data, "lessons": [{"repo": "app"}]}
+    assert _result(kept, "app") == {"objections": 3, "runs": 2, "lessons": 1, "repeats": 0}

@@ -31,8 +31,11 @@ conventions or code the rule is about, or the factory repo for a shortcoming of 
 itself, the only repo where the target ``seed`` (a role prompt in the library seed) is
 allowed. Each lesson is saved in the store of its target repo with the ids of the repos its
 objections came from (``origin``); the settled lessons come from the stores of every repo.
-Without ``--all`` the lessons name the repo the scan runs in (its registry id, '' when it
-is not registered) and the context carries no repos.
+Without ``--all`` only the objections of the repo the scan runs in are read. When that repo
+is registered and a different factory repo is registered too, the context carries both
+(``repos``) and a lesson about the factory itself goes to the factory repo, as with
+``--all``; otherwise every lesson names the repo the scan runs in (its registry id, ''
+when it is not registered) and the context carries no repos.
 """
 
 from __future__ import annotations
@@ -175,8 +178,9 @@ def context(
 ) -> dict[str, Any]:
     """What the agent gets: the objections by short id, the settled rules, the schema.
 
-    ``repos`` (id, name, is_factory of every registered repo) only with ``--all``: then
-    every objection names its repo and the agent learns where a rule belongs.
+    ``repos`` (id, name, is_factory of every registered repo with ``--all``, else of the
+    scanned repo and the factory repo): then every objection names its repo and the agent
+    learns where a rule belongs.
     """
     items: list[dict[str, Any]] = []
     for n, o in enumerate(objections, 1):
@@ -489,7 +493,10 @@ def scan(repo: Path, since: str | None = None, all_repos: bool = False) -> dict[
     the trace DB of its target repo (the result then has ``all``, ``repos``, ``warnings``).
     """
     if all_repos:
-        return _scan_all(repo, since)
+        return _scan_repos(repo, since, None)
+    own, factory = _own_id(repo), _factory_id()
+    if own and factory and own != factory:
+        return _scan_repos(repo, since, own)
     since_iso = parse_since(since)
     db = trace_db(repo)
     objections = collect(db, since_iso)[-_MAX_OBJECTIONS:]
@@ -524,14 +531,26 @@ def scan(repo: Path, since: str | None = None, all_repos: bool = False) -> dict[
     }
 
 
-def _scan_all(repo: Path, since: str | None) -> dict[str, Any]:
-    """``scan --all``: objections of every registered repo, lessons into their target repo."""
-    from aifactory.learn.sources import _split, collect_all, registered_repos
+def _scan_repos(repo: Path, since: str | None, only: str | None) -> dict[str, Any]:
+    """Lessons saved in their target repo: ``scan --all`` with ``only`` None, else the
+    objections of the repo ``only`` with that repo and the factory repo as targets."""
+    from aifactory.learn.sources import _read, _split, collect_all, registered_repos
 
     since_iso = parse_since(since)
     sources, warnings = registered_repos()
-    collected, more = collect_all(since_iso)
-    warnings += more
+    if only is None:
+        collected, more = collect_all(since_iso)
+        warnings += more
+    else:
+        targets = {only, _factory_id()}
+        sources = [s for s in sources if s.id in targets]
+        warnings = [w for w in warnings if w.partition(":")[0] in targets]
+        own_source = next((s for s in sources if s.id == only), None)
+        try:
+            collected = _read(own_source, since_iso) if own_source is not None else []
+        except (sqlite3.Error, OSError) as exc:
+            warnings.append(f"{only}: cannot read the trace DB: {exc}; skipped")
+            collected = []
     objections = collected[-_MAX_OBJECTIONS:]
     runs = {(o.repo, o.run_id) for o in objections}
     lessons: list[dict[str, Any]] = []
@@ -590,7 +609,7 @@ def _scan_all(repo: Path, since: str | None) -> dict[str, Any]:
         lesson.pop("keys")
     return {
         "since": since_iso,
-        "all": True,
+        "all": only is None,
         "objections": len(objections),
         "runs": len(runs),
         "repos": len({o.repo for o in objections}),
@@ -619,6 +638,11 @@ def _run(item: dict[str, Any]) -> str:
     return f"{item['repo']}:{item['run_id']}" if item.get("repo") else str(item["run_id"])
 
 
+def _elsewhere(lesson: dict[str, Any]) -> bool:
+    """Whether a lesson goes to another repo than the one its objections came from."""
+    return bool(lesson.get("repo")) and lesson["repo"] not in (lesson.get("origin") or [])
+
+
 def format_scan(data: dict[str, Any]) -> str:
     """The lessons for the terminal."""
     head = f"{data['objections']} objection(s) in {data['runs']} run(s)"
@@ -635,7 +659,7 @@ def format_scan(data: dict[str, Any]) -> str:
             f"{lesson['id']}  {lesson['occurrences']} run(s)  -> {_where(lesson)}"
             + (
                 f"  in {lesson['repo']} (objections from {lesson['origin_repos']} repo(s))"
-                if data.get("all")
+                if data.get("all") or _elsewhere(lesson)
                 else ""
             ),
             f"  {lesson['rule']}",
