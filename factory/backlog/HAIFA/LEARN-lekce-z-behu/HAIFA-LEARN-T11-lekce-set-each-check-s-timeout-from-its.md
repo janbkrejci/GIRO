@@ -1,7 +1,7 @@
 ---
 id: HAIFA-LEARN-T11
 title: "Lekce: Set each check's timeout from its measured runtime under load with a clear margin…"
-status: todo
+status: done
 workflow: build-review
 depends_on: []
 related: [HAIFA-S01-T49, HAIFA-S12-T01, HAIFA-TODO-T27]

@@ -1,7 +1,7 @@
 ---
 id: HAIFA-LEARN-T09
 title: "Lekce: Always include `just lint` and `just typecheck` in the test plan, even for docs-on…"
-status: todo
+status: done
 workflow: build-review
 depends_on: []
 related: [HAIFA-S12-T01, HAIFA-TODO-T27]

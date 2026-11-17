@@ -1,7 +1,7 @@
 ---
 id: HAIFA-LEARN-T10
 title: "Lekce: When you change a function's signature or return type, update or keep compatible e…"
-status: todo
+status: done
 workflow: build-review
 depends_on: []
 related: [HAIFA-REFINEMENT-T71, HAIFA-TODO-T28]

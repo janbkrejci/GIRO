@@ -8,11 +8,13 @@ Before a task or follow-up runs, list any required paths outside its inherited `
 
 The whole suite takes about 30 minutes on Windows. `giro-release.yml` builds GIRO releases behind its release gate. Release CI verifies installation on Ubuntu; it does not run PR tests, lint, type checks or Windows checks. Run the checks locally before merging. Auto-merge can accept a PR with no checks. A giro task run checks only what the change can affect, inside its test step's time limit:
 
-- `just lint` and `just typecheck`, always.
-- `just pytest <files or directories>` with the tests of the changed packages and of their direct callers. `aifactory/tests/<package>/` mirrors `aifactory/src/aifactory/<package>/`. Never the whole suite.
-- `just web-test` when `aifactory/web/` changed, and `just pytest tests/e2e/<file> -n0` only for the browser test of a changed screen.
+- `just lint` and `just typecheck`, always, also for a docs-only or test-only change. Run `just typecheck` again after any later Python edit.
+- `just pytest <files or directories>` with the tests of the changed packages and of their direct callers. `aifactory/tests/<package>/` mirrors `aifactory/src/aifactory/<package>/`. Never the whole suite (`just test`, `just check`): it needs far more than the step's 600 s budget, so plan scoped tests from the first plan.
+- The full `just web-test` when `aifactory/web/` changed, run on the final code in this test step, never left to CI, the builder or a later step. `just pytest tests/e2e/<file> -n0` only for the browser test of a changed screen.
 
 Find the direct callers of every changed function, module, seed file or test helper by searching all of `aifactory/tests/`, not only the mirrored package directory, and include the test files exercising those callers in the test plan.
+
+When you change a function's signature or return type, update or keep compatible every direct caller, including test stubs and lambdas, and run their tests.
 
 Select only tests that exercise the changed behavior; narrow file or directory selections to relevant tests, omit tests justified only by imports of a changed module, and add browser or layout tests only for a changed screen.
 
@@ -23,6 +25,8 @@ Regardless of these selection limits, run every test file edited by the change i
 Measured on the Windows giro machine (set check timeouts with margin): `just lint` 1 s, `just typecheck` 10 s, `just web-test` 90 s (bun install, vue-tsc, vitest), one browser test file 60–200 s, `just pytest` of one test directory 1–5 min.
 
 Outside a giro run, `just check` and `just e2e` are the full gate.
+
+The dashboard shows every user-visible state, step name and backend message from a stable code with parameters, translated from the EN/CS catalogs at render time. Never display raw server text, enum values or strings translated when they were stored. Add a regression test that switches the locale while the text is shown.
 
 Never commit credentials, runtime databases, agent transcripts or local machine configuration.
 
