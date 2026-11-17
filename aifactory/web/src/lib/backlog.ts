@@ -982,15 +982,20 @@ export function filterKanban(
 /**
  * Projects for the shared backlog filter: the top of the tree and the projects of the steps
  * (with fewer than three levels the steps are the projects). Titles fall back to `names`.
+ * Archived roots are excluded unless requested for the new-step form.
  */
 export function projectOptions(
   items: readonly BacklogNode[] | undefined,
   steps: readonly StepRef[] | undefined,
   names: CodeNames = {},
+  includeArchived = false,
 ): ScopeOption[] {
+  const archived = new Set((Array.isArray(items) ? items : [])
+    .filter((node) => node.kind === 'container' && node.archived)
+    .map((node) => node.id))
   const out = new Map<string, string | null>()
   const add = (id: string | null | undefined, title: string | null | undefined) => {
-    if (!id) return
+    if (!id || (!includeArchived && archived.has(id))) return
     const known = out.get(id)
     if (known === undefined || (known === null && title)) out.set(id, title ?? names[id]?.title ?? null)
   }
