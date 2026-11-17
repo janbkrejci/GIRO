@@ -1,6 +1,7 @@
 ---
 id: OPT
 title: Optimalizace a úklid
+archived: true
 workflow: build-test-review
 writes: [aifactory/, justfile]
 auto_continue: true

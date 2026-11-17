@@ -1,6 +1,7 @@
 ---
 id: GUIDE
 title: Průvodce a dokumentace
+archived: true
 workflow: build-test-review
 writes: [aifactory/, justfile]
 auto_continue: true

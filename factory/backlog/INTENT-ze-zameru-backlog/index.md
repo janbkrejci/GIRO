@@ -1,6 +1,7 @@
 ---
 id: INTENT
 title: Ze záměru backlog
+archived: true
 workflow: build-test-review
 writes: [aifactory/, justfile]
 auto_continue: true

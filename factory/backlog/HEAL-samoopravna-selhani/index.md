@@ -1,6 +1,7 @@
 ---
 id: HEAL
 title: Samoopravná selhání
+archived: true
 workflow: build-test-review
 writes: [aifactory/, justfile]
 auto_continue: true

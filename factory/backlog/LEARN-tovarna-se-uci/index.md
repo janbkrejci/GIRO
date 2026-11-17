@@ -1,6 +1,7 @@
 ---
 id: LEARN
 title: Továrna se učí
+archived: true
 workflow: build-test-review
 writes: [aifactory/, justfile]
 auto_continue: true

@@ -1,6 +1,7 @@
 ---
 id: START
 title: První úspěch do 5 minut
+archived: true
 workflow: build-test-review
 writes: [aifactory/, justfile]
 auto_continue: true
