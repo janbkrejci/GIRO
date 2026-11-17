@@ -457,7 +457,13 @@ h3 {
 .complaints li {
   display: flex;
   flex-wrap: wrap;
+  /* a multi-line text must not stretch the repo chip to its height */
+  align-items: baseline;
   gap: 4px 10px;
+}
+
+.complaints .chip {
+  flex: none;
 }
 
 .source {
