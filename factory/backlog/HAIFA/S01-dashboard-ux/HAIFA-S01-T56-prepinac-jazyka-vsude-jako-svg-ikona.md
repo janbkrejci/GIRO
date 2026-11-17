@@ -4,7 +4,7 @@ title: Přepínač jazyka všude jako SVG ikona
 status: todo
 workflow: build-test-review
 depends_on: [HAIFA-S01-T54]
-writes: [aifactory/web/src/App.vue, aifactory/web/src/App.test.ts, aifactory/web/src/components/LanguageSelect.vue, aifactory/web/src/components/LanguageSelect.test.ts, aifactory/web/src/components/assistant/AssistantPanel.vue, aifactory/web/src/components/assistant/AssistantPanel.test.ts, aifactory/web/src/components/ui/SelectMenu.vue, aifactory/web/src/components/ui/SelectMenu.test.ts, aifactory/tests/e2e/test_locale_browser.py, aifactory/src/aifactory/web/static/]
+writes: [aifactory/web/src/App.vue, aifactory/web/src/App.test.ts, aifactory/web/src/components/LanguageSelect.vue, aifactory/web/src/components/LanguageSelect.test.ts, aifactory/web/src/components/assistant/AssistantPanel.vue, aifactory/web/src/components/assistant/AssistantPanel.test.ts, aifactory/web/src/components/ui/SelectMenu.vue, aifactory/web/src/components/ui/SelectMenu.test.ts, aifactory/tests/e2e/test_locale_browser.py, aifactory/src/aifactory/web/static/, aifactory/tests/test_giro_home.py]
 ---
 
 ## Zadání
