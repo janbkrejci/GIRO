@@ -77,9 +77,40 @@ describe('SelectMenu', () => {
     expect(t.attributes('aria-expanded')).toBe('false')
     expect(t.attributes('data-value')).toBe('todo')
     expect(t.text()).toBe('todo')
+    expect(t.find('.select-value').exists()).toBe(true)
+    expect(t.find('svg.chevron').exists()).toBe(true)
     expect(t.attributes('title')).toBeUndefined()
     expect(document.querySelector('select')).toBeNull()
     expect(list()).toBeNull()
+  })
+
+  it('replaces the full trigger content through a slot while keeping keyboard selection and ARIA', async () => {
+    const w = mount(SelectMenu, {
+      props: { modelValue: 'todo', options: OPTIONS, label: 'Stav' },
+      attrs: { 'data-test': 'pick' },
+      slots: { trigger: '<svg data-test="custom-icon" aria-hidden="true" />' },
+      attachTo: document.body,
+    })
+    wrapper = w
+    const t = trigger(w)
+    expect(t.text()).toBe('')
+    expect(t.findAll('svg')).toHaveLength(1)
+    expect(t.find('[data-test="custom-icon"]').exists()).toBe(true)
+    expect(t.find('.select-value').exists()).toBe(false)
+    expect(t.find('.chevron').exists()).toBe(false)
+    expect(t.attributes('role')).toBe('combobox')
+    expect(t.attributes('aria-label')).toBe('Stav')
+    ;(t.element as HTMLButtonElement).focus()
+    await key(w, 'ArrowDown')
+    expect(t.attributes('aria-controls')).toBe(list()?.id)
+    expect(activeValue(w)).toBe('todo')
+    expect(option('todo').getAttribute('aria-selected')).toBe('true')
+    await key(w, 'ArrowDown')
+    await key(w, 'Enter')
+    expect(emitted(w)).toEqual(['running'])
+    expect(list()).toBeNull()
+    expect(t.attributes('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(t.element)
   })
 
   it('opens on click, in <body>, and picks an option with the mouse', async () => {
