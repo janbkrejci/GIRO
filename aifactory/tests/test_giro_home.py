@@ -124,7 +124,7 @@ def test_entry_points_share_implementation_and_health_identity() -> None:
 
 def test_giro_publication_is_gated_to_new_repository() -> None:
     root = Path(__file__).resolve().parents[2]
-    workflow: dict[str, Any] = yaml.safe_load(
+    workflow: dict[str | bool, Any] = yaml.safe_load(
         (root / ".github/workflows/giro-release.yml").read_text()
     )
     # PyYAML reads the bare key `on` as True

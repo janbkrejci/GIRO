@@ -1035,7 +1035,11 @@ it('offers the global language preference with no repositories and keeps it acro
   for (const hash of ['#/r/first/backlog', '#/r/second/runs', '#/setup']) {
     go(hash)
     await flushPromises()
-    expect(wrapper.get('[data-test="language-select"]').text()).toContain('Čeština')
+    const language = wrapper.get('[data-test="language-select"]')
+    expect(language.text()).toBe('')
+    expect(language.findAll('svg')).toHaveLength(1)
+    expect(language.attributes('data-value')).toBe('cs')
+    expect(language.attributes('aria-label')).toBe('Jazyk')
   }
   await chooseOption(wrapper, '[data-test="language-select"]', 'en')
   expect(document.documentElement.lang).toBe('en')

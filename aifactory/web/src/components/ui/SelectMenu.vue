@@ -262,8 +262,10 @@ onBeforeUnmount(() => {
     @keydown="onKeydown"
     @blur="close"
   >
-    <span class="select-value" :class="{ faint: !current }">{{ current?.label ?? placeholder }}</span>
-    <ChevronDown class="chevron" :size="16" aria-hidden="true" />
+    <slot name="trigger">
+      <span class="select-value" :class="{ faint: !current }">{{ current?.label ?? placeholder }}</span>
+      <ChevronDown class="chevron" :size="16" aria-hidden="true" />
+    </slot>
   </button>
   <Teleport to="body">
     <ul

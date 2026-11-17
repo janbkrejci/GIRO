@@ -15,6 +15,19 @@ pytestmark = [pytest.mark.browser, pytest.mark.xdist_group("e2e")]
 LANGUAGE = '[data-test="language-select"]'
 
 
+def _assert_language_icons(page: Page, language: str) -> None:
+    label = "Jazyk" if language == "cs" else "Language"
+    for trigger in page.locator(LANGUAGE).all():
+        expect(trigger).to_have_attribute("aria-expanded", "false")
+        expect(trigger).to_have_attribute("aria-label", label)
+        expect(trigger).to_have_attribute("data-value", language)
+        expect(trigger).to_have_text("")
+        expect(trigger.locator("svg")).to_have_count(1)
+        expect(trigger.locator("svg.lucide-languages")).to_have_attribute("aria-hidden", "true")
+        size = trigger.bounding_box()
+        assert size is not None and size["width"] == 36 and size["height"] == 36
+
+
 def _language(page: Page, language: str) -> None:
     selector = (
         f'[data-test="assistant-panel"] {LANGUAGE}'
@@ -24,6 +37,7 @@ def _language(page: Page, language: str) -> None:
     _choose(page, selector, language)
     expect(page.locator("html")).to_have_attribute("lang", language)
     assert page.evaluate("localStorage.getItem('giro.dashboard.locale')") == language
+    _assert_language_icons(page, language)
 
 
 @pytest.mark.parametrize("width", [1366, 390])
@@ -110,14 +124,23 @@ def test_global_locale_browser(width: int) -> None:
             # A Czech browser still boots in English, even with no repositories.
             expect(page.locator("html")).to_have_attribute("lang", "en")
             expect(page.locator("main h1")).to_have_text("No repositories")
-            expect(page.locator(LANGUAGE)).to_have_attribute("aria-label", "Language")
+            _assert_language_icons(page, "en")
+            _assert_document_fits(page)
+            page.locator(LANGUAGE).hover()
+            expect(page.get_by_role("tooltip")).to_have_text("Language")
             # Keyboard selection is available in the global topbar.
             page.locator(LANGUAGE).focus()
             page.keyboard.press("ArrowDown")
+            expect(page.get_by_role("option")).to_have_text(["English", "Čeština"])
+            expect(page.get_by_role("option", name="English", exact=True)).to_have_attribute(
+                "aria-selected", "true"
+            )
             page.keyboard.press("End")
             page.keyboard.press("Enter")
             expect(page.locator("html")).to_have_attribute("lang", "cs")
             expect(page.locator("main h1")).to_have_text("Žádné repozitáře")
+            _assert_language_icons(page, "cs")
+            _assert_document_fits(page)
             page.reload()
             expect(page.locator("html")).to_have_attribute("lang", "cs")
             registered = True
@@ -139,8 +162,14 @@ def test_global_locale_browser(width: int) -> None:
             draft.fill("Český user draft")
             port.evaluate("el => { window.localePort = el }")
             panel.evaluate("el => { window.localePanel = el }")
+            expect(page.locator(LANGUAGE)).to_have_count(2)
+            _assert_language_icons(page, "en")
+            _assert_document_fits(page)
+            panel.locator(LANGUAGE).hover()
+            expect(page.get_by_role("tooltip")).to_have_text("Language")
             for language in ("cs", "en"):
                 _language(page, language)
+                _assert_document_fits(page)
                 expect(port).to_have_value("4801")
                 expect(draft).to_have_value("Český user draft")
                 assert port.evaluate("el => el === window.localePort")
