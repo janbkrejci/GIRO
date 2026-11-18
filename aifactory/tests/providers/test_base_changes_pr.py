@@ -3,7 +3,9 @@ pull requests, merged at once when asked (local provider, bare remote, fake ``gh
 
 from __future__ import annotations
 
+import os
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -75,8 +77,29 @@ def test_backlog_pr_waits_for_the_merge_and_the_pull_takes_it(tmp_path: Path) ->
     assert git(repo, "show", f"main:{added.path}")
 
 
-def test_backlog_pr_merged_at_once(tmp_path: Path) -> None:
+@pytest.mark.parametrize("running", [False, True])
+def test_backlog_pr_merged_at_once(tmp_path: Path, running: bool) -> None:
+    from aifactory import basemoves
+    from aifactory.runstore.rows import TaskRunRow
+    from aifactory.runstore.store import TaskRunStore
+
     repo = _repo(tmp_path, "auto")
+    if running:
+        with closing(TaskRunStore(tmp_path / "trace.db")) as store:
+            store.claim(
+                TaskRunRow(
+                    run_id="live",
+                    task_id="T01",
+                    branch="task",
+                    worktree="",
+                    base="main",
+                    base_sha=git(repo, "rev-parse", "main"),
+                    head_sha=None,
+                    state="running",
+                    started_at="2026-01-01",
+                    pid=os.getpid(),
+                )
+            )
     added = add_task(repo, "M01-S01", "Třetí")
 
     result = commit_backlog(repo)
@@ -85,6 +108,17 @@ def test_backlog_pr_merged_at_once(tmp_path: Path) -> None:
     assert git(repo, "rev-parse", "main") == result.commit == _remote(tmp_path, "main")
     assert git(repo, "show", f"main:{added.path}")
     assert _dirty(repo) == []
+    assert not result.warnings
+    assert basemoves.moves_since(repo, 0)[-1].new == result.commit
+    if running:
+        from aifactory.providers.publish import _advance
+
+        with closing(TaskRunStore(tmp_path / "trace.db")) as store:
+            # The default (config/install) path must still refuse a live run.
+            warnings = _advance(repo, "main", "unused", "unused", (), store)
+            assert "run live" in warnings[0]
+            assert store.live_runs()[0].run_id == "live"
+        assert git(repo, "rev-parse", "main") == result.commit
 
 
 def test_config_commit_follows_the_setting(tmp_path: Path) -> None:

@@ -450,15 +450,20 @@ def _finish_pr(
         )
     if same and merged is not None:
         try:
+            from aifactory.backlog.roots import owning_root
+
+            files = _pull_files(root, local_base, merged) if repaired and local_base else plan.files
             warnings += _advance(
                 root,
                 base,
                 merged,
                 local_base if repaired and local_base else plan.base_sha,
-                _pull_files(root, local_base, merged) if repaired and local_base else plan.files,
+                files,
                 store,
                 materialize=materialize,
                 command=command,
+                allow_running=command == "backlog commit"
+                and all(owning_root(f.path, settings) is not None for f in files),
             )
         except Exception as exc:  # merged on the hosting: nothing is rolled back
             warnings.append(f"{base} not advanced: {exc}")
@@ -540,15 +545,18 @@ def _advance(
     *,
     materialize: bool = False,
     command: str = "config commit",
+    allow_running: bool = False,
 ) -> list[str]:
     """Fast-forward `base` from `old` to `sha` under the trace DB lock file; return warnings.
 
     Without a store (no trace DB) there is no lock and no run to wait for.
+    Backlog-only publication can advance during runs, like a direct backlog commit:
+    the base-move journal keeps the change separate from the agent's writes.
     """
     warnings: list[str] = []
     with store.serialized() if store is not None else contextlib.nullcontext():
         live = store.live_runs_locked() if store is not None else []
-        if live:
+        if live and not allow_running:
             return [f"{base} not advanced: {_run_message(live[0])}; run factory config pull later"]
         current = git.rev_parse(root, f"refs/heads/{base}")
         if current != old:
