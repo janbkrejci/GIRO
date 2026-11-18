@@ -16,7 +16,7 @@ passes ``--output json --only-show-errors``; ``az repos`` calls also pass
 Before the first operation the provider checks itself (``check``): ``az`` is
 installed, the ``azure-devops`` extension is present and ``az`` is logged in
 (``az account show``), unless ``$AZURE_DEVOPS_EXT_PAT`` holds a token. The result
-is remembered. The constructor never runs ``az``.
+is cached for at most 60 seconds in this process. The constructor never runs ``az``.
 
 Commands used (shapes from the ``az repos pr`` / ``az devops invoke`` docs):
 
@@ -57,14 +57,17 @@ sandbox repo.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -99,6 +102,12 @@ LIST_LIMIT = 200
 API_VERSION = "7.1"
 PAT_ENV = "AZURE_DEVOPS_EXT_PAT"
 AZ_TIMEOUT = 120
+PREFLIGHT_TTL = 60.0
+PREFLIGHT_MAX_ENTRIES = 128
+_preflight_cache: dict[str, float] = {}
+# Single-flight per context; unrelated repositories need not wait on a slow CLI.
+_preflight_lock = threading.Lock()
+_preflight_running: dict[tuple[object, str], Future[None]] = {}
 WINDOWS = sys.platform == "win32"
 # Azure DevOps refuses a PR description over 4000 characters; keep room for the note.
 MAX_DESCRIPTION = 4000
@@ -324,12 +333,157 @@ class AzureProvider(GitProvider):
         self.attempts = attempts
         self.delay = delay
         self.sleep = sleep
-        self._checked = False
+        self._shared_preflight = az is None
+        self._preflight_cache: dict[str, float] = {}
 
     # -- self-check ---------------------------------------------------------
 
     def check(self) -> None:
         """Fail with a clear ``ProviderError`` if ``az`` cannot work for this provider."""
+        while True:
+            if self._shared_preflight:
+                self.az.executable = value("AZ") or "az"
+            cache = _preflight_cache if self._shared_preflight else self._preflight_cache
+            key = self._preflight_key()
+            if key is None:
+                self._check_uncached()
+                return
+            flight = (None if self._shared_preflight else self, key)
+            with _preflight_lock:
+                now = time.monotonic()
+                for expired in [k for k, deadline in cache.items() if deadline <= now]:
+                    del cache[expired]
+                if key in cache:
+                    return
+                pending = _preflight_running.get(flight)
+                if pending is None:
+                    pending = Future()
+                    _preflight_running[flight] = pending
+                    break
+            # Waiters share this wave's failure, but the completed flight is
+            # removed so a later independent call can immediately retry.
+            pending.result()
+            if key == self._preflight_key():
+                return
+        try:
+            self._check_uncached()
+            # Login/extension commands can change files themselves. Never publish
+            # success under a context that changed while validation was running.
+            if key == self._preflight_key():
+                with _preflight_lock:
+                    while len(cache) >= PREFLIGHT_MAX_ENTRIES:
+                        del cache[next(iter(cache))]
+                    cache[key] = time.monotonic() + PREFLIGHT_TTL
+        except BaseException as exc:
+            pending.set_exception(exc)
+            raise
+        else:
+            pending.set_result(None)
+        finally:
+            with _preflight_lock:
+                del _preflight_running[flight]
+
+    def _preflight_key(self) -> str | None:
+        """Hash context only; never retain plaintext environment or token contents.
+
+        Content hashes ignore timestamp-only auth/config file touches. Installation
+        metadata detects executable/extension changes. Logs and commandIndex are ignored;
+        remote revocation is bounded by TTL and still surfaces in operation errors.
+        Unreadable context disables caching, without masking CLI diagnostics.
+        Injected clients have a private cache, even when the same client is reused.
+        """
+        try:
+            config = Path(os.environ.get("AZURE_CONFIG_DIR") or Path.home() / ".azure")
+            extensions = Path(os.environ.get("AZURE_EXTENSION_DIR") or config / "cliextensions")
+            paths = [
+                config / name
+                for name in (
+                    "config",
+                    "clouds.config",
+                    "azureProfile.json",
+                    "accessTokens.json",
+                    "msal_token_cache.json",
+                    "msal_token_cache.bin",
+                    "service_principal_entries.json",
+                    "service_principal_entries.bin",
+                    "azuredevops/config",
+                    "azuredevops/personalAccessTokens",
+                )
+            ]
+            contents = []
+            for path in paths:
+                digest: str | None
+                try:
+                    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                except FileNotFoundError:
+                    digest = None
+                contents.append((str(path.resolve()), digest))
+            paths = [extensions / "azure-devops"]
+            executable = getattr(self.az, "executable", "")
+            if self._shared_preflight:
+                resolved = shutil.which(executable)
+                if resolved is None:
+                    return None
+                paths.append(Path(resolved))
+                argv = self.az._argv(())
+                paths.append(Path(argv[0]))
+                # Windows MSI dispatches through its bundled Python installation.
+                if "azure.cli" in argv:
+                    module = Path(argv[0]).parent / "Lib/site-packages/azure/cli/__main__"
+                    paths += [module.with_suffix(".py"), module.with_suffix(".pyc")]
+            stamps = []
+            for path in paths:
+                stamp: tuple[int, int, int, int, int] | None
+                try:
+                    stat = path.stat()
+                    stamp = (
+                        stat.st_dev,
+                        stat.st_ino,
+                        stat.st_size,
+                        stat.st_mtime_ns,
+                        stat.st_ctime_ns,
+                    )
+                except FileNotFoundError:
+                    stamp = None
+                stamps.append((str(path.resolve()), stamp))
+            context = (
+                sorted(
+                    (name, val)
+                    for name, val in os.environ.items()
+                    if name.upper().startswith(("AZURE_", "ARM_"))
+                    or name.upper()
+                    in {
+                        "GIRO_AZ",
+                        "PATH",
+                        "PATHEXT",
+                        "HOME",
+                        "USERPROFILE",
+                        "APPDATA",
+                        "LOCALAPPDATA",
+                        "SYSTEMROOT",
+                        "PYTHONPATH",
+                        "PYTHONHOME",
+                        "HTTP_PROXY",
+                        "HTTPS_PROXY",
+                        "NO_PROXY",
+                        "REQUESTS_CA_BUNDLE",
+                        "SSL_CERT_FILE",
+                    }
+                ),
+                executable,
+                str(self.root.resolve()),
+                str(getattr(self.az, "cwd", self.root).resolve()),
+                self.azure.organization_url,
+                self.azure.project,
+                self.azure.repository,
+                contents,
+                stamps,
+            )
+            return hashlib.sha256(json.dumps(context).encode()).hexdigest()
+        except (OSError, ProviderError):
+            return None
+
+    def _check_uncached(self) -> None:
         try:
             self.az.run("--version")
         except AzError as exc:
@@ -346,9 +500,7 @@ class AzureProvider(GitProvider):
             raise ProviderError("az_not_logged_in", _NOT_LOGGED_IN) from exc
 
     def _ready(self) -> None:
-        if not self._checked:
-            self.check()
-            self._checked = True
+        self.check()
 
     # -- helpers ------------------------------------------------------------
 

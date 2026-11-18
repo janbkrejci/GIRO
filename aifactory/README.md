@@ -32,6 +32,22 @@ Codex průvodce má vlastní adresář `$GIRO_HOME/assistant/codex`, aby nenač�
 
 Běžné giro tasky dál používají původní prostředí Codexu, repo instrukce, skilly, shell a souborové nástroje. Omezení průvodce se na ně nepřenášejí.
 
+## Repozitáře bez CI
+
+GIRO při schválení nebo automatickém sloučení task PR standardně čeká až 90 sekund,
+než se na hostingu objeví CI kontroly. Pokud repozitář CI nemá, přidej do sdíleného
+`.factory/config.yaml` na nejvyšší úroveň:
+
+```yaml
+wait_for_ci: false
+```
+
+Výchozí hodnota je `true`; nastavení přijímá pouze boolean (bez uvozovek).
+Hodnota `false` vypíná jen čekání na dosud nepřítomné kontroly. Existující běžící
+kontroly se dál vyčkávají, neúspěšné kontroly dál brání sloučení a ověření HEAD
+před i po načtení kontrol zůstává zachované. Použij ji pouze tam, kde neočekáváš
+opožděné spuštění CI.
+
 ## Licence
 
 GIRO je pod licencí MIT. Licence převzatých částí jsou v `THIRD_PARTY_NOTICES`.

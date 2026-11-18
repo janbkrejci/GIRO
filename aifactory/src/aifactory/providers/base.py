@@ -161,6 +161,8 @@ class GitProvider(abc.ABC):
                 found[pr.id] = self.status(pr)
             except ProviderError as exc:
                 found[pr.id] = exc
+            except (RuntimeError, OSError) as exc:
+                found[pr.id] = ProviderError("status_failed", str(exc))
         return found
 
     def checks(self, pr: PullRequest) -> ChecksStatus:
