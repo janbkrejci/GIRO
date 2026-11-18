@@ -216,6 +216,15 @@ class ProjectSettings(BaseModel):
     merge_strategy: Literal["squash", "merge"] = Field(
         default="squash", description="Strategy for merging approved task pull requests."
     )
+    wait_for_ci: bool = Field(
+        default=True,
+        strict=True,
+        description=(
+            "Wait up to 90 seconds for absent CI checks to appear before merging a task PR. "
+            "False skips only this grace period; pending/failing checks and head verification "
+            "remain enforced."
+        ),
+    )
     base_changes: Literal["direct", "pr"] = Field(
         default="direct",
         description=(

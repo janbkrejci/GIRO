@@ -61,7 +61,9 @@ _INSTRUCTION = (
 def settled_checks(
     provider: GitProvider, request: PullRequest, guard: Callable[[], None] | None = None
 ) -> ChecksStatus:
-    """The PR's checks once none runs, or as they are when the wait is over."""
+    """Settle checks; only explicit ``wait_for_ci: false`` skips the absent-CI grace."""
+    # Older provider stubs may have no settings; only a literal False opts out.
+    wait_for_ci = getattr(getattr(provider, "settings", None), "wait_for_ci", True) is not False
     start = _clock()
     checks = provider.checks(request)
     while True:
@@ -72,6 +74,7 @@ def settled_checks(
         appearing = (
             checks.state == CHECKS_NONE
             and provider.reports_checks
+            and wait_for_ci
             and waited < AUTO_MERGE_CHECKS_APPEAR
         )
         if not (running or appearing):

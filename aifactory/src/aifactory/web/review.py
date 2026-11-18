@@ -40,7 +40,7 @@ from aifactory.backlog import Backlog, Container, Task
 from aifactory.config import ConfigError, RunConfig, load_run_config
 from aifactory.engine.tracer import BUSY_TIMEOUT
 from aifactory.errors import TaskRunError
-from aifactory.providers import OPEN, UNKNOWN, GitProvider, ProviderError, get_provider
+from aifactory.providers import OPEN, UNKNOWN, GitProvider, ProviderError, PrStatus, get_provider
 from aifactory.review import ci
 from aifactory.review.errors import ReviewError
 from aifactory.review.prbody import branch_cost, run_checks, run_cost
@@ -79,6 +79,8 @@ class _Ctx:
     warnings: list[str] = field(default_factory=list)
     # ``run.policy.merge_enabled``, read once per request (see ``_waits_for_automerge``)
     merge: bool | None = None
+    # None for detail requests; even an empty list batch must not fall back to status().
+    statuses: dict[str, PrStatus | ProviderError | RuntimeError | OSError] | None = None
 
 
 def _waits_for_automerge(ctx: _Ctx, task: Task | None, auto_merge_error: str | None) -> bool:
@@ -152,7 +154,15 @@ def _status(ctx: _Ctx, row: TaskPrRow) -> _Status:
     if ctx.provider is None:
         return _Status(None, UNKNOWN)
     try:
-        status = ctx.provider.status(row.request())
+        if ctx.statuses is None:
+            status = ctx.provider.status(row.request())
+        else:
+            result = ctx.statuses.get(row.pr_id)
+            if result is None:
+                return _Status(None, UNKNOWN)
+            if isinstance(result, Exception):
+                raise result
+            status = result
     except ProviderError as exc:
         ctx.warnings.append(f"PR {row.url}: {exc.code}: {exc.message}")
         return _Status(None, UNKNOWN)
@@ -241,10 +251,20 @@ def review_list(repo: Path, include_done: bool = False) -> tuple[JsonDict, list[
         store = ctx.store
         seen: set[str] = set()
         if store is not None:
+            rows: list[TaskPrRow] = []
             for row in store.open_prs():  # newest first
                 if row.task_id in seen:
                     continue
                 seen.add(row.task_id)
+                rows.append(row)
+            requests = {row.pr_id: row.request() for row in rows if row.state == OPEN}
+            ctx.statuses = {}
+            if ctx.provider is not None and requests:
+                try:
+                    ctx.statuses.update(ctx.provider.statuses(list(requests.values())))
+                except (ProviderError, RuntimeError, OSError) as exc:
+                    ctx.statuses = dict.fromkeys(requests, exc)
+            for row in rows:
                 items.append(_pr_summary(ctx, store, row))
         items.sort(key=lambda i: i["_row"].created_at, reverse=True)
         items.sort(

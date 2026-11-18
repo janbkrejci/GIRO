@@ -82,6 +82,40 @@ def keyed(log: GhLog | AzLog, key: str) -> list[list[str]]:
     return [argv for argv in log.argvs() if " ".join(argv[: len(key.split())]) == key]
 
 
+@pytest.mark.parametrize("error", [OSError("cannot start provider"), RuntimeError("failed")])
+@pytest.mark.parametrize("listed_success", [False, True])
+def test_fallback_failure_preserves_other_results_without_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error: OSError | RuntimeError,
+    listed_success: bool,
+) -> None:
+    provider = github(tmp_path)
+    calls: list[str] = []
+    success = PrStatus(OPEN, MERGEABLE, head_sha=HEAD)
+    later = PrStatus(MERGED, merge_sha=MERGE_SHA)
+
+    def status(request: PullRequest) -> PrStatus:
+        calls.append(request.id)
+        if request.id == "2":
+            raise error
+        return success if request.id == "1" else later
+
+    monkeypatch.setattr(provider, "status", status)
+    listed = {"1": success, "2": PrStatus(OPEN)} if listed_success else {}
+
+    found = provider._with_listed([pr(1), pr(2), pr(2), pr(3)], listed)
+
+    assert set(found) == {"1", "2", "3"}
+    assert found["1"] == success
+    failure = found["2"]
+    assert isinstance(failure, ProviderError)
+    assert failure.code == "status_failed"
+    assert failure.message == str(error)
+    assert found["3"] == later
+    assert calls == (["2", "3"] if listed_success else ["1", "2", "3"])
+
+
 # ── GitHub ──────────────────────────────────────────────────────────────────────
 
 

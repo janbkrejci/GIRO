@@ -33,11 +33,29 @@ def test_missing_files_give_defaults(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     local = load_local(tmp_path)
     assert settings.base == "main"
+    assert settings.wait_for_ci is True
     assert settings.follow_up_workflows == {}
     assert settings.levels == ("project", "step", "task")
     assert not hasattr(local, "port")
     assert local.trace_db == ".factory/trace.db"
     assert local.trace_db_path(tmp_path) == (tmp_path / ".factory/trace.db").resolve()
+
+
+@pytest.mark.parametrize("value", ["true", "false"])
+def test_wait_for_ci_loads_boolean(value: str) -> None:
+    issues: list[ConfigIssue] = []
+    settings = parse_project_settings(f"wait_for_ci: {value}\n", CONFIG_FILE, issues)
+    assert settings is not None
+    assert settings.wait_for_ci is (value == "true")
+    assert issues == []
+
+
+@pytest.mark.parametrize("value", ["null", "0", "1", "'false'", "'true'", "[]", "{}"])
+def test_wait_for_ci_rejects_non_boolean(value: str) -> None:
+    issues: list[ConfigIssue] = []
+    assert parse_project_settings(f"wait_for_ci: {value}\n", CONFIG_FILE, issues) is None
+    assert len(issues) == 1
+    assert "wait_for_ci" in str(issues[0])
 
 
 def test_empty_files_give_defaults(tmp_path: Path) -> None:
