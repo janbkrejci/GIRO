@@ -229,8 +229,8 @@ _CODES: tuple[tuple[str, str, str], ...] = (
     (
         "run_in_progress",
         "2",
-        "a run with a live process is in progress in the repository (blocks base moves and "
-        "config set/remove/move)",
+        "a run with a live process is in progress in the repository (blocks direct config "
+        "commits and config set/remove/move, but not config pull)",
     ),
     (
         "plan_changed",
@@ -252,6 +252,7 @@ _CODES: tuple[tuple[str, str, str], ...] = (
         "library write/push: gh could not fork or open the pull request; the library is unchanged",
     ),
     ("fetch_failed", "2", "git fetch failed"),
+    ("status_failed", "2", "the hosting status of a pull request could not be read"),
     ("base_moved", "2", "base moved on the remote during the operation"),
     ("dirty_base", "2", "the base checkout has uncommitted changes"),
     ("worktree_remove_failed", "2", "a worktree could not be removed"),
