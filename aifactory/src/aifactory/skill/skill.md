@@ -696,8 +696,10 @@ base without a checkout: other staged and unstaged work in the checkout stays.
    pull request (`data.branch`, `data.pr`); base and the checkout stay as they are.
 5. Nothing to commit: `data.committed: false`.
 6. `giro config pull --json` fast-forwards the local base to the remote base
-   (`data.updated`, `data.before`, `data.after`). `base_diverged`, `dirty_base`,
-   `run_in_progress` and `no_remote` change nothing.
+   (`data.updated`, `data.before`, `data.after`), including during active runs.
+   The move is serialized against new run starts and journaled for active run guards.
+   `base_diverged`, `dirty_base`, `no_remote`, `unknown_base` and a changed
+   reviewed plan (`plan_changed`) still prevent the pull.
 
 ### Plan -> backlog
 
@@ -914,7 +916,7 @@ NAME] [--thinking LEVEL]] --json` continues the task's newest `failed`, `stopped
    The prompt gets a `## Continuation` section (the done phases, `context_handoff/`) and
    `--note` as `## Retry note`.
 4. Base is pulled from the remote first, like `giro config pull`; a base that cannot
-   move stops the retry with that error (`base_diverged`, `dirty_base`, `run_in_progress`)
+   move stops the retry with that error (`base_diverged`, `dirty_base`)
    and nothing changes. When base moved past the branch, the branch is rebased onto it
    (uncommitted work is committed first); a conflict is resolved like `giro task
    resolve`. When that fails the branch stays as it was and the run is `failed`. After a

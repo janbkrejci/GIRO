@@ -36,6 +36,8 @@ Výchozí agenti: planner, scout, builder, tester, test-reviewer, reviewer, docu
 
 Harness a model od nejslabšího po nejsilnější: roster repa, výchozí volby počítače (dialog **Harnessy tohoto počítače**), task (nebo jeho step a projekt), volba pro jeden běh, přepis na kroku workflow.
 
+`giro config pull` stáhne base i během aktivního běhu. Posun zapíše do journalu pro guard běhu; po dobu posunu blokuje start nového běhu. Necommitované změny v base nebo divergence pull nadále blokují.
+
 ## Workflow
 
 | Workflow | Co dělá |

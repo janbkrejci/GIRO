@@ -854,10 +854,6 @@ def plan_pull_base(root: Path, *, settings: ProjectSettings, store: RunStore) ->
     where = git.checked_out_in(root, base) if fetched else None
     if where is not None and _dirty(where, files):
         blockers.append(Blocker("dirty_base", f"{base} has uncommitted changes"))
-    with store.serialized():
-        live = store.live_runs_locked()
-        if live:
-            blockers.append(Blocker("run_in_progress", f"{len(live)} live run(s); wait for them"))
     digest = hashlib.sha256(
         f"aifactory-pull-v1\0{root.resolve()}\0{base}\0{remote}\0{ours}\0{theirs}".encode()
     ).hexdigest()
@@ -877,7 +873,7 @@ def plan_pull_base(root: Path, *, settings: ProjectSettings, store: RunStore) ->
 def pull_base(
     root: Path, *, settings: ProjectSettings, store: RunStore, expect: str | None = None
 ) -> PullResult:
-    """Fast-forward local base to the remote one, when nothing runs; else change nothing."""
+    """Fast-forward base under the run-start lock; journal the move for active runs."""
     if expect is not None:
         plan = plan_pull_base(root, settings=settings, store=store)
         if plan["digest"] != expect:
@@ -919,12 +915,9 @@ def pull_base(
         raise ProviderError(
             "dirty_base", f"{base} is checked out in {where} with uncommitted changes"
         )
+    # Existing runs accept this foreign move through the base-move journal.
+    # Keep the run-start lock through both the fast-forward and journal write.
     with store.serialized():
-        live = store.live_runs_locked()
-        if live:
-            raise ProviderError(
-                "run_in_progress", f"{_run_message(live[0])}; wait for it or stop it"
-            )
         if where is not None:
             _stage_brought(where, files)
         git.advance_branch(root, base, theirs, ours, command="config pull")
