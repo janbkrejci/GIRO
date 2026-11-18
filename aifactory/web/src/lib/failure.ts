@@ -12,6 +12,7 @@ export type FailureKind =
   | 'writes_needed'
   | 'invalid_output'
   | 'process_gone'
+  | 'initialization_failed'
   | 'stopped'
   | 'blocked'
   | 'other'
@@ -34,6 +35,7 @@ const LABELS = (): Record<FailureKind, string> => ({
   writes_needed: t('runs.chybi_cesty_ve_writes'),
   invalid_output: t('runs.neplatny_vystup_agenta'),
   process_gone: t('runs.proces_behu_skoncil'),
+  initialization_failed: t('dashboard.failure.initialization_failed'),
   stopped: t('runs.beh_zastaven'),
   blocked: t('runs.blokovany_233'),
   other: t('runs.jina_chyba'),
@@ -48,6 +50,7 @@ const ACTIONS: Record<FailureKind, readonly FailureAction[]> = {
   writes_needed: ['allow_writes', 'continue', 'cancel_task'],
   invalid_output: ['continue', 'cancel_task'],
   process_gone: ['continue', 'cancel_task'],
+  initialization_failed: ['continue', 'cancel_task'],
   stopped: ['continue', 'cancel_task'],
   blocked: ['continue', 'cancel_task'],
   other: ['continue', 'cancel_task'],
@@ -320,6 +323,9 @@ export function failureCard(run: FailedRun, phases: readonly FailurePhase[] = []
   let text: string
   let facts: FailureFact[] = []
   switch (kind) {
+    case 'initialization_failed':
+      text = t(d.code === 'trace_db_locked' ? 'dashboard.initializationLocked' : 'dashboard.initializationFailed')
+      break
     case 'accept_not_met':
       ;[text, facts] = acceptCard(run, d)
       break

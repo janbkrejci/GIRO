@@ -28,6 +28,16 @@ _BOOTSTRAP = (
     "fcntl.ioctl(0, termios.TIOCSCTTY, 0); "
     "os.execv(sys.argv[1], [sys.argv[1], '-il'])"
 )
+# ConPTY's process group can inherit Ctrl+C ignored. Clear that flag in the
+# child before launching the shell so foreground commands receive interrupts.
+_WINDOWS_BOOTSTRAP = (
+    "import ctypes, signal, subprocess, sys; "
+    "kernel = ctypes.WinDLL('kernel32', use_last_error=True); "
+    "ok = kernel.SetConsoleCtrlHandler(None, False); "
+    "ok or sys.exit(ctypes.get_last_error()); "
+    "signal.signal(signal.SIGINT, lambda *_: None); "
+    "sys.exit(subprocess.call([sys.argv[1]]))"
+)
 
 
 def _error(code: str, message: str, status: int) -> JSONResponse:
@@ -299,7 +309,7 @@ async def _dispatch(request: Request) -> Response:
                     with anyio.CancelScope(shield=True):
                         process_windows = await asyncio.to_thread(
                             winpty.PtyProcess.spawn,
-                            [_shell()],
+                            [sys.executable, "-c", _WINDOWS_BOOTSTRAP, _shell()],
                             cwd=str(directory),
                             env={**os.environ, "TERM": "xterm-256color", "COLORTERM": "truecolor"},
                             dimensions=(body["rows"], body["cols"]),

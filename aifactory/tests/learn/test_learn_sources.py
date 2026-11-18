@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import pytest
@@ -46,7 +45,7 @@ def test_registered_repos_lists_every_repo_with_its_trace_db(repos: dict[str, Pa
 def test_registered_repos_skips_a_missing_repo_and_one_without_trace_db(
     repos: dict[str, Path], tmp_path: Path
 ) -> None:
-    shutil.rmtree(repos["alpha"])
+    repos["alpha"].rename(repos["alpha"].with_name("moved-alpha"))
     (repos["beta"] / ".factory/trace.db").unlink()
 
     found, warnings = registered_repos(home=giro_home())
@@ -82,7 +81,7 @@ def test_collect_all_honours_since(repos: dict[str, Path]) -> None:
 
 
 def test_collect_all_skips_a_broken_repo_with_a_warning(repos: dict[str, Path]) -> None:
-    shutil.rmtree(repos["beta"])
+    repos["beta"].rename(repos["beta"].with_name("moved-beta"))
 
     found, warnings = collect_all()
 

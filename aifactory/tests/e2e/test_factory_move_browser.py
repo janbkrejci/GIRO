@@ -39,17 +39,17 @@ def test_factory_move_to_library_browser(tmp_path: Path, monkeypatch: pytest.Mon
     git(repo, "init", "-qb", "main")
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.com")
-    (repo / "README.md").write_text("Test repo\n")
+    (repo / "README.md").write_text("Test repo\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "Initial")
     init_repo(repo)
     (repo / ".factory/workflows").mkdir(parents=True)
-    (repo / ".factory/workflows/simple-sdlc.yaml").write_text(mine)
+    (repo / ".factory/workflows/simple-sdlc.yaml").write_text(mine, encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "Install factory with an own workflow")
     before = git(repo, "rev-parse", "HEAD")
     script = tmp_path / "fake.json"
-    script.write_text(json.dumps({"agents": {}}))
+    script.write_text(json.dumps({"agents": {}}), encoding="utf-8")
     wire, marker = diagnostic_tripwire(tmp_path)
     external: list[str] = []
     with obs_server(repo, script, wire, tmp_path / "obs.log", home) as server:

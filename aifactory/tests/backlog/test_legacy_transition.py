@@ -150,7 +150,9 @@ def test_old_reader_preserves_operating_values_after_edits_and_completion(repo: 
     edit_task(repo, "P-S-T01", title="Edited")
     path = repo / "backlog/P/S/P-S-T01.md"
     # approve and sync use this same text operation; legacy header bytes survive it.
-    path.write_text(mark_done(path.read_text(), "- 2026-11-09 · test"))
+    path.write_text(
+        mark_done(path.read_text(encoding="utf-8"), "- 2026-11-09 · test"), encoding="utf-8"
+    )
     follow_up_task(repo, "P-S-T01", "Continue")
     add_task(repo, "P-S", "Another")
     after = old_loader.load_backlog(repo)

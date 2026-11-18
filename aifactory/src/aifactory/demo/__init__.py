@@ -18,6 +18,7 @@ Only the default folder is ever deleted, never a folder the user named.
 from __future__ import annotations
 
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -184,11 +185,14 @@ class DemoRemoval:
         return {"path": str(self.path), "repo_id": self.repo_id, "deleted": self.deleted}
 
 
-def remove_demo(home: Path | None = None) -> DemoRemoval:
+def remove_demo(
+    home: Path | None = None, *, on_unregister: Callable[[str], None] | None = None
+) -> DemoRemoval:
     """Unregister the sample of the default folder and delete that folder.
 
     ``run_in_progress`` (``RepoError``) while a run of the sample is alive; nothing changes
     then. A sample that is not registered or whose folder is gone is removed as far as it is.
+    ``on_unregister`` releases caller-owned resources after unregistering and before deletion.
     """
     from aifactory.home import giro_home
     from aifactory.registry import Registry, RepoError, same_repo
@@ -206,6 +210,8 @@ def remove_demo(home: Path | None = None) -> DemoRemoval:
             )
     if entry is not None:
         registry.remove(entry.id)
+        if on_unregister is not None:
+            on_unregister(entry.id)
     deleted = False
     if target.is_dir():
         from aifactory.workflow.adaptive import remove_tree

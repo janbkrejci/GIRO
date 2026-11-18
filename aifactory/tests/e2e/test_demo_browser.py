@@ -23,6 +23,8 @@ from f3_repo import api_get, git, obs_server, run_state, runs_report, task_runs,
 from playwright.sync_api import Dialog, Route, expect, sync_playwright
 from test_f3_browser import RUN_START_TIMEOUT_S, RUN_TIMEOUT_S, SERVER_TIMEOUT_MS, _launch
 
+from fake_exe import make_executable
+
 pytestmark = [pytest.mark.browser, pytest.mark.slow, pytest.mark.xdist_group("e2e")]
 
 TASK = "DEMO-S01-T01"
@@ -118,6 +120,7 @@ def test_demo_from_empty_overview_to_merge(tmp_path: Path, monkeypatch: pytest.M
     release = tmp_path / "release-build"
     script = _script(tmp_path / "fake.json", release)
     wire, marker = tripwire(tmp_path / "wire")
+    wire = make_executable(wire)
     home, log = tmp_path / "giro-home", tmp_path / "obs.log"
     home.mkdir()
     tests = {"claude": {"claude-opus-5-5": {"ok": True, "answer": "OK"}}}

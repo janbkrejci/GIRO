@@ -117,3 +117,45 @@ def test_a_live_run_keeps_the_sample(
     with pytest.raises(RepoError):
         remove_demo(home)
     assert len(Registry(home).snapshot()[0].repos) == 1
+
+
+def test_remove_closes_context_before_deleting_files(
+    client: TestClient, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import aifactory.workflow.adaptive as adaptive
+    from aifactory.web.repos import RepoContexts
+
+    data = _body(client.post("/api/demo"), 201)["data"]
+    closed: list[str] = []
+    original_drop = RepoContexts.drop
+    original_remove = adaptive.remove_tree
+
+    async def drop(contexts: RepoContexts, repo_id: str) -> None:
+        assert Registry(home).snapshot()[0].by_id(repo_id) is None
+        assert default_dir(home).is_dir()
+        await original_drop(contexts, repo_id)
+        closed.append(repo_id)
+
+    def remove(path: Path) -> None:
+        assert closed == [data["repo_id"]]
+        original_remove(path)
+
+    monkeypatch.setattr(RepoContexts, "drop", drop)
+    monkeypatch.setattr(adaptive, "remove_tree", remove)
+    _body(client.delete("/api/demo"), 200)
+    assert not default_dir(home).exists()
+
+
+def test_live_run_does_not_unregister_or_close_context(
+    client: TestClient, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import aifactory.demo as demo
+
+    _body(client.post("/api/demo"), 201)
+    monkeypatch.setattr(demo, "_live_runs", lambda _root: ["r1"])
+    closed: list[str] = []
+    with pytest.raises(RepoError):
+        remove_demo(home, on_unregister=closed.append)
+    assert closed == []
+    assert default_dir(home).is_dir()
+    assert len(Registry(home).snapshot()[0].repos) == 1

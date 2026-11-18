@@ -131,6 +131,7 @@ def fake_popen(
     # Native npm launch resolution is tested separately. Preserve the fake CLI
     # name here so Windows never sends a scripted harness test to the real CLI.
     monkeypatch.setattr(codex, "launch_command", lambda command: command)
+    monkeypatch.setattr(agent_pi, "pi_executable", lambda: agent_pi.PI_PATH)
     monkeypatch.setattr(subprocess, "Popen", spawner)
     return spawner
 

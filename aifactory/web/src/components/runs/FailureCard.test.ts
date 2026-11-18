@@ -42,6 +42,17 @@ function actions(wrapper: VueWrapper): string[] {
 }
 
 describe('FailureCard', () => {
+  it('translates initialization failure while the card is displayed', async () => {
+    const wrapper = card({ failure_kind: 'initialization_failed', error: 'raw server text', failure_detail: { code: 'trace_db_locked', can_recreate_branch: true } })
+    expect(wrapper.get('[data-test="failure-kind"]').text()).toBe('Inicializace běhu selhala')
+    expect(wrapper.get('[data-test="failure-sentence"]').text()).toContain('zámek držela jiná operace')
+    expect(wrapper.get('[data-test="failure-sentence"]').text()).not.toContain('raw server text')
+    setLocale('en')
+    await flushPromises()
+    expect(wrapper.get('[data-test="failure-kind"]').text()).toBe('Run initialization failed')
+    expect(wrapper.get('[data-test="failure-sentence"]').text()).toContain('another operation held its lock')
+    expect(actions(wrapper)).toContain('Continue')
+  })
   it('needs_environment: shows what is missing and retries when the environment is ready', async () => {
     const fetchMock = vi.fn(async () => okResponse({ task_id: 'M01-S01-T01', action: 'retry', run: null, pending: true }))
     vi.stubGlobal('fetch', fetchMock)

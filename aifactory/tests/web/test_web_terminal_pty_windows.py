@@ -45,7 +45,7 @@ async def _call(
     )
 
 
-@pytest.mark.parametrize("cleanup", ["delete", "disconnect", "blocked_send", "exit"])
+@pytest.mark.parametrize("cleanup", ["delete", "disconnect", "blocked_send", "exit", "interrupt"])
 def test_conpty_session(tmp_path: Path, cleanup: str) -> None:
     async def scenario() -> None:
         app = cast(Starlette, _client(tmp_path).app)
@@ -56,7 +56,7 @@ def test_conpty_session(tmp_path: Path, cleanup: str) -> None:
         session = app.state.terminal_sessions[token]
         assert isinstance(session, terminal_pty.WindowsSession)
         process = session.process
-        assert process.argv == [terminal._shell()]
+        assert process.argv[-1] == terminal._shell()
         assert Path(process.launch_dir) == tmp_path.resolve()
         assert "TERM=xterm-256color\0" in process.env
         assert process.getwinsize() == (24, 80)
@@ -120,7 +120,15 @@ def test_conpty_session(tmp_path: Path, cleanup: str) -> None:
                         await changed.wait()
                 child_pid = int(match[1])
                 assert oscompat.alive(child_pid)
-                if cleanup == "delete":
+                if cleanup == "interrupt":
+                    await _call(app, token, "/input", {"data": "\x03"})
+                    await expect(b"KeyboardInterrupt")
+                    await _call(app, token, "/input", {"data": "echo after-^interrupt\r\n"})
+                    await expect(b"after-interrupt")
+                    assert not oscompat.alive(child_pid)
+                    assert oscompat.alive(process.pid)
+                    await _call(app, token, method="DELETE")
+                elif cleanup == "delete":
                     assert (await _call(app, token, method="DELETE")).status_code == 200
                 elif cleanup == "disconnect":
                     disconnect.set()

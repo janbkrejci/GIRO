@@ -76,13 +76,18 @@ def test_terminal_commands_browser(terminal_page: Page, tmp_path: Path) -> None:
     page.keyboard.press("Enter")
     expect(screen).to_contain_text("tty True")
 
-    # Keep output markers out of command echo, and wait until each input() is ready.
+    # Windows input() treats Escape as line editing; getwch observes the actual key.
+    # Keep output markers out of command echo and wait until the reader is ready.
     script = target / "interactive.py"
     script.write_text(
         'value = input("giro-" + "input-ready:")\n'
         'print("giro-" + "input-result", value, flush=True)\n'
-        'value = input("giro-" + "escape-ready:")\n'
-        'print("giro-" + "escape-result", ord(value), flush=True)\n',
+        + (
+            'import msvcrt\nprint("giro-" + "escape-ready:", flush=True)\nvalue = msvcrt.getwch()\n'
+            if sys.platform == "win32"
+            else 'value = input("giro-" + "escape-ready:")\n'
+        )
+        + 'print("giro-" + "escape-result", ord(value), flush=True)\n',
         encoding="utf-8",
     )
     page.keyboard.insert_text(f'{python} "{script}"')
@@ -94,7 +99,8 @@ def test_terminal_commands_browser(terminal_page: Page, tmp_path: Path) -> None:
     expect(screen).to_contain_text("giro-escape-ready:")
     page.keyboard.press("Escape")
     expect(overlay).to_be_visible()
-    page.keyboard.press("Enter")
+    if sys.platform != "win32":
+        page.keyboard.press("Enter")
     expect(screen).to_contain_text("giro-escape-result 27")
 
     # Windows has no standard sleep command; use the same interpreter there.
@@ -107,6 +113,8 @@ def test_terminal_commands_browser(terminal_page: Page, tmp_path: Path) -> None:
     page.keyboard.press("Enter")
     expect(screen).to_contain_text("giro-sleep-ready")
     page.keyboard.press("Control+c")
+    if sys.platform == "win32":
+        expect(screen).to_contain_text("KeyboardInterrupt")
     page.keyboard.insert_text(
         "echo giro-^after-interrupt" if sys.platform == "win32" else 'echo giro-"after-interrupt"'
     )
@@ -145,6 +153,7 @@ def test_terminal_vim_browser(terminal_page: Page, tmp_path: Path) -> None:
     expect(screen).to_contain_text("INSERT")
     page.keyboard.press("Escape")
     expect(overlay).to_be_visible()
+    expect(screen).not_to_contain_text("INSERT")
     page.keyboard.insert_text(":q")
     page.keyboard.press("Enter")
     # The marker is not present literally in the command echo; the shell must run it.

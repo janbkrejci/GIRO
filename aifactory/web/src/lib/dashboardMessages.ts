@@ -29,6 +29,7 @@ export function dashboardFailureLabel(value: string | null | undefined): string 
     case 'writes_needed': return t('dashboard.failure.writes_needed')
     case 'invalid_output': return t('dashboard.failure.invalid_output')
     case 'process_gone': return t('dashboard.failure.process_gone')
+    case 'initialization_failed': return t('dashboard.failure.initialization_failed')
     case 'stopped': return t('dashboard.failure.stopped')
     case 'blocked': return t('dashboard.failure.blocked')
     case 'other': return t('dashboard.failure.other')

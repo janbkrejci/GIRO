@@ -544,9 +544,17 @@ def retry_run(
                 raise TaskRunError("invalid_workflow", str(exc)) from exc
 
         tip = provider_git.rev_parse(main, f"refs/heads/{row.branch}")
+        worktree = Path(row.worktree)
+        new_branch = (
+            tip is None
+            and row.failure_kind == failures.INITIALIZATION_FAILED
+            and (row.failure_detail_dict() or {}).get("can_recreate_branch") is True
+            and not worktree.exists()
+        )
+        if new_branch:
+            tip = row.base_sha
         if tip is None:
             raise TaskRunError("unknown_branch", f"branch {row.branch} of run {row.run_id} is gone")
-        worktree = Path(row.worktree)
         if not worktree.is_dir():
             other = provider_git.checked_out_in(main, row.branch)
             if other is not None:
@@ -645,7 +653,7 @@ def retry_run(
                 scope,
                 outputs,
                 task,
-                False,
+                new_branch,
                 None,
                 test_timeout,
                 workdir,

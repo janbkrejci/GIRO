@@ -20,6 +20,8 @@ and a JSON object with the facts in ``task_runs.failure_detail``:
 - ``invalid_output``: an agent never returned a valid envelope (JSON that does not parse
   or validate, or claim gates still red after the corrections).
 - ``process_gone``: the run's process died (the run was reaped as ``aborted``).
+- ``initialization_failed``: startup failed before the workflow ran; detail records
+  the error code and whether retry may safely create the never-attempted branch.
 - ``stopped``: the operator stopped the run (or interrupted its process).
 - ``blocked``: an agent reported a blocking follow-up or a blocking existing task
   (``blocks_task``, ``blocked_by``); ``failure_detail`` holds ``blockers``. Not a failure
@@ -43,6 +45,7 @@ WRITES_VIOLATION = "writes_violation"
 WRITES_NEEDED = "writes_needed"
 INVALID_OUTPUT = "invalid_output"
 PROCESS_GONE = "process_gone"
+INITIALIZATION_FAILED = "initialization_failed"
 STOPPED = "stopped"
 BLOCKED = "blocked"
 OTHER = "other"
@@ -55,6 +58,7 @@ FAILURE_KINDS = (
     WRITES_NEEDED,
     INVALID_OUTPUT,
     PROCESS_GONE,
+    INITIALIZATION_FAILED,
     STOPPED,
     BLOCKED,
     OTHER,

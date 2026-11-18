@@ -41,7 +41,9 @@ def procs_fixture() -> Iterator[Spawn]:
 
 
 def _sleeper(procs: Spawn) -> subprocess.Popen[bytes]:
-    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    # Avoid the Windows venv launcher, which adds another process to the tree.
+    python = getattr(sys, "_base_executable", sys.executable)
+    proc = subprocess.Popen([python, "-c", "import time; time.sleep(60)"])
     procs.append(proc)
     return proc
 

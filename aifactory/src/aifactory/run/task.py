@@ -969,6 +969,7 @@ def _prepare_worktree(
     worktree = Path(row.worktree)
     settings = rc.config.settings
     session_dir = data_dir(main, rc) / "sessions" / row.run_id
+    worktree_started = False
     try:
         session_dir.mkdir(parents=True, exist_ok=True)
         (session_dir / "roster.json").write_text(
@@ -977,6 +978,7 @@ def _prepare_worktree(
         cfg = prepare_cfg(main, rc, session_dir / "prompt_templates")
         ignored = main_ignored(main, settings.worktrees_dir, cfg)
         with store.serialized():
+            worktree_started = True
             gitops.ensure_excluded(main, _exclude_lines(ignored))
             gitops.ensure_untracked_cache(main)
             worktree.parent.mkdir(parents=True, exist_ok=True)
@@ -1005,10 +1007,18 @@ def _prepare_worktree(
                     row.branch,
                 )
         copy_library_items(worktree, rc.config.library)
-    except (RuntimeError, OSError) as exc:
+    except Exception as exc:
+        code = exc.code if isinstance(exc, TaskRunError) else "worktree_failed"
         store.finish(
-            row.run_id, FAILED, None, str(exc)[:2000], failures.OTHER, {"cause": "worktree"}
+            row.run_id,
+            FAILED,
+            None,
+            str(exc)[:2000],
+            failures.INITIALIZATION_FAILED,
+            {"code": code, "can_recreate_branch": job.new_branch and not worktree_started},
         )
+        if isinstance(exc, TaskRunError):
+            raise
         raise TaskRunError("worktree_failed", str(exc)) from exc
     return session_dir, cfg, ignored
 

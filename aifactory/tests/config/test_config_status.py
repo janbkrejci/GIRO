@@ -159,7 +159,7 @@ def _scenario(repo: Path) -> None:
     git(repo, "add", ".factory/added-then-gone.yaml")
     (repo / ".factory/added-then-gone.yaml").unlink()  # in neither base nor the tree
     system = repo / ".factory/prompts/builder/system.md"
-    system.write_text(system.read_text(encoding="utf-8"), encoding="utf-8")
+    system.write_bytes(system.read_bytes())
     os.utime(system, ns=(1, 1))  # stale stat data, same content: not a change
     write(repo, "src/outside.py", "print(1)\n")  # outside the configuration
 

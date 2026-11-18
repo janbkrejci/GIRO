@@ -515,7 +515,9 @@ def test_windows_backend_with_threaded_transport(
         def kill_group(pid: int, *, force: bool) -> None:
             calls.append(("kill", pid, force))
 
-        monkeypatch.setattr(terminal_pty, "sys", SimpleNamespace(platform="win32"))
+        monkeypatch.setattr(
+            terminal_pty, "sys", SimpleNamespace(platform="win32", executable=sys.executable)
+        )
         monkeypatch.setitem(
             sys.modules,
             "winpty",

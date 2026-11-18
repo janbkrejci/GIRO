@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from anyio import from_thread
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -202,12 +203,17 @@ async def demo_remove(request: Request) -> JSONResponse:
     from aifactory.demo import remove_demo
 
     contexts: RepoContexts = request.app.state.repos
+
+    def close_context(repo_id: str) -> None:
+        # Release the live watcher's SQLite handle before Windows deletes the DB.
+        from_thread.run(contexts.drop, repo_id)
+
     try:
-        result = await run_in_threadpool(remove_demo, request.app.state.home)
+        result = await run_in_threadpool(
+            remove_demo, request.app.state.home, on_unregister=close_context
+        )
     except RepoError as exc:
         return _repo_error(exc)
-    if result.repo_id is not None:
-        await contexts.drop(result.repo_id)
     return JSONResponse(envelope_ok(result.to_json()))
 
 

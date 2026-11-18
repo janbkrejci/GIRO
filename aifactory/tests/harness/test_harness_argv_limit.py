@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import harness_fakes
 import pytest
 from harness_fakes import THREAD_ID, fake_pi_catalog, fake_popen
 
@@ -63,6 +64,22 @@ def test_long_prompt_stays_off_the_command_line(
     assert len(line) < ARGV_BUDGET < WINDOWS_LIMIT
     assert call.kwargs["stdin"] is subprocess.PIPE
     assert call.prompt == PROMPT
+
+
+def test_fake_pi_never_starts_an_installed_cli(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(agent_pi, "pi_executable", lambda: "C:/installed/pi.cmd")
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("scripted harness test attempted to launch a real process")
+
+    monkeypatch.setattr(harness_fakes, "REAL_POPEN", forbidden)
+    fake_pi_catalog(monkeypatch, tmp_path)
+    spawner = fake_popen(monkeypatch, ["pi_turn.jsonl"])
+    agent_pi.run(_request(tmp_path, "openai/gpt-5.5", SYSTEM))
+    assert len(spawner.calls) == 1
+    assert spawner.calls[0].cmd[0] == agent_pi.PI_PATH
 
 
 def test_codex_resume_prompt_stays_off_the_command_line(

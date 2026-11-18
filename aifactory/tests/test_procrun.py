@@ -43,6 +43,24 @@ def test_run_returns_output_and_exit_code() -> None:
     assert done.returncode == 3 and done.stdout.strip() == "out"
 
 
+def test_run_passes_utf8_input_and_eof() -> None:
+    payload = "Příliš žluťoučký kůň\n" * 10000
+    done = procrun.run(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read())"],
+        10,
+        input=payload,
+    )
+    assert done.returncode == 0
+    assert done.stdout == payload
+
+
+def test_unread_input_cannot_block_timeout() -> None:
+    started = time.monotonic()
+    with pytest.raises(subprocess.TimeoutExpired):
+        procrun.run([sys.executable, "-c", _HELPER], 0.5, input="x" * 1000000)
+    assert time.monotonic() - started < 10
+
+
 def test_timeout_stops_the_probe_tree_but_not_other_processes(tmp_path: Path) -> None:
     pid_file = tmp_path / "helper.pid"
     bystander = subprocess.Popen([sys.executable, "-c", _HELPER])  # a task or other app

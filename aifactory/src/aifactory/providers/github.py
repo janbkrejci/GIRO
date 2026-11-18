@@ -49,6 +49,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
+from aifactory import procrun
 from aifactory.config.settings import ProjectSettings
 from aifactory.environment import value
 from aifactory.providers.base import (
@@ -133,14 +134,11 @@ class GhCli:
 
     def run(self, *args: str, stdin: str | None = None, env: dict[str, str] | None = None) -> str:
         try:
-            result = subprocess.run(
+            result = procrun.run(
                 [self.executable, *args],
                 cwd=self.cwd,
                 env={**os.environ, **env} if env else None,
                 input=stdin if stdin is not None else "",
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
                 timeout=GH_TIMEOUT,
             )
         except FileNotFoundError as exc:

@@ -53,17 +53,28 @@ def test_git_processes_per_phase_do_not_grow_with_changed_files(
     assert one == many, (one, many)
 
 
+@pytest.mark.parametrize("with_symlinks", [False, True])
 def test_backup_reads_head_of_many_paths_in_constant_processes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, with_symlinks: bool
 ) -> None:
     from aifactory import backup
+
+    if with_symlinks:
+        probe = tmp_path / "symlink-probe"
+        try:
+            probe.symlink_to("target")
+        except OSError as exc:
+            if sys.platform == "win32" and exc.winerror == 1314:
+                pytest.skip("Creating symlinks requires Windows developer mode or elevation")
+            raise
+        probe.unlink()
 
     totals = []
     for n in (1, 10):
         repo = make_run_repo(tmp_path / f"r{n}")
         for i in range(n):
             write(repo, f"src/f{i}.txt", f"v{i}\n")
-            if i % 2:
+            if with_symlinks and i % 2:
                 (repo / f"src/l{i}").symlink_to(f"f{i}.txt")
         git(repo, "add", "-A")
         git(repo, "commit", "-q", "-m", "files")

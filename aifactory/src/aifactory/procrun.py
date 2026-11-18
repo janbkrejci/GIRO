@@ -19,7 +19,7 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager, suppress
+from contextlib import ExitStack, contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -88,27 +88,35 @@ def run(
     *,
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
+    input: str | None = None,
 ) -> Finished:
-    """Run ``argv`` (stdin closed) for at most ``timeout`` seconds, also bounded by the
+    """Run ``argv`` with optional UTF-8 stdin for at most ``timeout`` seconds, bounded by the
     thread's budget. Raises ``subprocess.TimeoutExpired`` after stopping the command's
     process tree, ``OSError`` when it cannot start."""
     seconds = limit(timeout, argv)
     assert seconds is not None
     with (
+        ExitStack() as stack,
         tempfile.TemporaryFile() as out,
         tempfile.TemporaryFile() as err,
         oscompat.ProcessTree() as tree,
-        subprocess.Popen(
-            list(argv),
-            cwd=cwd,
-            env=None if env is None else dict(env),
-            stdin=subprocess.DEVNULL,
-            stdout=out,
-            stderr=err,
-            start_new_session=True,
-            creationflags=oscompat.NEW_GROUP | tree.creationflags,
-        ) as process,
     ):
+        stdin = stack.enter_context(tempfile.TemporaryFile())
+        if input is not None:
+            stdin.write(input.encode("utf-8"))
+        stdin.seek(0)
+        process = stack.enter_context(
+            subprocess.Popen(
+                list(argv),
+                cwd=cwd,
+                env=None if env is None else dict(env),
+                stdin=stdin,
+                stdout=out,
+                stderr=err,
+                start_new_session=True,
+                creationflags=oscompat.NEW_GROUP | tree.creationflags,
+            )
+        )
         tree.adopt(process)
         try:
             returncode = process.wait(timeout=seconds)
