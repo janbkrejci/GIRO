@@ -36,6 +36,8 @@ Default agents: planner, scout, builder, tester, test-reviewer, reviewer, docume
 
 Harness and model precedence, lowest to highest: repository roster, machine defaults (**Harnesses on this machine** dialog), task (or its step and project), choice for one run, workflow step override.
 
+`giro config pull` fast-forwards base even during an active run. It journals the move for the run guard and holds the new-run lock while advancing base. Uncommitted base changes or divergence still block the pull.
+
 ## Workflows <!-- section:workflow -->
 
 | Workflow | Purpose |

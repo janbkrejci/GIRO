@@ -369,6 +369,7 @@ def test_pull_expected_digest_refuses_changes_and_accepts_reviewed_plan(tmp_path
     repo = _repo(tmp_path)
     original = _rev(repo, "main")
     _clone_push(tmp_path, AGENTS, "remote agents\n")
+    _claim(repo, os.getpid())
     plan = plan_pull_config(repo)
     assert _rev(repo, "main") == original
     before = _snapshot(repo)
@@ -381,9 +382,10 @@ def test_pull_expected_digest_refuses_changes_and_accepts_reviewed_plan(tmp_path
     assert _rev(repo, "main") == plan["after"]
 
 
-def test_pull_refuses_diverged_dirty_and_running(tmp_path: Path, capsys: Capsys) -> None:
+def test_pull_refuses_diverged_and_dirty_during_live_run(tmp_path: Path, capsys: Capsys) -> None:
     repo = _repo(tmp_path)
     _clone_push(tmp_path, "README.md", "remote\n")
+    _claim(repo, os.getpid())
 
     write(repo, AGENTS, "dirty\n")
     before = _snapshot(repo)
@@ -391,15 +393,6 @@ def test_pull_refuses_diverged_dirty_and_running(tmp_path: Path, capsys: Capsys)
     assert rc == 2 and obj["error"]["code"] == "dirty_base"
     assert _snapshot(repo)[1:] == before[1:] and _rev(repo, "main") == _rev(repo, "HEAD")
     git(repo, "checkout", "-q", "--", AGENTS)
-
-    _claim(repo, os.getpid())
-    main_before = _rev(repo, "main")
-    rc, obj = _pull(capsys, repo)
-    assert rc == 2 and obj["error"]["code"] == "run_in_progress"
-    assert _rev(repo, "main") == main_before
-    store = _store(repo)
-    store.conn.execute("DELETE FROM task_runs")
-    store.close()
 
     write(repo, "local.txt", "local\n")
     git(repo, "add", "local.txt")
@@ -412,5 +405,93 @@ def test_pull_refuses_diverged_dirty_and_running(tmp_path: Path, capsys: Capsys)
 
 def test_pull_without_remote(tmp_path: Path, capsys: Capsys) -> None:
     repo = _repo(tmp_path, remote=False)
+    _claim(repo, os.getpid())
     rc, obj = _pull(capsys, repo)
     assert rc == 2 and obj["error"]["code"] == "no_remote"
+
+
+@pytest.mark.parametrize("reviewed", [False, True])
+def test_pull_with_live_run_records_move_accepted_by_guard(
+    tmp_path: Path, capsys: Capsys, monkeypatch: pytest.MonkeyPatch, reviewed: bool
+) -> None:
+    from collections.abc import Iterator
+    from contextlib import contextmanager
+
+    from aifactory import basemoves
+    from aifactory.config.commit import plan_pull_config, pull_config
+    from aifactory.providers import git as pgit
+
+    monkeypatch.delenv(basemoves.RUN_ENV, raising=False)
+    repo = _repo(tmp_path)
+    before = _rev(repo, "main")
+    after = _clone_push(tmp_path, "README.md", "remote\n")
+    _claim(repo, os.getpid())
+    start = basemoves.offset(repo)
+    locked = False
+    serialized = TaskRunStore.serialized
+    advance = pgit.advance_branch
+
+    @contextmanager
+    def observed_lock(self: TaskRunStore) -> Iterator[None]:
+        nonlocal locked
+        with serialized(self):
+            locked = True
+            try:
+                yield
+            finally:
+                locked = False
+
+    def observed_advance(*args: Any, **kwargs: Any) -> None:
+        assert locked, "base movement must exclude a new run claim"
+        advance(*args, **kwargs)
+
+    monkeypatch.setattr(TaskRunStore, "serialized", observed_lock)
+    monkeypatch.setattr(pgit, "advance_branch", observed_advance)
+    plan = plan_pull_config(repo)
+    assert plan["blockers"] == []
+    assert _rev(repo, "main") == before
+    assert basemoves.offset(repo) == start
+    if reviewed:
+        assert pull_config(repo, expect=plan["digest"]).updated
+    else:
+        rc, obj = _pull(capsys, repo)
+        assert rc == 0, obj
+        assert obj["data"]["updated"]
+    assert _rev(repo, "main") == after
+    moves = basemoves.moves_since(repo, start)
+    assert len(moves) == 1
+    move = moves[0]
+    assert (move.ref, move.old, move.new, move.run, move.command) == (
+        "refs/heads/main",
+        before,
+        after,
+        None,
+        "config pull",
+    )
+    assert move.index_tree == git(repo, "write-tree").strip()
+    assert (
+        basemoves.wait_for_chain(repo, start, "refs/heads/main", before, after, "r1", tries=1)
+        == move
+    )
+    store = _store(repo)
+    try:
+        row = store.get("r1")
+        assert row is not None and row.state == RUNNING and row.base_sha == before
+        with store.serialized():
+            assert [r.run_id for r in store.live_runs_locked()] == ["r1"]
+    finally:
+        store.close()
+
+
+def test_pull_unknown_base_during_live_run(tmp_path: Path, capsys: Capsys) -> None:
+    from aifactory.config.commit import plan_pull_config
+
+    repo = _repo(tmp_path)
+    _claim(repo, os.getpid())
+    git(repo, "checkout", "-qb", "side")
+    git(repo, "branch", "-D", "main")
+    before = _snapshot(repo)
+    assert [b["code"] for b in plan_pull_config(repo)["blockers"]] == ["unknown_base"]
+    rc, obj = _pull(capsys, repo)
+    assert rc == 2 and obj["error"]["code"] == "unknown_base"
+    assert _snapshot(repo) == before

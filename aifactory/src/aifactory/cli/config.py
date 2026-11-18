@@ -106,11 +106,11 @@ def _add_config_commands(parser: argparse.ArgumentParser) -> None:
     commit.add_argument("-m", "--message", metavar="TEXT", help="commit message")
     pull = sub.add_parser(
         "pull",
-        help="fast-forward local base to the remote base",
-        description="Fetch the remote base and fast-forward the local base to it when no run "
-        "is in progress (run_in_progress). A diverged base (base_diverged), uncommitted "
-        "changes in the checkout on base (dirty_base) or no remote (no_remote) are refused "
-        "and nothing changes.",
+        help="fast-forward local base to the remote base, also during active runs",
+        description="Fetch the remote base and fast-forward the local base, also during active "
+        "runs. The move is journaled for their guards. A diverged base (base_diverged), "
+        "uncommitted changes in the checkout on base (dirty_base) or no remote (no_remote) "
+        "are refused and nothing changes.",
     )
     _add_config_edit_commands(sub)
     for child in (commit, pull):

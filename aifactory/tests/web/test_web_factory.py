@@ -320,7 +320,7 @@ def _claim(repo: Path) -> None:
         runs.close()
 
 
-def test_run_in_progress(api: Api, tmp_path: Path) -> None:
+def test_run_in_progress_blocks_commit_but_allows_pull(api: Api, tmp_path: Path) -> None:
     a = tmp_path / "a"
     install(api, "a")
     write(a, CONFIG, (a / CONFIG).read_text(encoding="utf-8") + "# tuned\n")
@@ -336,17 +336,10 @@ def test_run_in_progress(api: Api, tmp_path: Path) -> None:
     write(clone, "notes.md", "notes\n")
     commit_push(clone, "remote ahead")
     git(a, "checkout", "--", CONFIG)
-    assert (
-        code_of(
-            api.post(
-                "a",
-                "config/pull",
-                {"digest": api.get("a", "config/pull/plan")["data"]["digest"]},
-                status=409,
-            )
-        )
-        == "run_in_progress"
-    )
+    plan = api.get("a", "config/pull/plan")["data"]
+    assert plan["blockers"] == []
+    pulled = api.post("a", "config/pull", {"digest": plan["digest"]})
+    assert pulled["data"]["updated"] is True
 
 
 # ── items and move to the library ─────────────────────────────────────────────
@@ -454,6 +447,9 @@ def test_config_pull(api: Api, tmp_path: Path) -> None:
     write(clone, "notes.md", "notes\n")
     remote = commit_push(clone, "remote ahead")
     b_before = git(tmp_path / "b", "rev-parse", "main")
+    _claim(a)
+    plan = api.get("a", "config/pull/plan")["data"]
+    assert plan["blockers"] == []
 
     data = api.post(
         "a", "config/pull", {"digest": api.get("a", "config/pull/plan")["data"]["digest"]}
