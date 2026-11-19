@@ -225,7 +225,14 @@ def plan_keeps_checks(envelope: EnvelopeBase, run: Any) -> GateReport:
                 replacement,
                 "failed check replaced explicitly or suite narrowed to a regression"
                 if replacement
-                else "failed check must be kept; a dropped entry cannot discard a failure",
+                else (
+                    f"failed check is missing; keep a check named `{check.name}` in the plan; "
+                    "a `dropped` entry alone cannot discard a failure"
+                    if check.name not in names
+                    else f"failed check `{check.name}` has changed argv; keep that name and add "
+                    f"a `dropped` entry with name `{check.name}` "
+                    "and a reason for changing the command"
+                ),
             )
         elif scoped:
             report.check(check.name, True, "scoped round; the whole suite confirms later")

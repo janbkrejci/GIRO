@@ -1,6 +1,6 @@
 # Příloha pro autory workflow
 
-Workflow je YAML se jménem, popisem, kroky a podmínkou přijetí `accept`. Vlastní ulož do `.factory/workflows/<jméno>.yaml` repa nebo do knihovny a ověř přes `giro workflow check .factory/workflows/<jméno>.yaml`.
+Workflow YAML obsahuje jméno, popis, kroky a `accept`. Patří do `.factory/workflows/<jméno>.yaml` nebo knihovny; ověř: `giro workflow check .factory/workflows/<jméno>.yaml`.
 
 ## Kroky
 
@@ -8,9 +8,14 @@ Workflow je YAML se jménem, popisem, kroky a podmínkou přijetí `accept`. Vla
 
 **Kódové kroky**: `test` (vykoná plán testera), `commit`, `changes`, `command` (`id`, `argv`, `timeout`), `rebase`, `rebuild`.
 
-Tester používá lokální profil projektu s příkazy, pravidly výběru a naměřenými časy; při změně konfigurace ho obnoví. Selhání řeší builder, chybějící testy závěrečný reviewer. Automatická revize plánu ani triáž neběží; `test_review` lze uvést explicitně.
+Tester obnovuje lokální profil příkazů, výběru a časů při změně konfigurace. Selhání opravuje builder, chybějící testy kontroluje reviewer. Automatická revize ani triáž neběží; `test_review` je explicitní.
 
 `test_plan.coverage`: `full` žádá celou sadu, `scoped` kontroly změny; jiný odmítne.
+
+`plan_keeps_checks`: selhanou kontrolu neodstraňuj. Oprava `argv` vyžaduje stejné
+jméno v `checks` a záznam `dropped` se stejným `name` a důvodem změny příkazu
+v `reason`. Výjimka: zúžení selhané sady `full` při požadovaném `scoped`
+zachovává jméno, ale nepotřebuje `dropped`.
 
 ## Podmínky a smyčky
 
@@ -18,7 +23,7 @@ Tester používá lokální profil projektu s příkazy, pravidly výběru a nam
 - `when: podmínka` krok přeskočí, když neplatí.
 - `accept: podmínka` rozhodne, zda běh uspěl.
 
-Podmínky čtou pole výstupů kroků (`test.passed`, `test.coverage`, `review.approved`, `rebase.conflict`) a umějí `and`, `or`, `not` a porovnání. Nikdy se nevyhodnocují jako kód.
+Podmínky: výstupy (`test.passed`, `test.coverage`, `review.approved`, `rebase.conflict`), `and`, `or`, `not`, porovnání. Nevykonávají kód.
 
 ```yaml
 name: build-test-review
@@ -50,4 +55,4 @@ Auto-merge mergne jen PR workflow, které má krok `review`.
 
 ## roles.yaml
 
-`.factory/roles.yaml` přepisuje, který agent vykonává který krok. Nech v něm jen role, které měníš; úplná kopie vestavěného registru (`roles_full_copy`) by tě odstřihla od jeho budoucích změn.
+`.factory/roles.yaml` mění agenty kroků. Uváděj jen změněné role; úplná kopie registru (`roles_full_copy`) blokuje budoucí aktualizace.

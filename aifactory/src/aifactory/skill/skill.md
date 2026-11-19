@@ -423,6 +423,11 @@ library (without a library the packaged workflows: {{workflows}}).
   unexecuted checks, and check the latest edits and direct callers. Previously green,
   unaffected checks and deferred whole-suite checks need no repeated `dropped` reason.
   A failed ordinary check cannot be discarded, even with a dropped reason.
+  To correct its broken `argv`, keep the check's exact name in `checks` and add
+  `dropped: [{"name": "<same name>", "reason": "<why the command changed>"}]`.
+  This documents replacement of the old command, not removal of the failed check.
+  Narrowing a failed full suite to a scoped regression under the same name is the
+  exception: it needs no `dropped` entry.
 - A full plan requests one final confirmation. The interpreter defers it, asks for a
   scoped plan for intermediate tests, and confirms once after review and before commit
   or acceptance. This applies to custom workflows too. A failed confirmation returns to
