@@ -25,7 +25,7 @@ import yaml
 from pydantic import ValidationError
 
 from aifactory import gitquery
-from aifactory.config.settings import CONFIG_FILE, ProjectSettings
+from aifactory.config.settings import CONFIG_FILE, HostingProvider, ProjectSettings
 from aifactory.library.store import LibraryStoreError
 from aifactory.providers import git
 
@@ -177,7 +177,7 @@ def init_repo(
     path: Path,
     *,
     base: str | None = None,
-    provider: Literal["local", "github", "azure"] = "local",
+    provider: HostingProvider = "local",
     azure: Mapping[str, str] | None = None,
     docs_root: str | None = None,
     force: bool = False,

@@ -311,7 +311,7 @@ def _failed(ctx: CheckContext, argv: list[str]) -> bool:
 
 def hosting(ctx: CheckContext) -> Iterator[Finding]:
     provider = ctx.settings.git_provider
-    if provider == "local":
+    if provider in ("local", "forgejo"):
         return
     if provider == "github":
         if ctx.machine.which("gh") is None:

@@ -10,6 +10,7 @@ from aifactory.config.errors import ConfigIssue
 from aifactory.config.settings import ProjectSettings, parse_project_settings
 from aifactory.providers import get_provider, task_id_from_branch
 from aifactory.providers.azure import AzureProvider
+from aifactory.providers.forgejo import ForgejoProvider
 from aifactory.providers.github import GitHubProvider
 from aifactory.providers.local import LocalProvider
 
@@ -37,6 +38,12 @@ def test_azure_from_config(tmp_path: Path) -> None:
     provider = get_provider(_settings(text), tmp_path)
     assert isinstance(provider, AzureProvider)
     assert provider.name == "azure"
+
+
+def test_forgejo_from_config(tmp_path: Path) -> None:
+    provider = get_provider(_settings("git_provider: forgejo\n"), tmp_path)
+    assert isinstance(provider, ForgejoProvider)
+    assert provider.reports_checks
 
 
 def test_invalid_provider_is_a_config_issue() -> None:

@@ -40,7 +40,7 @@ def _add_init_command(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--provider",
-        choices=("local", "github", "azure"),
+        choices=("local", "github", "azure", "forgejo"),
         default=None,
         help="git provider (default: from the remote URL with --dry-run/--commit, else local)",
     )

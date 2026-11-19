@@ -68,7 +68,7 @@ def test_get_settings(client: TestClient) -> None:
     assert shared["max_parallel_runs"] == 1
     assert data["local"] == {"trace_db": ".factory/trace.db"}
     assert data["options"] == {
-        "git_provider": ["local", "github", "azure"],
+        "git_provider": ["local", "github", "azure", "forgejo"],
         "merge_strategy": ["squash", "merge"],
         "base_changes": ["direct", "pr"],
         "base_pr_merge": ["manual", "auto"],

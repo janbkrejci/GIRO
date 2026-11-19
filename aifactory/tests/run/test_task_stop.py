@@ -28,6 +28,7 @@ from cli_json import run_json  # noqa: E402
 
 Capsys = pytest.CaptureFixture[str]
 Spawn = list[subprocess.Popen[bytes]]
+_SLEEPER_PYTHON = getattr(sys, "_base_executable", sys.executable)
 
 
 @pytest.fixture(name="procs")
@@ -42,8 +43,7 @@ def procs_fixture() -> Iterator[Spawn]:
 
 def _sleeper(procs: Spawn) -> subprocess.Popen[bytes]:
     # Avoid the Windows venv launcher, which adds another process to the tree.
-    python = getattr(sys, "_base_executable", sys.executable)
-    proc = subprocess.Popen([python, "-c", "import time; time.sleep(60)"])
+    proc = subprocess.Popen([_SLEEPER_PYTHON, "-c", "import time; time.sleep(60)"])
     procs.append(proc)
     return proc
 
@@ -90,7 +90,7 @@ def test_stop_signals_agents_then_run(tmp_path: Path, procs: Spawn) -> None:
     agent = _sleeper(procs)
     recycled = _sleeper(procs)
     repo = _repo(tmp_path, run.pid)
-    exe = Path(sys.executable).name
+    exe = Path(_SLEEPER_PYTHON).name
     _add_process(repo, "adw", run.pid, "factory task run")
     _add_process(repo, "agent", agent.pid, f"{exe} planner model")
     _add_process(repo, "agent", recycled.pid, "claude planner opus")
@@ -221,7 +221,7 @@ def test_stop_skips_recycled_or_legacy_child_with_same_command(
     run = _sleeper(procs)
     unrelated = _sleeper(procs)
     repo = _repo(tmp_path, run.pid)
-    _add_process(repo, "agent", unrelated.pid, Path(sys.executable).name)
+    _add_process(repo, "agent", unrelated.pid, Path(_SLEEPER_PYTHON).name)
     with sqlite3.connect(_db(repo)) as conn:
         conn.execute(
             "UPDATE processes SET pid_created_at = ? WHERE pid = ?", (created_at, unrelated.pid)

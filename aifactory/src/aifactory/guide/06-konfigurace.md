@@ -1,44 +1,44 @@
 # Konfigurace repa, agenti a workflow
 
-Konfigurace je v `.factory/` repa: `config.yaml`, `agents.yaml` (roster agentů), volitelně `roles.yaml`, `workflows/` a `prompts/<agent>/`. Mimo git zůstávají `local.yaml` (trace DB, `database_url`), `trace.db` a `worktrees/`. Co repo nemá, dědí z knihovny.
+V `.factory/` jsou `config.yaml`, `agents.yaml` (roster), volitelně `roles.yaml`, `workflows/` a `prompts/<agent>/`. Mimo Git zůstávají `local.yaml` (trace DB, `database_url`), `trace.db` a `worktrees/`. Chybějící položky repo dědí z knihovny.
 
-**Běhy čtou sdílenou konfiguraci z commitu v base.** Změnu commitni ikonou s tooltipem **Necommitnutá konfigurace** nebo `giro config commit` (na chráněnou base `--pr`). `giro config show` ukáže konfiguraci běhu.
+**Běhy čtou sdílenou konfiguraci z commitu v base.** Změnu commitni přes **Necommitnutá konfigurace** nebo `giro config commit` (na chráněnou base `--pr`). Konfiguraci běhu ukáže `giro config show`.
 
 ## config.yaml
 
 | Klíč | Výchozí | Význam |
 | --- | --- | --- |
 | `base`, `remote` | `main`, `origin` | Cílová větev a remote. |
-| `git_provider` | `local` | `local`, `github` (`gh`), `azure` (`az`, sekce `azure`). |
+| `git_provider` | `local` | `local`, `github` (`gh`), `azure` (`az`, sekce `azure`), `forgejo` (REST). |
 | `merge_strategy` | `squash` | `squash` nebo `merge`. |
-| `github_approver` | — | Jiný účet v `gh`, který při schválení pošle approve review. |
-| `base_changes` | `direct` | `pr`: každou změnu base pošle giro pull requestem. |
-| `base_pr_merge` | `manual` | `auto`: tyto PR giro hned schválí a mergne. |
+| `github_approver` | — | Jiný účet v `gh` pro schvalovací recenzi. |
+| `base_changes` | `direct` | `pr` posílá změny base pull requestem. |
+| `base_pr_merge` | `manual` | `auto` tyto PR rovnou schválí a sloučí. |
 | `docs_root` | `factory` | Kořen `backlog/`, `specs/`, `docs/`. |
 | `protected_files` | `[".factory/"]` | Cesty, které agenti nemění. |
 | `max_parallel_runs` | `1` | Sloty pro souběžné tasky. |
 | `stacked_prs` | `false` | Navazující PR na PR závislostí. |
-| `test_timeout`, `test_slots` | 600, `0` | Limit testů; `0` neomezuje souběžné testy na počítači, kladná hodnota zapne sdílenou frontu. |
+| `test_timeout`, `test_slots` | 600, `0` | Časový limit a souběh testů. `0` povolí neomezený souběh, kladná hodnota zapne sdílenou frontu. |
 
 Další klíče: `levels`, `workdir`, `worktrees_dir`, `generated`.
 
-Azure DevOps Services automaticky používá opakovaně využívané HTTPS spojení pro čtení i zápisy PR. Vlastní servery, proxy a přihlášení dostupné jen přes Azure CLI dál používají `az`. Po výpadku při zápisu GIRO ověří stav na serveru; zápis slepě neopakuje. Pokud výsledek nelze ověřit, operace skončí chybou.
+Azure DevOps Services sdílí HTTPS spojení pro čtení i zápisy PR. Pro vlastní servery, proxy a přihlášení jen přes Azure CLI používá GIRO `az`. Po výpadku GIRO ověří výsledek zápisu a při nejistotě ohlásí chybu.
 
 ## Záložka GIRO <!-- section:zalozka-factory -->
 
 - **Stav repa**, **Nainstalovat GIRO**, **Stáhnout konfiguraci z base** a po instalaci **Co dál**.
 - **Souhrn kontroly** a nálezy repa; vybrané opraví agent (**Vyřešit vybrané nálezy**).
-- **Nastavení repozitáře:** **Sdílené nastavení repozitáře** (mimo jiné **Změny base**, **Merge pull requestů GIRO**, **Stacked pull requesty**) a **Lokální necommitované nastavení** (trace DB). **Uložit** zapisuje do pracovního stromu.
-- **Nastavení agentů:** harness, model a přemýšlení agentů, **zděděno**, nebo **přepsáno**; **Upravit** a **Vrátit na zděděné**.
-- **Lekce**: **Najít lekce** (`giro learn scan`) seskupí opakované výtky běhů, se **Ze všech rep** (`--all`) všech rep. Lekci uloží do repa, kam patří (lekce o giro do repa GIRO); hláška odkáže na sekci Lekce toho repa.
+- **Nastavení repozitáře:** **Sdílené nastavení repozitáře** (**Změny base**, **Merge pull requestů GIRO**, **Stacked pull requesty**) a **Lokální necommitované nastavení** (trace DB). **Uložit** zapisuje do pracovního stromu.
+- **Nastavení agentů:** harness, model a přemýšlení (**zděděno**, **přepsáno**). **Upravit** a **Vrátit na zděděné**.
+- **Lekce**: **Najít lekce** (`giro learn scan`) seskupí výtky běhů. **Ze všech rep** (`--all`) rozšíří hledání. Hláška odkáže na uložené lekce v příslušném repu.
 
 ## Agenti a harness
 
-Výchozí agenti: planner, scout, builder, tester, test-reviewer, reviewer, documenter. Agent má `harness` (vždy explicitně), `model`, `thinking` a `writes`. Celý roster přepneš `giro config roster set claude` (nebo `codex`).
+Výchozí agenti: planner, scout, builder, tester, test-reviewer, reviewer, documenter. Agent má explicitní `harness`, `model`, `thinking` a `writes`. Roster přepneš příkazem `giro config roster set claude` nebo s argumentem `codex`.
 
-Harness a model od nejslabšího po nejsilnější: roster repa, výchozí volby počítače (dialog **Harnessy tohoto počítače**), task (nebo jeho step a projekt), volba pro jeden běh, přepis na kroku workflow.
+Priorita harnessu a modelu roste od rosteru přes **Harnessy tohoto počítače**, projekt, step, task a volbu pro běh až po krok workflow.
 
-`giro config pull` stáhne base i během aktivního běhu. Posun zapíše do journalu pro guard běhu; po dobu posunu blokuje start nového běhu. Necommitované změny v base nebo divergence pull nadále blokují.
+`giro config pull` funguje i během běhu. Posun base zaznamená pro guard a během posunu blokuje start běhů. Necommitované změny nebo divergence pull blokují.
 
 ## Workflow
 
@@ -54,4 +54,4 @@ Harness a model od nejslabšího po nejsilnější: roster repa, výchozí volby
 | `resolve`, `resolve-reviewed` | Konflikt PR s base. |
 | `ci-fix` | Oprava červené CI v témže PR. |
 
-Malá přesná změna: `build-test-review`; velká: `simple-sdlc` nebo nejdřív `plan`. Pomůže **Navrhnout workflow**. Vlastní workflow: [Příloha pro autory workflow](#/guide/autori-workflow).
+Pro malou změnu použij `build-test-review`, pro velkou `simple-sdlc` nebo `plan`. Pomůže **Navrhnout workflow** a [příloha pro autory workflow](#/guide/autori-workflow).

@@ -554,7 +554,9 @@ def test_windows_backend_with_threaded_transport(
             session = app.state.terminal_sessions[token]
             try:
                 argv, config = calls[0]
-                assert argv == [_shell()]
+                assert argv[:2] == [sys.executable, "-c"]
+                assert "SetConsoleCtrlHandler" in argv[2]
+                assert argv[3:] == [_shell()]
                 assert config["cwd"] == str(tmp_path.resolve())
                 assert config["dimensions"] == (30, 90)
                 assert config["backend"] == "0"

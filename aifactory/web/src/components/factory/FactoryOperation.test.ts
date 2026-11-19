@@ -229,6 +229,16 @@ describe('Factory operations', () => {
     expect(vi.mocked(fetchFactoryPlan).mock.calls.at(-1)![0].options.provider).toBe('azure')
     expect(vi.mocked(fetchFactoryPlan).mock.calls.at(-1)![0].options.azure?.organization).toBe('my-org')
   })
+  it('plans a Forgejo install and translates its configuration hint when the locale changes', async () => {
+    const w = operation(); await flushPromises()
+    await chooseOption(w, '[data-test="install-provider"]', 'forgejo')
+    await flushPromises()
+    expect(vi.mocked(fetchFactoryPlan).mock.calls.at(-1)![0].options.provider).toBe('forgejo')
+    expect(w.get('[data-test="forgejo-hint"]').text()).toContain('V prostředí GIRO nastavte')
+    setLocale('en')
+    await flushPromises()
+    expect(w.get('[data-test="forgejo-hint"]').text()).toContain('in the GIRO environment.')
+  })
   it('offers a retry when the run state cannot be verified', async () => {
     vi.mocked(fetchOverview).mockRejectedValueOnce(new Error('offline'))
     const w = operation(); await flushPromises()
