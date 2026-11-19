@@ -72,13 +72,13 @@ def test_restart_on_windows_starts_a_new_console_and_exits(
 ) -> None:
     from aifactory.web import server
 
-    started: list[tuple[list[str], int]] = []
+    started: list[tuple[list[str], dict[str, str]]] = []
 
     class Exited(Exception):
         pass
 
-    def popen(argv: list[str], *, creationflags: int, close_fds: bool) -> None:
-        started.append((argv, creationflags))
+    def popen(argv: list[str], *, creationflags: int, close_fds: bool, env: dict[str, str]) -> None:
+        started.append((argv, env))
 
     def exit_now(code: int) -> None:
         raise Exited(code)
@@ -89,10 +89,9 @@ def test_restart_on_windows_starts_a_new_console_and_exits(
     monkeypatch.setattr(sys, "platform", "win32")
     monkeypatch.setattr(subprocess, "Popen", popen)
     monkeypatch.setattr(os, "_exit", exit_now)
-    monkeypatch.setattr(os, "execv", no_exec)
+    monkeypatch.setattr(os, "execve", no_exec)
     monkeypatch.delenv(server.RESTART_ENV, raising=False)
     with pytest.raises(Exited):
         server.restart_process()
     assert [argv for argv, _flags in started] == [server.restart_command()]
-    assert os.environ[server.RESTART_ENV] == "1"
-    monkeypatch.delenv(server.RESTART_ENV)
+    assert started[0][1][server.RESTART_ENV] == "1"

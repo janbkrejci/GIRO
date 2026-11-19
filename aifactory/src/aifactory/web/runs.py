@@ -409,7 +409,7 @@ def publish_run(repo: Path, run_id: str, launcher: Any = None) -> tuple[JsonDict
             try:
                 launcher.start_publish(repo, row.task_id)
             except TaskRunError as exc:
-                if exc.code == "pr_failed":
+                if exc.code in ("pr_failed", "forgejo_not_configured"):
                     summary = run_summary(repo, run_id)
                     return {
                         "run": summary,

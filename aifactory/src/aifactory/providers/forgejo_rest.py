@@ -11,6 +11,7 @@ from aifactory.providers.base import ProviderError
 
 URL_ENV = "GIRO_FORGEJO_URL"
 TOKEN_ENV = "GIRO_FORGEJO_TOKEN"
+NOT_CONFIGURED = "forgejo_not_configured"
 TIMEOUT = 30.0
 MAX_BODY = 16 * 1024 * 1024
 LOG_BYTES = 128 * 1024
@@ -24,6 +25,11 @@ class ForgejoHttpError(ProviderError):
 
 class ForgejoRest:
     def __init__(self, base_url: str, token: str) -> None:
+        base_url, token = base_url.strip(), token.strip()
+        if not base_url:
+            raise ProviderError(
+                NOT_CONFIGURED, f"{URL_ENV} is unset (process environment or $GIRO_HOME/env)"
+            )
         try:
             url = urlsplit(base_url)
             host, port = url.hostname, url.port
@@ -39,7 +45,11 @@ class ForgejoRest:
         ):
             raise ProviderError("invalid_config", f"{URL_ENV} must be a Forgejo HTTPS base URL")
         if not token:
-            raise ProviderError("forgejo_not_logged_in", f"set {TOKEN_ENV} to a Forgejo token")
+            raise ProviderError(
+                NOT_CONFIGURED, f"{TOKEN_ENV} is unset (process environment or $GIRO_HOME/env)"
+            )
+        if not token.isascii() or not token.isprintable() or any(char.isspace() for char in token):
+            raise ProviderError("invalid_config", f"{TOKEN_ENV} must be a Forgejo access token")
         self.host = host
         self.port = port or 443
         self.prefix = url.path.rstrip("/")

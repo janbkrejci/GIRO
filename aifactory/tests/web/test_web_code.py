@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from starlette.testclient import TestClient
 from web_repo import git_repo
 
+from aifactory import __version__, codeprint
 from aifactory.codeprint import CodeWatch
 from single_repo import RepoClient, repo_app
 
@@ -44,6 +46,33 @@ def test_changed_package_blocks_writes_but_not_reads(tmp_path: Path) -> None:
     assert response.json()["error"]["code"] == "stale_code"
     assert "restartuj" in response.json()["error"]["message"].lower()
     assert client.get("/api/health").status_code == 200
+
+
+def test_external_upgrade_requires_restart_even_with_same_package_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Simulate the version metadata of this Python installation and replace it in place.
+    metadata = tmp_path / "aifactory-1.0.0.dist-info"
+    metadata.mkdir()
+    installed = metadata / "METADATA"
+    installed.write_text(f"Name: aifactory\nVersion: {__version__}\n", encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    client, _ = _client(tmp_path, [])
+    assert client.get("/api/code").json()["data"]["stale"] is False
+
+    installed.write_text("Name: aifactory\nVersion: 9.0.0\n", encoding="utf-8")
+    data = client.get("/api/code").json()["data"]
+    assert data["stale"] is True
+    assert data["current"].startswith("9.0.0:")
+    blocked = client.post("/api/backlog/commit", json={})
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "stale_code"
+
+    monkeypatch.setattr(codeprint, "__version__", "9.0.0")
+    new_home = tmp_path / "restarted"
+    new_home.mkdir()
+    restarted, _ = _client(new_home, [])
+    assert restarted.get("/api/code").json()["data"]["stale"] is False
 
 
 def test_restart_answers_and_then_restarts(tmp_path: Path) -> None:

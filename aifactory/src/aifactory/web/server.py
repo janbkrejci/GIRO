@@ -22,6 +22,7 @@ import uvicorn
 from starlette.types import ASGIApp
 
 from aifactory.environment import value
+from aifactory.home import giro_process_environment
 
 HOST: Final = "127.0.0.1"
 """The default address of the dashboard."""
@@ -119,10 +120,10 @@ def exit_process() -> None:
 def restart_process() -> None:
     """Replace this process with a fresh ``factory obs``: same command line, the code on disk.
 
-    Windows has no exec: ``os.execv`` starts a second process and leaves the console to both,
+    Windows has no exec: ``os.execve`` starts a second process and leaves the console to both,
     so the new dashboard gets its own console window and this process exits.
     """
-    os.environ[RESTART_ENV] = "1"
+    env = {**giro_process_environment(), RESTART_ENV: "1"}
     sys.stdout.flush()
     sys.stderr.flush()
     if sys.platform == "win32":
@@ -130,9 +131,10 @@ def restart_process() -> None:
             restart_command(),
             creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
             close_fds=True,
+            env=env,
         )
         os._exit(0)
-    os.execv(sys.executable, restart_command())
+    os.execve(sys.executable, restart_command(), env)
 
 
 def _open_when_started(server: uvicorn.Server, url: str) -> None:

@@ -267,7 +267,7 @@ _CODES: tuple[tuple[str, str, str], ...] = (
     ("az_not_logged_in", "2", "az is not logged in"),
     ("forgejo_failed", "2", "a Forgejo REST request failed or returned an unexpected response"),
     ("forgejo_timeout", "2", "a Forgejo REST request timed out"),
-    ("forgejo_not_logged_in", "2", "set GIRO_FORGEJO_TOKEN to a Forgejo access token"),
+    ("forgejo_not_configured", "1/2", "set GIRO_FORGEJO_URL and GIRO_FORGEJO_TOKEN"),
     # Library in the home directory.
     ("library_exists", "2", "library init: the library directory already exists"),
     (
@@ -602,6 +602,8 @@ ISSUE_CODES: dict[str, tuple[str, ...]] = {
         "local_config_invalid",
         "local_port_ignored",
         "gh_missing",
+        "forgejo_not_configured",
+        "forgejo_invalid_config",
         "gh_login",
         "az_missing",
         "az_devops_missing",

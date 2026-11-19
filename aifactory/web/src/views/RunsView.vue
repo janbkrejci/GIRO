@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { runError } from '@/lib/runMessages'
+import { prErrorText, runError } from '@/lib/runMessages'
 import { t } from '@/lib/i18n'
 import { computed, ref, watch } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
@@ -346,7 +346,7 @@ async function onPublish() {
     const result = await publishRun(id)
     await loadDetail(id)
     const prError = result.pr_error
-    if (prError) errorSource.value = () => t('runs.pr_se_nepodarilo_otevrit_p0', { p0: prError })
+    if (prError) errorSource.value = () => t('runs.pr_se_nepodarilo_otevrit_p0', { p0: prErrorText(prError) })
   } catch (e) {
     retryableError.value = isDbBusy(e)
     errorSource.value = () => t('runs.pr_se_nepodarilo_otevrit_p0', { p0: runError(e) })

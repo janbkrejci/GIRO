@@ -383,7 +383,7 @@ class ProcessRunner:
                 process = subprocess.Popen(
                     argv,
                     cwd=self.repo,
-                    env=dict(os.environ),
+                    env=home.giro_process_environment(),
                     stdin=subprocess.DEVNULL,
                     stdout=out,
                     stderr=err,

@@ -38,7 +38,7 @@ from aifactory.cli.parser import SUBCOMMANDS, _UsageError, build_parser
 from aifactory.cli.task import _task
 from aifactory.cli.upgrade import _upgrade
 from aifactory.cli.workflow import _workflow
-from aifactory.home import load_env_file
+from aifactory.home import watch_env_file
 
 __all__ = ["COMMANDS", "SUBCOMMANDS", "build_parser", "main"]
 
@@ -98,14 +98,17 @@ def _main(argv: Sequence[str] | None = None) -> int:
     if argv is None:
         oscompat.utf8_stdio()
     _leave_deleted_cwd()
-    if list(sys.argv[1:] if argv is None else argv) != ["--version"] and "--help" not in (
-        sys.argv[1:] if argv is None else argv
-    ):
-        from aifactory.environment import resolve
-
-        load_env_file()
-        os.environ.update(resolve(os.environ))
     argv_list = list(sys.argv[1:] if argv is None else argv)
+    if argv_list == ["--version"] or "--help" in argv_list:
+        return _parse_and_dispatch(argv_list)
+    with watch_env_file():
+        from aifactory.environment import warn_legacy
+
+        warn_legacy(os.environ)
+        return _parse_and_dispatch(argv_list)
+
+
+def _parse_and_dispatch(argv_list: list[str]) -> int:
     want_json = "--json" in argv_list
     parser = build_parser()
     try:

@@ -66,9 +66,7 @@ class ForgejoProvider(GitProvider):
 
     @cached_property
     def _api(self) -> ForgejoRest:
-        return ForgejoRest(
-            os.environ.get(URL_ENV, "").strip(), os.environ.get(TOKEN_ENV, "").strip()
-        )
+        return ForgejoRest(os.environ.get(URL_ENV, ""), os.environ.get(TOKEN_ENV, ""))
 
     @cached_property
     def _repo(self) -> str:
@@ -208,6 +206,8 @@ class ForgejoProvider(GitProvider):
         chosen = self._strategy(strategy)
         if not head_sha.strip():
             raise MergeFailed("merge_failed", "Forgejo merge requires the expected head commit")
+        # Configuration failures retain their provider code before attempting the merge.
+        _ = self._api
         try:
             before = self.status(pr)
         except ProviderError as exc:

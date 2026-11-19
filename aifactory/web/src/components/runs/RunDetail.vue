@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { t } from '@/lib/i18n'
+import { prErrorText } from '@/lib/runMessages'
 import { computed } from 'vue'
 import { CircleStop, Pause, Play, Upload } from 'lucide-vue-next'
 import { useNow } from '@/lib/clock'
@@ -178,7 +179,7 @@ async function onStop() {
             </template>
             <span v-else class="faint">—</span>
             <span v-if="!run.pr && run.pr_error" class="auto-error" data-test="pr-error"
-              >{{ t('runs.pr_nevznikl') }} {{ run.pr_error }}</span
+              >{{ t('runs.pr_nevznikl') }} {{ prErrorText(run.pr_error) }}</span
             >
             <button
               v-if="canPublish(run)"

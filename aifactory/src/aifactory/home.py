@@ -6,14 +6,18 @@ Environment files cannot redirect the already selected home.
 
 from __future__ import annotations
 
+import io
 import os
 import stat
 import sys
-from collections.abc import Mapping, MutableMapping
+import threading
+from collections.abc import Iterator, Mapping, MutableMapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import BinaryIO, TextIO
 
-from dotenv import dotenv_values
+from dotenv.main import DotEnv
+from dotenv.variables import parse_variables
 
 from aifactory import oscompat
 
@@ -90,10 +94,120 @@ def load_env_file(
             f"factory: warning: env_file_mode: {path} has mode {mode:04o}, expected 0600",
             file=out,
         )
+    with path.open(encoding="utf-8") as stream:
+        return _load_env_stream(env, stream, stderr=stderr)
+
+
+def _load_env_stream(
+    env: MutableMapping[str, str], stream: TextIO, *, stderr: TextIO | None = None
+) -> list[str]:
     from aifactory.environment import resolve
 
     before = dict(env)
-    settings = dotenv_values(path)
+    settings: dict[str, str | None] = {}
+    scope: dict[str, str | None] = dict(before)
+    for key, raw in DotEnv(None, stream=stream).parse():
+        item = (
+            None if raw is None else "".join(part.resolve(scope) for part in parse_variables(raw))
+        )
+        settings[key] = scope[key] = item
     resolved = resolve(before, settings, stderr=stderr)
     env.update(resolved)
     return [key for key in settings if key not in before and key in resolved]
+
+
+class _EnvFileWatch:
+    def __init__(self) -> None:
+        self.path = env_file().absolute()
+        self.stamp: tuple[int, int, int, int] | None = None
+        self.loaded: dict[str, str] = {}
+        self.shadowed: dict[str, str] = {}
+        self.lock = threading.Lock()
+
+    def _stamp(self) -> tuple[int, int, int, int] | None:
+        try:
+            info = self.path.stat()
+        except FileNotFoundError:
+            return None
+        if not stat.S_ISREG(info.st_mode):
+            return None
+        return info.st_mtime_ns, info.st_size, info.st_ino, info.st_mode
+
+    def _process_environment(self) -> dict[str, str]:
+        env = dict(os.environ)
+        for key, item in self.loaded.items():
+            if env.get(key) == item:
+                if key in self.shadowed:
+                    env[key] = self.shadowed[key]
+                else:
+                    del env[key]
+        return env
+
+    def process_environment(self) -> dict[str, str]:
+        with self.lock:
+            return self._process_environment()
+
+    def reload(self, *, initial: bool = False) -> None:
+        with self.lock:
+            try:
+                stamp = self._stamp()
+            except OSError:
+                return
+            if not initial and stamp == self.stamp:
+                return
+            try:
+                before = self._process_environment()
+                after = dict(before)
+                # Keep startup diagnostics. Reload is silent and a failed read is retried.
+                if stamp is not None:
+                    if initial:
+                        load_env_file(after)
+                    else:
+                        with self.path.open(encoding="utf-8") as stream:
+                            _load_env_stream(after, stream, stderr=io.StringIO())
+                        if stamp != self._stamp() or any(
+                            not key or "=" in key or "\0" in key or "\0" in item
+                            for key, item in after.items()
+                        ):
+                            return
+            except (OSError, UnicodeError):
+                if initial:
+                    raise
+                return
+            for key in self.loaded:
+                if key in after:
+                    os.environ[key] = after[key]
+                else:
+                    os.environ.pop(key, None)
+            self.loaded = {key: item for key, item in after.items() if before.get(key) != item}
+            self.shadowed = {key: before[key] for key in self.loaded if key in before}
+            os.environ.update(self.loaded)
+            self.stamp = stamp
+
+
+_watch: _EnvFileWatch | None = None
+
+
+@contextmanager
+def watch_env_file() -> Iterator[None]:
+    """Load the env file at CLI startup and track its values for later reloads."""
+    global _watch
+    previous = _watch
+    watch = _EnvFileWatch()
+    watch.reload(initial=True)
+    _watch = watch
+    try:
+        yield
+    finally:
+        _watch = previous
+
+
+def reload_env_file() -> None:
+    if (watch := _watch) is not None:
+        watch.reload()
+
+
+def giro_process_environment() -> dict[str, str]:
+    """Environment for a new GIRO CLI process, which loads its own env file."""
+    watch = _watch
+    return dict(os.environ) if watch is None else watch.process_environment()

@@ -1,9 +1,9 @@
 """Fingerprint of the aifactory package on disk, so a long-running process notices an update.
 
 GIRO builds itself: merging a task replaces files of this package under a running dashboard.
-``CodeWatch`` takes the fingerprint when it is created and compares it with the files on disk.
-The fingerprint covers every file of the package (relative path, size and modification time,
-no contents) except ``__pycache__``.
+``CodeWatch`` compares the process version and its initial fingerprint with the installed version
+and package files. The fingerprint covers every file of the package (relative path, size and
+modification time, no contents) except ``__pycache__``.
 """
 
 from __future__ import annotations
@@ -11,7 +11,10 @@ from __future__ import annotations
 import hashlib
 import stat
 import time
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+
+from aifactory import __version__
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 
@@ -34,22 +37,26 @@ def fingerprint(root: Path = PACKAGE_DIR) -> str:
 
 
 class CodeWatch:
-    """The fingerprint of ``root`` when the watch started, compared with the disk on demand.
+    """The running version and fingerprint of ``root``, compared with the disk on demand.
 
-    ``current()`` reads the files at most once per ``ttl`` seconds.
+    ``current()`` checks the installed version and files at most once per ``ttl`` seconds.
     """
 
     def __init__(self, root: Path = PACKAGE_DIR, *, ttl: float = 2.0) -> None:
         self.root = root
         self.ttl = ttl
-        self.started = fingerprint(root)
+        self.started = f"{__version__}:{fingerprint(root)}"
         self._current = self.started
         self._checked = time.monotonic()
 
     def current(self) -> str:
         now = time.monotonic()
         if now - self._checked >= self.ttl:
-            self._current = fingerprint(self.root)
+            try:
+                installed = version("aifactory")
+            except PackageNotFoundError:
+                installed = __version__
+            self._current = f"{installed}:{fingerprint(self.root)}"
             self._checked = now
         return self._current
 

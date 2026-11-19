@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -22,7 +23,13 @@ from aifactory.environment import (
     resolve,
     value,
 )
-from aifactory.home import giro_home, load_env_file
+from aifactory.home import (
+    giro_home,
+    giro_process_environment,
+    load_env_file,
+    reload_env_file,
+    watch_env_file,
+)
 from aifactory.web.server import APP_NAME
 
 
@@ -88,6 +95,39 @@ def test_env_file_keeps_shell_origin_and_cannot_redirect_home(tmp_path: Path) ->
     assert env["GIRO_HOME"] == str(selected)
     assert env["GIRO_LIBRARY"] == "shell"
     assert giro_home(env) == selected
+
+
+def test_env_reload_replaces_and_removes_file_values_but_preserves_shell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("GIRO_HOME", str(tmp_path))
+    monkeypatch.setenv("GIRO_GH", "shell-gh")
+    monkeypatch.setenv("GIRO_AZ", "shell-az")
+    monkeypatch.delenv("GIRO_AZ")
+    path = tmp_path / "env"
+    path.write_text("GIRO_GH=file-gh\nGIRO_AZ=first\n", encoding="utf-8")
+    path.chmod(0o600)
+    with watch_env_file():
+        assert os.environ["GIRO_AZ"] == "first"
+        child = giro_process_environment()
+        assert child["GIRO_GH"] == "shell-gh"
+        assert "GIRO_AZ" not in child
+
+        path.write_text("GIRO_GH=updated-gh\nGIRO_AZ=${GIRO_GH}/second\n", encoding="utf-8")
+        reload_env_file()
+        assert os.environ["GIRO_GH"] == "shell-gh"
+        assert os.environ["GIRO_AZ"] == "updated-gh/second"
+
+        old_stamp = path.stat()
+        path.write_bytes(b"\xff")
+        reload_env_file()
+        assert os.environ["GIRO_AZ"] == "updated-gh/second"
+        assert path.stat().st_size != old_stamp.st_size
+        path.unlink()
+        reload_env_file()
+        assert "GIRO_AZ" not in os.environ
+        assert os.environ["GIRO_GH"] == "shell-gh"
+    assert capsys.readouterr().err == ""
 
 
 def test_worker_environment_overrides_the_run_id(monkeypatch: pytest.MonkeyPatch) -> None:

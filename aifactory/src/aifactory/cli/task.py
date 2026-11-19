@@ -796,8 +796,16 @@ def _emit_runs(
     from aifactory.runstore.rows import SUCCEEDED
 
     if failed.run.state == SUCCEEDED and failed.pr_error is not None:
+        from aifactory.review.publish import publish_error_code
+
         # the run itself succeeded; only the push or the pull request failed
-        return emit_fail("pr_failed", failed.pr_error, exit_code=1, data=data, warnings=warnings)
+        return emit_fail(
+            publish_error_code(failed.pr_error),
+            failed.pr_error,
+            exit_code=1,
+            data=data,
+            warnings=warnings,
+        )
     message = failed.run.error or f"run {failed.run.run_id} {failed.run.state}"
     return emit_fail(
         "run_failed", message, exit_code=1, data=data, id=failed.run.task_id, warnings=warnings
@@ -1063,6 +1071,7 @@ def _task_approve(args: argparse.Namespace, root: Path) -> int:
 
 def _task_publish(args: argparse.Namespace, root: Path) -> int:
     from aifactory.review import publish_task
+    from aifactory.review.publish import publish_error_code
 
     with contextlib.redirect_stdout(sys.stderr) if args.json else contextlib.nullcontext():
         result = publish_task(root, args.task_id)
@@ -1072,7 +1081,9 @@ def _task_publish(args: argparse.Namespace, root: Path) -> int:
     if args.json:
         data = result.to_json()
         if result.pr_error is not None:
-            return emit_fail("pr_failed", result.pr_error, exit_code=1, data=data)
+            return emit_fail(
+                publish_error_code(result.pr_error), result.pr_error, exit_code=1, data=data
+            )
         return emit_ok(data)
     row = result.run
     if result.pr_error is not None:

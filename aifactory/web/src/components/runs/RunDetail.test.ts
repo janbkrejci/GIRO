@@ -215,6 +215,22 @@ describe('RunDetail', () => {
     expect(busy.get('[data-test="publish-run"]').attributes('disabled')).toBeDefined()
   })
 
+  it('translates missing Forgejo configuration in the current locale', async () => {
+    setLocale('en')
+    const wrapper = mount(RunDetail, {
+      props: { detail: detail({
+        pr: null,
+        pr_error: 'forgejo_not_configured: GIRO_FORGEJO_URL is unset (process environment or $GIRO_HOME/env)',
+      }), events: [] },
+    })
+    const message = wrapper.get('[data-test="pr-error"]')
+    expect(message.text()).toContain('GIRO_FORGEJO_URL is unset')
+    setLocale('cs')
+    await nextTick()
+    expect(message.text()).toContain('GIRO_FORGEJO_URL není nastavená')
+    expect(message.text()).toContain('$GIRO_HOME/env')
+  })
+
   it('offers no Publish for a run with a PR or one that did not succeed', () => {
     const withPr = mount(RunDetail, { props: { detail: detail(), events: [] } })
     expect(withPr.find('[data-test="publish-run"]').exists()).toBe(false)

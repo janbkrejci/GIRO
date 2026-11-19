@@ -323,7 +323,7 @@ class RunLauncher:
                 process = subprocess.Popen(
                     argv,
                     cwd=repo,
-                    env=dict(os.environ),
+                    env=home.giro_process_environment(),
                     stdin=subprocess.DEVNULL,
                     stdout=out,
                     stderr=err,
