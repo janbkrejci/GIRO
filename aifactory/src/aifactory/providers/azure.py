@@ -9,8 +9,9 @@ Configuration lives in ``.factory/config.yaml``::
       repository: fabrikam-app
 
 PR status/list and CI reads use pooled HTTPS on Azure DevOps Services when the
-current credentials are available. Writes and unsupported network/auth configurations
-retain the CLI. No PR or CI results are cached. See ``azure_rest``.
+current credentials are available. Writes use the same transport, with read-back
+after uncertain outcomes; unsupported network/auth configurations retain the CLI.
+No PR or CI results are cached. See ``azure_rest``.
 
 Every ``az`` call goes through ``AzCli.run``. The executable is ``az`` found on
 ``PATH`` (or ``$GIRO_AZ``); tests put a fake one first on ``PATH``. Every call
@@ -73,9 +74,11 @@ import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
+from uuid import uuid4
 
 from aifactory.config.settings import AzureSettings, ProjectSettings
 from aifactory.environment import canonical, value
@@ -532,18 +535,7 @@ class AzureProvider(GitProvider):
         collection: bool = False,
         limit: int | None = None,
     ) -> Any:
-        # Injected/custom CLI clients and unsupported network configurations keep
-        # their existing transport. Never substitute a different authentication source.
-        if (
-            not self._shared_preflight
-            or value("AZ")
-            or not azure_rest.supported(self.azure.organization_url)
-        ):
-            return azure_rest.UNAVAILABLE
-        config = Path(os.environ.get("AZURE_CONFIG_DIR") or Path.home() / ".azure")
-        if not os.environ.get(PAT_ENV) and (config / "azuredevops/personalAccessTokens").exists():
-            return azure_rest.UNAVAILABLE
-        key = self._preflight_key()
+        key = self._rest_key()
         if key is None:
             return azure_rest.UNAVAILABLE
         project = quote(self.azure.project, safe="")
@@ -551,11 +543,141 @@ class AzureProvider(GitProvider):
             key,
             self.azure.organization_url,
             self.az,
-            f"/{project}/_apis/{suffix}",
+            suffix if suffix.startswith("/") else f"/{project}/_apis/{suffix}",
             params,
             collection=collection,
             limit=limit,
         )
+
+    @staticmethod
+    def _uncertain(exc: ProviderError, cli: bool) -> bool:
+        if not cli:
+            return isinstance(exc, azure_rest.WriteUncertain)
+        if exc.code == "az_timeout":
+            return True
+        if exc.code != "az_failed":
+            return False
+        if isinstance(exc, AzError):
+            # Explicit server rejections must not be hidden by an already matching state.
+            detail = exc.stderr.lower()
+            return any(
+                word in detail
+                for word in (
+                    "timeout",
+                    "timed out",
+                    "connection",
+                    "reset",
+                    "aborted",
+                    "eof",
+                    "remote end closed",
+                    "response ended",
+                    "invalid json",
+                )
+            ) and not any(
+                word in detail
+                for word in (
+                    "401",
+                    "403",
+                    "forbidden",
+                    "unauthorized",
+                    "permission",
+                    "tf401",
+                )
+            )
+        return True  # e.g. truncated/non-JSON CLI output after a successful exit
+
+    def _rest_key(self) -> str | None:
+        # Injected/custom CLI clients and unsupported network configurations keep
+        # their existing transport. Never substitute a different authentication source.
+        if (
+            not self._shared_preflight
+            or value("AZ")
+            or not azure_rest.supported(self.azure.organization_url)
+        ):
+            return None
+        config = Path(os.environ.get("AZURE_CONFIG_DIR") or Path.home() / ".azure")
+        if not os.environ.get(PAT_ENV) and (config / "azuredevops/personalAccessTokens").exists():
+            return None
+        return self._preflight_key()
+
+    def _write(self, suffix: str, method: str, body: dict[str, Any]) -> Any:
+        key = self._rest_key()
+        if key is None:
+            return azure_rest.UNAVAILABLE
+        project = quote(self.azure.project, safe="")
+        return azure_rest.write(
+            key,
+            self.azure.organization_url,
+            self.az,
+            f"/{project}/_apis/{suffix}",
+            method,
+            body,
+        )
+
+    def _reviewer(self, *, cli: bool = False) -> str | None:
+        data = self._read("/_apis/connectionData", {"api-version": "7.1-preview.1"})
+        if data is azure_rest.UNAVAILABLE:
+            if not cli:
+                return None
+            # connectionData is a bootstrap endpoint, absent from resourceAreas:
+            # `az devops invoke --area location` cannot address it on Services.
+            # Never substitute az account's identity for the CLI's stored PAT user.
+            raise ProviderError(
+                "az_failed", "Cannot establish CLI authenticated reviewer for read-back"
+            )
+        identity = _dict(_dict(data).get("authenticatedUser")).get("id")
+        if not isinstance(identity, str) or not identity:
+            raise ProviderError("az_failed", "Azure connectionData: missing authenticated user")
+        return identity
+
+    def _creation_candidates(self, branch: str) -> list[dict[str, Any]]:
+        data = self._read(
+            self._pr_path(),
+            {
+                "searchCriteria.status": "all",
+                "searchCriteria.sourceRefName": self._ref(branch),
+                "searchCriteria.targetRefName": self._ref(self.settings.base),
+            },
+            collection=True,
+        )
+        if data is azure_rest.UNAVAILABLE:
+            data = self.az.json(
+                "repos",
+                "pr",
+                "list",
+                *self._org(),
+                "--project",
+                self.azure.project,
+                "--repository",
+                self.azure.repository,
+                "--source-branch",
+                branch,
+                "--target-branch",
+                self.settings.base,
+                "--status",
+                "all",
+                *self._tail(),
+            )
+        if not isinstance(data, list) or any(
+            not isinstance(item, dict) or type(item.get("pullRequestId")) is not int
+            for item in data
+        ):
+            raise ProviderError("az_failed", "Azure PR list: invalid recovery snapshot")
+        return data
+
+    @staticmethod
+    def _created_since(item: dict[str, Any], started: float) -> bool:
+        try:
+            created = datetime.fromisoformat(
+                str(item.get("creationDate", "")).replace("Z", "+00:00")
+            )
+            return created.tzinfo is not None and created.timestamp() >= started
+        except ValueError:
+            return False
+
+    @staticmethod
+    def _ref(branch: str) -> str:
+        return branch if branch.startswith("refs/") else f"refs/heads/{branch}"
 
     def _pr_path(self, pr_id: str | None = None) -> str:
         path = f"git/repositories/{quote(self.azure.repository, safe='')}/pullrequests"
@@ -584,7 +706,58 @@ class AzureProvider(GitProvider):
         lines = _description_lines(body)
         if lines:
             args += ["--description", *lines]
-        data = self.az.json(*args, *self._tail())
+        started = time.time()
+        # A failed snapshot does not block an ordinary create, but cannot support recovery.
+        # A single new PR matching every requested field satisfies publication even
+        # if a concurrent request created it. Never adopt an ID from the before set.
+        # The timestamp also rejects older PRs omitted by a bounded CLI list; clock
+        # skew can conservatively prevent recovery.
+        try:
+            before = {item["pullRequestId"] for item in self._creation_candidates(branch)}
+        except ProviderError:
+            before = None
+        description = _fit(body)
+        cli_write = False
+        try:
+            data = self._write(
+                self._pr_path(),
+                "POST",
+                {
+                    "sourceRefName": self._ref(branch),
+                    "targetRefName": self._ref(self.settings.base),
+                    "title": title,
+                    "description": description,
+                },
+            )
+            if data is azure_rest.UNAVAILABLE:
+                cli_write = True
+                description = "\n".join(lines)
+                data = self.az.json(*args, *self._tail())
+            if not isinstance(data, dict) or type(data.get("pullRequestId")) is not int:
+                if not cli_write:
+                    raise azure_rest.WriteUncertain("Azure PR create: no pullRequestId in output")
+                raise ProviderError("az_failed", "az repos pr create: no pullRequestId in output")
+        except ProviderError as exc:
+            if not self._uncertain(exc, cli_write):
+                raise
+            matches: list[dict[str, Any]] = []
+            if before is not None:
+                try:
+                    matches = [
+                        item
+                        for item in self._creation_candidates(branch)
+                        if item["pullRequestId"] not in before
+                        and self._created_since(item, started)
+                        and item.get("sourceRefName") == self._ref(branch)
+                        and item.get("targetRefName") == self._ref(self.settings.base)
+                        and item.get("title") == title
+                        and (item.get("description") or "") == description
+                    ]
+                except ProviderError:
+                    pass
+            if len(matches) != 1:
+                raise
+            data = matches[0]
         if not isinstance(data, dict) or not isinstance(data.get("pullRequestId"), int):
             raise ProviderError("az_failed", "az repos pr create: no pullRequestId in output")
         pr_id = int(data["pullRequestId"])
@@ -716,28 +889,61 @@ class AzureProvider(GitProvider):
         return self._with_listed(prs, listed)
 
     def approve(self, pr: PullRequest, head_sha: str) -> bool:
-        """Vote after the final push, guarded by head checks (CLI is not atomic)."""
+        """Vote after the final push, guarded by head checks (neither vote is atomic).
+
+        An ambiguous CLI vote fails closed when its authenticated reviewer cannot
+        be established: account login may differ from the stored PAT identity.
+        """
         self._ready()
         current = self._fresh_head(pr, head_sha)
         if current.state == MERGED:
             return False  # allow existing merge recovery without claiming a new review
         self._approval_head(pr, current, head_sha)
+        reviewer = self._reviewer()
+        cli_write = False
         try:
-            self.az.run(
-                "repos",
-                "pr",
-                "set-vote",
-                "--id",
-                pr.id,
-                "--vote",
-                "approve",
-                *self._org(),
-                *self._tail(),
-            )
+            result = azure_rest.UNAVAILABLE
+            if reviewer is not None:
+                result = self._write(
+                    f"{self._pr_path(pr.id)}/reviewers/{quote(reviewer, safe='')}",
+                    "PUT",
+                    {"id": reviewer, "vote": 10},
+                )
+            if result is azure_rest.UNAVAILABLE:
+                cli_write = True
+                self.az.run(
+                    "repos",
+                    "pr",
+                    "set-vote",
+                    "--id",
+                    pr.id,
+                    "--vote",
+                    "approve",
+                    *self._org(),
+                    *self._tail(),
+                )
+            elif _dict(result).get("id") != reviewer or _dict(result).get("vote") != 10:
+                raise azure_rest.WriteUncertain("Azure approval returned an unexpected vote")
         except ProviderError as exc:
-            raise ProviderError(
-                "approve_failed", f"Azure approval vote for PR {pr.id} failed: {exc.message}"
-            ) from exc
+            if not self._uncertain(exc, cli_write):
+                raise ProviderError("approve_failed", exc.message) from exc
+            verified = False
+            try:
+                after = self._show(pr)
+                self._approval_head(pr, self._parse(after), head_sha)
+                reviewer = reviewer or self._reviewer(cli=True)
+                verified = any(
+                    _dict(item).get("id") == reviewer
+                    and _dict(item).get("vote") == 10
+                    and not _dict(item).get("isContainer")
+                    for item in after.get("reviewers", [])
+                )
+            except ProviderError:
+                pass
+            if not verified:
+                raise ProviderError(
+                    "approve_failed", f"Azure approval vote for PR {pr.id} failed: {exc.message}"
+                ) from exc
         self._approval_head(pr, self._status_once(pr), head_sha)
         return True
 
@@ -933,13 +1139,15 @@ class AzureProvider(GitProvider):
     ) -> str | None:
         """Complete `pr` if its head is still `head_sha`.
 
-        ``az repos pr update`` has no equivalent of ``--match-head-commit``; the
-        head is compared with ``lastMergeSourceCommit`` just before completing, so
-        a push between that check and the update is not caught.
+        REST completion sends the expected source commit atomically. The CLI has
+        no match-head option, so its pre-check is paired with a completion head check;
+        a concurrent push can only be detected after that CLI request.
         """
         chosen = self._strategy(strategy)
         current = self.status(pr)
         if current.state == MERGED:
+            if current.head_sha != head_sha:
+                raise MergeFailed("merge_failed", f"PR {pr.id} completed at a different head")
             return current.merge_sha
         if current.state == CLOSED:
             raise MergeFailed("merge_failed", f"PR {pr.id} is abandoned")
@@ -947,42 +1155,68 @@ class AzureProvider(GitProvider):
             raise MergeFailed("conflict", f"PR {pr.id} has conflicts with {pr.base}")
         if current.head_sha != head_sha:
             raise MergeFailed("merge_failed", f"PR {pr.id} moved: {current.head_sha} != {head_sha}")
+        cli_write = False
         try:
-            resp = self.az.json(
-                "repos",
-                "pr",
-                "update",
-                "--id",
-                pr.id,
-                *self._org(),
-                "--status",
-                "completed",
-                "--squash",
-                "true" if chosen == "squash" else "false",
-                "--merge-commit-message",
-                subject,
-                "--delete-source-branch",
-                "false",
-                *self._tail(),
+            resp = self._write(
+                self._pr_path(pr.id),
+                "PATCH",
+                {
+                    "status": "completed",
+                    "lastMergeSourceCommit": {"commitId": head_sha},
+                    "completionOptions": {
+                        "mergeStrategy": "squash" if chosen == "squash" else "noFastForward",
+                        "mergeCommitMessage": subject,
+                        "deleteSourceBranch": False,
+                        "bypassPolicy": False,
+                    },
+                },
             )
-        except AzError as exc:
+            if resp is azure_rest.UNAVAILABLE:
+                cli_write = True
+                resp = self.az.json(
+                    "repos",
+                    "pr",
+                    "update",
+                    "--id",
+                    pr.id,
+                    *self._org(),
+                    "--status",
+                    "completed",
+                    "--squash",
+                    "true" if chosen == "squash" else "false",
+                    "--merge-commit-message",
+                    subject,
+                    "--delete-source-branch",
+                    "false",
+                    *self._tail(),
+                )
+        except ProviderError as exc:
             if exc.code == "az_not_logged_in":
                 raise
-            detail = exc.stderr.strip() or exc.message
+            if not self._uncertain(exc, cli_write):
+                # Read conflict state for the established diagnostic, never success.
+                try:
+                    conflict = self._status_once(pr).mergeability == CONFLICT
+                except ProviderError:
+                    conflict = False
+                raise MergeFailed("conflict" if conflict else "merge_failed", exc.message) from exc
             try:
-                after: PrStatus | None = self._status_once(pr)
-            except ProviderError:
-                after = None
-            if after is not None and after.state == OPEN and after.mergeability == CONFLICT:
-                raise MergeFailed("conflict", f"PR {pr.id} has conflicts: {detail}") from exc
-            raise MergeFailed("merge_failed", detail) from exc
+                return self._await_completion(pr, head_sha)
+            except ProviderError as recovery:
+                if recovery.code == "conflict":
+                    raise recovery from exc
+                raise MergeFailed("merge_failed", exc.message) from exc
         if isinstance(resp, dict) and str(resp.get("status", "")).lower() == "completed":
+            if _commit(resp, "lastMergeSourceCommit") != head_sha:
+                raise MergeFailed("merge_failed", f"PR {pr.id} completed at a different head")
             return _commit(resp, "lastMergeCommit")
-        return self._await_completion(pr)
+        return self._await_completion(pr, head_sha)
 
-    def _await_completion(self, pr: PullRequest) -> str | None:
+    def _await_completion(self, pr: PullRequest, head_sha: str | None = None) -> str | None:
         for attempt in range(1, self.attempts + 1):
             status = self._status_once(pr)
+            if head_sha is not None and status.head_sha != head_sha:
+                raise MergeFailed("merge_failed", f"PR {pr.id} moved during completion")
             if status.state == MERGED:
                 return status.merge_sha
             if status.state == CLOSED:
@@ -999,14 +1233,90 @@ class AzureProvider(GitProvider):
         lines = _description_lines(body)
         if lines:
             args += ["--description", *lines]
-        self.az.json(*args, *self._tail())
+        description = _fit(body)
+        cli_write = False
+        try:
+            result = self._write(self._pr_path(pr.id), "PATCH", {"description": description})
+            if result is azure_rest.UNAVAILABLE:
+                cli_write = True
+                description = "\n".join(lines)
+                if not lines:
+                    args += ["--description", ""]
+                self.az.json(*args, *self._tail())
+        except ProviderError as exc:
+            if not self._uncertain(exc, cli_write):
+                raise
+            try:
+                verified = self._show(pr).get("description") == description
+            except ProviderError:
+                verified = False
+            if not verified:
+                raise
 
     def comment(self, pr: PullRequest, body: str) -> None:
         self._ready()
+        marker = uuid4().hex
         payload = {
+            "properties": {"GIRO.OperationId": {"$type": "System.String", "$value": marker}},
             "comments": [{"parentCommentId": 0, "content": body, "commentType": 1}],
             "status": 1,
         }
+        cli_write = False
+        try:
+            result = self._write(f"{self._pr_path(pr.id)}/threads", "POST", payload)
+            if result is azure_rest.UNAVAILABLE:
+                cli_write = True
+                self._comment_cli(pr, payload)
+            elif type(_dict(result).get("id")) is not int:
+                raise azure_rest.WriteUncertain("Azure comment returned no thread id")
+        except ProviderError as exc:
+            if not self._uncertain(exc, cli_write):
+                raise
+            verified = False
+            try:
+                threads = self._read(f"{self._pr_path(pr.id)}/threads", collection=True)
+                if threads is azure_rest.UNAVAILABLE:
+                    threads = self.az.json(
+                        "devops",
+                        "invoke",
+                        "--area",
+                        "git",
+                        "--resource",
+                        "pullRequestThreads",
+                        "--route-parameters",
+                        f"project={self.azure.project}",
+                        f"repositoryId={self.azure.repository}",
+                        f"pullRequestId={pr.id}",
+                        "--http-method",
+                        "GET",
+                        "--api-version",
+                        API_VERSION,
+                        *self._org(),
+                        "--output",
+                        "json",
+                        "--only-show-errors",
+                    )
+                    if isinstance(threads, dict):
+                        threads = threads.get("value")
+                for item in threads if isinstance(threads, list) else []:
+                    thread = _dict(item)
+                    prop = _dict(thread.get("properties")).get("GIRO.OperationId")
+                    if isinstance(prop, dict):
+                        prop = prop.get("$value")
+                    if prop == marker and not thread.get("isDeleted"):
+                        verified = any(
+                            _dict(comment).get("content") == body
+                            and not _dict(comment).get("isDeleted")
+                            for comment in thread.get("comments", [])
+                        )
+                        if verified:
+                            break
+            except ProviderError:
+                pass
+            if not verified:
+                raise
+
+    def _comment_cli(self, pr: PullRequest, payload: dict[str, Any]) -> None:
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, encoding="utf-8"
         ) as handle:

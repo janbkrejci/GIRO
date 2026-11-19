@@ -339,6 +339,8 @@ def test_head_change_after_vote_does_not_repeat_write(
         return ""
 
     monkeypatch.setattr(p.az, "run", write)
+    # Exercise a CLI vote while the surrounding fresh status checks use REST.
+    monkeypatch.setattr(p, "_reviewer", lambda **kwargs: None)
     wire.responses = [Response(pr_data("a")), Response(pr_data("b"))]
     with pytest.raises(ProviderError, match="head changed"):
         p.approve(PR, "a")
