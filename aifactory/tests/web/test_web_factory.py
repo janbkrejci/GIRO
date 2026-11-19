@@ -208,6 +208,15 @@ def test_install_plan_has_no_test_command(api: Api) -> None:
     assert code_of(bad) == "usage_error"
 
 
+def test_install_plan_with_forgejo(api: Api) -> None:
+    plan = api.post("a", "factory/plan", {"action": "init", "options": {"provider": "forgejo"}})[
+        "data"
+    ]
+    assert plan["provider"] == "forgejo"
+    config = next(file["content"] for file in plan["files"] if file["path"] == CONFIG)
+    assert "git_provider: forgejo" in config
+
+
 def test_rejected_push_then_pr_with_same_digest(api: Api, tmp_path: Path) -> None:
     a = tmp_path / "a"
     bare = bare_of(tmp_path, "a")

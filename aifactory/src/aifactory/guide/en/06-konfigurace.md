@@ -9,7 +9,7 @@ Configuration lives in the repository's `.factory/`: `config.yaml`, `agents.yaml
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `base`, `remote` | `main`, `origin` | Target branch and remote. |
-| `git_provider` | `local` | `local`, `github` (`gh`), `azure` (`az`, `azure` section). |
+| `git_provider` | `local` | `local`, `github` (`gh`), `azure` (`az`, `azure` section), `forgejo` (REST). |
 | `merge_strategy` | `squash` | `squash` or `merge`. |
 | `github_approver` | — | Another `gh` account that submits an approval review. |
 | `base_changes` | `direct` | `pr`: giro sends every base change as a pull request. |

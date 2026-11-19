@@ -22,6 +22,7 @@ from aifactory.config.source import LOCAL_FILE
 from aifactory.harness.fallback import Fallback
 
 CONFIG_FILE = ".factory/config.yaml"
+HostingProvider = Literal["local", "github", "azure", "forgejo"]
 # keys that belong to local.yaml; named explicitly when they show up in config.yaml
 LOCAL_KEYS = ("trace_db", "database_url")
 # warning code: an old local.yaml still sets the dashboard port (D22)
@@ -209,9 +210,9 @@ class ProjectSettings(BaseModel):
     remote: str = Field(
         default="origin", description="Git remote used for publishing and synchronizing base."
     )
-    git_provider: Literal["local", "github", "azure"] = Field(
+    git_provider: HostingProvider = Field(
         default="local",
-        description="Hosting provider: local (no PR hosting), github (gh), or azure (az).",
+        description="Hosting provider: local, github (gh), azure (az), or forgejo (REST).",
     )
     merge_strategy: Literal["squash", "merge"] = Field(
         default="squash", description="Strategy for merging approved task pull requests."

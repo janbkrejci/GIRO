@@ -614,8 +614,10 @@ one commit, after the user has seen the plan.
      branch), `provider` (`github`, `azure` with `azure.organization`, `project` and
      `repository`, or `local`) and `harnesses` (`installed` and `path` per harness CLI).
    Options:
-   - `--base BRANCH` and `--provider local|github|azure`. Azure takes `--azure-org`,
+   - `--base BRANCH` and `--provider local|github|azure|forgejo`. Azure takes `--azure-org`,
      `--azure-project` and `--azure-repo`, each falling back to the remote URL.
+     Forgejo uses the configured Git remote and the operator's `GIRO_FORGEJO_URL`
+     and `GIRO_FORGEJO_TOKEN` environment variables.
    - `--docs-root DIR` (default `factory`). `$specs_dir/` and `$docs_dir/` in `writes`
      become `<docs_root>/specs/` and `<docs_root>/docs/`.
    - `--pr` plans a pull request; the direct-only blockers then do not apply.

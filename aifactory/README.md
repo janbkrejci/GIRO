@@ -67,6 +67,25 @@ Měření na Windows / NEO_HEF: čtyři čtení stejného PR přes CLI trvala 1,
 První REST čtení se získáním tokenu trvalo 1,43 s, další 0,15–0,19 s bez procesu
 `az`. Jde o malý vzorek čtení metadat, nikoli o zrychlení celého tasku.
 
+## Forgejo
+
+V existujícím repozitáři nastav v `.factory/config.yaml` hodnotu
+`git_provider: forgejo` a commitni ji do base. Pro nový repozitář použij
+`giro init --provider forgejo` nebo vyber Forgejo v dashboardu. Git remote
+(výchozí `origin`) musí mířit na Forgejo přes HTTPS nebo SSH.
+
+V prostředí GIRO nebo v souboru `$GIRO_HOME/env` nastav:
+
+```dotenv
+GIRO_FORGEJO_URL=https://git.tailorservices.com
+GIRO_FORGEJO_TOKEN=<token>
+```
+
+Token potřebuje oprávnění `write:repository` a `read:user`. GIRO přidává
+komentáře jako recenze typu COMMENT. Git push používá přihlašovací údaje
+Gitu pro daný remote. Stav CI se čte z commit statusů na HEAD pull requestu
+a logy neúspěšných jobů z REST API Forgejo 17 Actions.
+
 ## Licence
 
 GIRO je pod licencí MIT. Licence převzatých částí jsou v `THIRD_PARTY_NOTICES`.

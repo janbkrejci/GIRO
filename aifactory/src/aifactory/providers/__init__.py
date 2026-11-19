@@ -1,4 +1,4 @@
-"""Git hosting providers: ``local`` (a branch is the PR), ``github`` (``gh``), ``azure`` (``az``).
+"""Git hosting providers: local, GitHub, Azure DevOps and Forgejo.
 
 The provider is chosen by ``git_provider`` in ``.factory/config.yaml``.
 """
@@ -72,4 +72,8 @@ def get_provider(settings: ProjectSettings, root: Path) -> GitProvider:
         from aifactory.providers.azure import AzureProvider
 
         return AzureProvider(root, settings)
+    if settings.git_provider == "forgejo":
+        from aifactory.providers.forgejo import ForgejoProvider
+
+        return ForgejoProvider(root, settings)
     raise ProviderError("invalid_config", f"unknown git_provider {settings.git_provider!r}")
