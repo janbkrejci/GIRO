@@ -70,7 +70,7 @@ def _provider(
     return AzureProvider(
         tmp_path,
         ProjectSettings.model_validate({"git_provider": "azure", "azure": AZURE, **settings}),
-        az,
+        az or AzCli(tmp_path),
         attempts=attempts,
         delay=DELAY,
         sleep=sleeps.append,

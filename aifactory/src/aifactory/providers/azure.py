@@ -8,6 +8,10 @@ Configuration lives in ``.factory/config.yaml``::
       project: Fabrikam
       repository: fabrikam-app
 
+PR status/list and CI reads use pooled HTTPS on Azure DevOps Services when the
+current credentials are available. Writes and unsupported network/auth configurations
+retain the CLI. No PR or CI results are cached. See ``azure_rest``.
+
 Every ``az`` call goes through ``AzCli.run``. The executable is ``az`` found on
 ``PATH`` (or ``$GIRO_AZ``); tests put a fake one first on ``PATH``. Every call
 passes ``--output json --only-show-errors``; ``az repos`` calls also pass
@@ -75,6 +79,7 @@ from urllib.parse import quote
 
 from aifactory.config.settings import AzureSettings, ProjectSettings
 from aifactory.environment import canonical, value
+from aifactory.providers import azure_rest
 from aifactory.providers.base import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -519,6 +524,43 @@ class AzureProvider(GitProvider):
         repo = quote(self.azure.repository, safe="")
         return f"{self.azure.organization_url}/{project}/_git/{repo}/pullrequest/{pr_id}"
 
+    def _read(
+        self,
+        suffix: str,
+        params: dict[str, str] | None = None,
+        *,
+        collection: bool = False,
+        limit: int | None = None,
+    ) -> Any:
+        # Injected/custom CLI clients and unsupported network configurations keep
+        # their existing transport. Never substitute a different authentication source.
+        if (
+            not self._shared_preflight
+            or value("AZ")
+            or not azure_rest.supported(self.azure.organization_url)
+        ):
+            return azure_rest.UNAVAILABLE
+        config = Path(os.environ.get("AZURE_CONFIG_DIR") or Path.home() / ".azure")
+        if not os.environ.get(PAT_ENV) and (config / "azuredevops/personalAccessTokens").exists():
+            return azure_rest.UNAVAILABLE
+        key = self._preflight_key()
+        if key is None:
+            return azure_rest.UNAVAILABLE
+        project = quote(self.azure.project, safe="")
+        return azure_rest.read(
+            key,
+            self.azure.organization_url,
+            self.az,
+            f"/{project}/_apis/{suffix}",
+            params,
+            collection=collection,
+            limit=limit,
+        )
+
+    def _pr_path(self, pr_id: str | None = None) -> str:
+        path = f"git/repositories/{quote(self.azure.repository, safe='')}/pullrequests"
+        return path if pr_id is None else f"{path}/{quote(pr_id, safe='')}"
+
     # -- operations ---------------------------------------------------------
 
     def create_pr(self, branch: str, title: str, body: str) -> PullRequest:
@@ -557,23 +599,35 @@ class AzureProvider(GitProvider):
     def find_open_pr(self, branch: str) -> PullRequest | None:
         """Find the active PR for this source branch and configured target."""
         self._ready()
-        data = self.az.json(
-            "repos",
-            "pr",
-            "list",
-            *self._org(),
-            "--project",
-            self.azure.project,
-            "--repository",
-            self.azure.repository,
-            "--source-branch",
-            branch,
-            "--target-branch",
-            self.settings.base,
-            "--status",
-            "active",
-            *self._tail(),
+        data = self._read(
+            self._pr_path(),
+            {
+                "searchCriteria.status": "active",
+                "searchCriteria.sourceRefName": f"refs/heads/{branch.removeprefix('refs/heads/')}",
+                "searchCriteria.targetRefName": f"refs/heads/{self.settings.base}",
+                "$top": "1",
+            },
+            collection=True,
+            limit=1,
         )
+        if data is azure_rest.UNAVAILABLE:
+            data = self.az.json(
+                "repos",
+                "pr",
+                "list",
+                *self._org(),
+                "--project",
+                self.azure.project,
+                "--repository",
+                self.azure.repository,
+                "--source-branch",
+                branch,
+                "--target-branch",
+                self.settings.base,
+                "--status",
+                "active",
+                *self._tail(),
+            )
         if not isinstance(data, list):
             raise ProviderError("az_failed", "az repos pr list: expected a JSON array")
         for item in data:
@@ -590,7 +644,9 @@ class AzureProvider(GitProvider):
         return None
 
     def _show(self, pr: PullRequest) -> dict[str, Any]:
-        data = self.az.json("repos", "pr", "show", "--id", pr.id, *self._org(), *self._tail())
+        data = self._read(self._pr_path(pr.id))
+        if data is azure_rest.UNAVAILABLE:
+            data = self.az.json("repos", "pr", "show", "--id", pr.id, *self._org(), *self._tail())
         if not isinstance(data, dict):
             raise ProviderError("az_failed", "az repos pr show: expected a JSON object")
         return data
@@ -640,11 +696,18 @@ class AzureProvider(GitProvider):
         listed: dict[str, PrStatus] = {}
         try:
             self._ready()
-            data = self.az.json(
-                "repos", "pr", "list", *self._org(),
-                "--project", self.azure.project, "--repository", self.azure.repository,
-                "--status", "all", "--top", str(LIST_LIMIT), *self._tail(),
-            )  # fmt: skip
+            data = self._read(
+                self._pr_path(),
+                {"searchCriteria.status": "all", "$top": str(LIST_LIMIT)},
+                collection=True,
+                limit=LIST_LIMIT,
+            )
+            if data is azure_rest.UNAVAILABLE:
+                data = self.az.json(
+                    "repos", "pr", "list", *self._org(),
+                    "--project", self.azure.project, "--repository", self.azure.repository,
+                    "--status", "all", "--top", str(LIST_LIMIT), *self._tail(),
+                )  # fmt: skip
         except ProviderError:
             data = []
         for item in data if isinstance(data, list) else []:
@@ -706,36 +769,65 @@ class AzureProvider(GitProvider):
     def _ci_checks(self, pr: PullRequest) -> list[_Check]:
         """The PR's CI checks: build and status policies, else the branch's pipeline runs."""
         self._ready()
-        data = self.az.json(
-            "repos", "pr", "policy", "list", "--id", pr.id, *self._org(), *self._tail()
-        )
+        snapshot = self._read(self._pr_path(pr.id))
+        data: Any = azure_rest.UNAVAILABLE
+        if snapshot is not azure_rest.UNAVAILABLE:
+            project = _dict(_dict(_dict(snapshot).get("repository")).get("project")).get("id")
+            if not isinstance(project, str) or not project:
+                raise ProviderError("az_failed", "Azure PR read: missing project id")
+            data = self._read(
+                "policy/evaluations",
+                {
+                    "artifactId": f"vstfs:///CodeReview/CodeReviewId/{project}/{pr.id}",
+                    "api-version": "7.1-preview.1",
+                },
+                collection=True,
+            )
+        if data is azure_rest.UNAVAILABLE:
+            data = self.az.json(
+                "repos", "pr", "policy", "list", "--id", pr.id, *self._org(), *self._tail()
+            )
         if not isinstance(data, list):
             raise ProviderError("az_failed", "az repos pr policy list: expected a JSON array")
         policies = [check for item in data if (check := _policy_check(_dict(item))) is not None]
         if policies:
             return _unique(policies)
-        return _unique(self._run_checks(pr))
+        return _unique(self._run_checks(pr, snapshot))
 
-    def _run_checks(self, pr: PullRequest) -> list[_Check]:
+    def _run_checks(self, pr: PullRequest, snapshot: Any = azure_rest.UNAVAILABLE) -> list[_Check]:
         """The latest pipeline run of each pipeline at the PR's head commit."""
-        head = _commit(self._show(pr), "lastMergeSourceCommit")
+        head = _commit(
+            self._show(pr) if snapshot is azure_rest.UNAVAILABLE else _dict(snapshot),
+            "lastMergeSourceCommit",
+        )
         if head is None:
             return []
-        data = self.az.json(
-            "pipelines",
-            "runs",
-            "list",
-            "--branch",
-            f"refs/heads/{pr.branch}",
-            "--project",
-            self.azure.project,
-            "--top",
-            str(_RUNS_TOP),
-            "--query-order",
-            "QueueTimeDesc",
-            *self._org(),
-            *self._tail(),
+        data = self._read(
+            "build/builds",
+            {
+                "branchName": f"refs/heads/{pr.branch}",
+                "$top": str(_RUNS_TOP),
+                "queryOrder": "queueTimeDescending",
+            },
+            collection=True,
+            limit=_RUNS_TOP,
         )
+        if data is azure_rest.UNAVAILABLE:
+            data = self.az.json(
+                "pipelines",
+                "runs",
+                "list",
+                "--branch",
+                f"refs/heads/{pr.branch}",
+                "--project",
+                self.azure.project,
+                "--top",
+                str(_RUNS_TOP),
+                "--query-order",
+                "QueueTimeDesc",
+                *self._org(),
+                *self._tail(),
+            )
         if not isinstance(data, list):
             raise ProviderError("az_failed", "az pipelines runs list: expected a JSON array")
         latest: dict[object, _Check] = {}

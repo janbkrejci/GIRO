@@ -26,15 +26,25 @@ def project_workdir(settings: ProjectSettings) -> str:
 
 def validate_base_dirs(root: Path, commit: str, paths: tuple[str, ...], workdir: str) -> None:
     """Reject symlink directories and missing cwd in the exact tree a run will use."""
+    # Shared ancestors and the cwd used to spawn the same git process repeatedly.
+    # Scope the cache to this validation of one immutable commit, never to a run
+    # or repository whose base can move.
+    entries: dict[str, str] = {}
+
+    def entry_at(relative: str) -> str:
+        if relative not in entries:
+            entries[relative] = gitops.git(root, "ls-tree", commit, "--", relative).strip()
+        return entries[relative]
+
     for path in paths:
         parts = Path(path).parts
         for depth in range(1, len(parts) + 1):
             rel = Path(*parts[:depth]).as_posix()
-            entry = gitops.git(root, "ls-tree", commit, "--", rel).strip()
+            entry = entry_at(rel)
             if entry and not entry.startswith("040000 "):
                 raise TaskRunError("invalid_config", f"{rel!r} is not a directory in base")
         if path == workdir and path != ".":
-            entry = gitops.git(root, "ls-tree", commit, "--", path.rstrip("/")).strip()
+            entry = entry_at(path.rstrip("/"))
             if not entry.startswith("040000 "):
                 raise TaskRunError("invalid_config", f"workdir {path!r} is not a directory in base")
 
