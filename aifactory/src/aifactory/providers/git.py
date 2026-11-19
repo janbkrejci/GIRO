@@ -486,7 +486,12 @@ def next_numbered_branch(root: Path, remote: str, prefix: str) -> str:
     )
     names = [*local.splitlines(), *(n.removeprefix(f"{remote}/") for n in tracking.splitlines())]
     if has_remote(root, remote):
-        names += remote_branches(root, remote, prefix) or []
+        branches = remote_branches(root, remote, prefix)
+        if branches is None:
+            raise ProviderError(
+                "fetch_failed", f"cannot inspect branches on {remote}; no branch allocated"
+            )
+        names += branches
     highest = 0
     for name in names:
         suffix = name.strip().removeprefix(prefix)
