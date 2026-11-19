@@ -7,6 +7,7 @@ import re
 from collections.abc import Iterator
 from functools import cached_property
 from itertools import count
+from time import sleep
 from typing import Any
 from urllib.parse import quote, unquote, urlsplit
 
@@ -29,7 +30,7 @@ from aifactory.providers.base import (
     PullRequest,
     utc_iso,
 )
-from aifactory.providers.forgejo_rest import TOKEN_ENV, URL_ENV, ForgejoRest
+from aifactory.providers.forgejo_rest import TOKEN_ENV, URL_ENV, ForgejoHttpError, ForgejoRest
 
 _FAILED = {"error", "failure"}
 _PASSED = {"success", "warning", "skipped"}
@@ -38,6 +39,7 @@ _JOB_PATH = re.compile(
     r"(?P<repo>.+)/actions/runs/(?P<run>[1-9][0-9]{0,18})/jobs/(?P<index>[0-9]{1,19})"
 )
 _LOG_LINES = 150
+_MERGE_RETRY_DELAY = 3.0
 
 
 def _object(data: Any) -> dict[str, Any]:
@@ -215,27 +217,41 @@ class ForgejoProvider(GitProvider):
         if before.state == CLOSED or before.head_sha != head_sha:
             raise MergeFailed("merge_failed", f"PR {pr.id} is closed or its head has changed")
 
-        failure = None
-        try:
-            self._api.request(
-                "POST",
-                f"{self._pr_path(pr)}/merge",
-                body={"Do": chosen, "head_commit_id": head_sha, "MergeTitleField": subject},
-            )
-        except ProviderError as exc:
-            failure = exc
-        # Reconcile any ambiguous write without sending the merge again.
-        try:
-            after = self.status(pr)
-        except ProviderError as exc:
+        retry_allowed = True
+        while True:
+            failure = None
+            try:
+                self._api.request(
+                    "POST",
+                    f"{self._pr_path(pr)}/merge",
+                    body={"Do": chosen, "head_commit_id": head_sha, "MergeTitleField": subject},
+                )
+            except ProviderError as exc:
+                failure = exc
+            try:
+                after = self.status(pr)
+            except ProviderError as exc:
+                if failure is None:
+                    return None  # The POST succeeded. The merge SHA is unavailable.
+                raise MergeFailed("merge_failed", failure.message) from exc
+            if after.state == MERGED:
+                return after.merge_sha
             if failure is None:
-                return None  # The POST succeeded. The merge SHA is unavailable.
-            raise MergeFailed("merge_failed", failure.message) from exc
-        if after.state == MERGED:
-            return after.merge_sha
-        if failure is not None:
-            raise MergeFailed("merge_failed", failure.message) from failure
-        raise MergeFailed("merge_failed", f"Forgejo did not confirm the merge of PR {pr.id}")
+                raise MergeFailed(
+                    "merge_failed", f"Forgejo did not confirm the merge of PR {pr.id}"
+                )
+            # Forgejo can return 405 while it computes mergeability. Retry only a
+            # confirmed rejection, with the same expected head in the POST.
+            if not (
+                retry_allowed
+                and isinstance(failure, ForgejoHttpError)
+                and failure.status == 405
+                and after.state == OPEN
+                and after.head_sha == head_sha
+            ):
+                raise MergeFailed("merge_failed", failure.message) from failure
+            retry_allowed = False
+            sleep(_MERGE_RETRY_DELAY)
 
     def _commit_statuses(self, pr: PullRequest) -> Iterator[dict[str, Any]]:
         head = self.status(pr).head_sha

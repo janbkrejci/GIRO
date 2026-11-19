@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from aifactory.config.settings import ProjectSettings
-from aifactory.providers import forgejo_rest, get_provider
+from aifactory.providers import forgejo, forgejo_rest, get_provider
 from aifactory.providers.base import (
     CHECKS_FAILING,
     CHECKS_NONE,
@@ -223,6 +223,43 @@ def test_merge_rejected_after_head_moves_during_request(provider: GitProvider, w
     wire.reply(pull(head={"sha": MERGE_SHA}))
     with pytest.raises(MergeFailed, match="HTTP 409"):
         provider.merge(PR, SHA, "Title")
+    assert [c.method for c in wire.calls] == ["GET", "POST", "GET"]
+
+
+@pytest.mark.parametrize("merged", [True, False])
+def test_merge_retries_405_once(
+    provider: GitProvider, wire: Wire, monkeypatch: pytest.MonkeyPatch, merged: bool
+) -> None:
+    delays: list[float] = []
+    monkeypatch.setattr(forgejo, "sleep", delays.append)
+    wire.reply(pull())
+    wire.reply({}, 405)
+    wire.reply(pull(mergeable=False))
+    if merged:
+        wire.reply(b"")
+        wire.reply(pull(merged=True, merge_commit_sha=MERGE_SHA))
+        assert provider.merge(PR, SHA, "Title") == MERGE_SHA
+    else:
+        wire.reply({}, 405)
+        wire.reply(pull())
+        with pytest.raises(MergeFailed, match="HTTP 405"):
+            provider.merge(PR, SHA, "Title")
+    assert delays == [3.0]
+    assert [c.method for c in wire.calls] == ["GET", "POST", "GET", "POST", "GET"]
+    assert wire.calls[3].body == wire.calls[1].body
+
+
+def test_merge_does_not_retry_405_if_head_changed(
+    provider: GitProvider, wire: Wire, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    delays: list[float] = []
+    monkeypatch.setattr(forgejo, "sleep", delays.append)
+    wire.reply(pull())
+    wire.reply({}, 405)
+    wire.reply(pull(head={"sha": MERGE_SHA}))
+    with pytest.raises(MergeFailed, match="HTTP 405"):
+        provider.merge(PR, SHA, "Title")
+    assert delays == []
     assert [c.method for c in wire.calls] == ["GET", "POST", "GET"]
 
 
