@@ -1,11 +1,13 @@
 import { ApiError } from './api'
 import { errorText } from './format'
 import { t } from './i18n'
-import { runError } from './runMessages'
+import { forgejoConfigError, runError } from './runMessages'
 
 /** Translate stable API codes without interpreting provider or agent prose. */
 export function reviewError(error: unknown): string {
   if (!(error instanceof ApiError)) return errorText(error)
+  const forgejo = forgejoConfigError(error.code, error.message)
+  if (forgejo) return forgejo
   switch (error.code) {
     case 'conflict': return t('review.apiConflict')
     case 'no_pr': return t('review.apiNoPr')

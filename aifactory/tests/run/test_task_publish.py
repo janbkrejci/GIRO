@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "providers"))
 
 from gh_fake import GhLog, install_fake_gh, prepare_shared_gh, reply  # noqa: E402
 from git_fake import HTTP2, REJECTED, FakeGit, install_fake_git  # noqa: E402
+from test_providers_forgejo import BASE_URL, HOST, Wire, pull  # noqa: E402
 
 Capsys = pytest.CaptureFixture[str]
 BRANCH = f"factory/{T01}-1"
@@ -170,6 +171,68 @@ def test_rejected_push_in_task_run_is_not_retried(
     assert sleeps == []
 
 
+def test_running_dashboard_loads_new_forgejo_env_and_publishes(
+    repo: Path,
+    script: Script,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: Capsys,
+) -> None:
+    from starlette.applications import Starlette
+
+    from aifactory.home import env_file
+    from aifactory.providers.forgejo_rest import TOKEN_ENV, URL_ENV
+    from aifactory.web import server
+    from single_repo import RepoClient
+
+    github_repo(repo, tmp_path)  # bare origin on disk for git pushes
+    write(repo, ".factory/config.yaml", "base: main\ndocs_root: .\ngit_provider: forgejo\n")
+    commit_all(repo, "forgejo")
+    git(repo, "push", "-q", "origin", "main")
+    monkeypatch.setattr(pgit, "remote_url", lambda *_: f"git@{HOST}:example/Omnibus-a2ui.git")
+    monkeypatch.setenv(URL_ENV, "fixture")
+    monkeypatch.delenv(URL_ENV)
+    monkeypatch.setenv(TOKEN_ENV, "fixture-token")
+    wire = Wire(monkeypatch)
+    succeed(script)
+    rc, body = run_json(capsys, ["task", "run", T01, "--json", "--repo", str(repo)])
+    assert rc == 1, body
+    assert body["error"]["code"] == "forgejo_not_configured"
+    store = store_of(repo)
+    try:
+        run = store.for_task(T01)[0]
+    finally:
+        store.close()
+    assert run.state == "succeeded"
+    assert run.pr_error and run.pr_error.startswith(f"forgejo_not_configured: {URL_ENV}")
+    assert wire.calls == []
+
+    def serve(app: Starlette, *_: object, **__: object) -> None:
+        entry, _created = app.state.registry.add(repo.resolve())
+        app.state.test_repo = entry.id
+        client = RepoClient(app, base_url="http://127.0.0.1:4700")
+        path = env_file()
+        assert not path.exists()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{URL_ENV}={BASE_URL}\n{TOKEN_ENV}=ignored-file-token\n", encoding="utf-8")
+        path.chmod(0o600)
+
+        wire.reply([])
+        wire.reply(pull(), 201)
+        response = client.post(f"/api/runs/{run.run_id}/publish")
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert data["pr_error"] is None and data["pr"]["pr_id"] == "7"
+        assert [(call.method, call.target.split("?")[0]) for call in wire.calls] == [
+            ("GET", "/forge/api/v1/repos/example/Omnibus-a2ui/pulls"),
+            ("POST", "/forge/api/v1/repos/example/Omnibus-a2ui/pulls"),
+        ]
+
+    monkeypatch.setattr(server, "serve", serve)
+    monkeypatch.setattr(server, "check_port", lambda *_, **__: None)
+    assert run_json(capsys, ["obs", "--no-open", "--json"])[0] == 0
+
+
 def test_publish_after_pr_failed(
     repo: Path,
     script: Script,
@@ -178,6 +241,8 @@ def test_publish_after_pr_failed(
     capsys: Capsys,
     sleeps: list[float],
 ) -> None:
+    monkeypatch.delenv("GIRO_FORGEJO_URL", raising=False)
+    monkeypatch.delenv("GIRO_FORGEJO_TOKEN", raising=False)
     origin, log, _ = failed_publish_run(repo, script, tmp_path, monkeypatch)
     store = store_of(repo)
     try:

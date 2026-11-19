@@ -39,6 +39,46 @@ def test_ok(repo: Path, machine: FakeMachine, capsys: Capsys) -> None:
     assert obj["warnings"] == []
 
 
+def test_github_check_ignores_missing_forgejo_settings(
+    repo: Path,
+    tmp_path: Path,
+    machine: FakeMachine,
+    capsys: Capsys,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from factory_check_repo import GIT_IDENTITY, git
+
+    from aifactory.library.store import init_library
+
+    for key, value in GIT_IDENTITY.items():
+        monkeypatch.setenv(key, value)
+    for key in ("GIRO_FORGEJO_URL", "GIRO_FORGEJO_TOKEN"):
+        monkeypatch.delenv(key, raising=False)
+    origin = tmp_path / "origin.git"
+    git(tmp_path, "init", "--bare", "-q", "-b", "main", str(origin))
+    write(repo, ".factory/config.yaml", "base: main\ndocs_root: .\ngit_provider: github\n")
+    commit_all(repo, "github")
+    git(repo, "remote", "add", "origin", str(origin))
+    git(repo, "push", "-qu", "origin", "main")
+    library_remote = tmp_path / "library.git"
+    git(tmp_path, "init", "--bare", "-q", "-b", "main", str(library_remote))
+    init_library(remote=str(library_remote))
+
+    rc, body = run_json(capsys, ["check", "--repo", str(repo), "--json"])
+    assert rc == 0, body
+    assert body["data"]["counts"] == {"error": 0, "warning": 0, "info": 1}, body["data"]["findings"]
+    assert ("gh", "auth", "status", "--hostname", "github.com") in machine.calls
+
+    write(repo, ".factory/config.yaml", "base: main\ndocs_root: .\ngit_provider: forgejo\n")
+    commit_all(repo, "forgejo")
+    git(repo, "push", "-q")
+    rc, body = run_json(capsys, ["check", "--repo", str(repo), "--json"])
+    assert rc == 1
+    finding = next(f for f in body["data"]["findings"] if f["severity"] == "error")
+    assert finding["code"] == "forgejo_not_configured"
+    assert "GIRO_FORGEJO_URL" in finding["message"]
+
+
 def test_cwd(
     repo: Path, machine: FakeMachine, capsys: Capsys, monkeypatch: pytest.MonkeyPatch
 ) -> None:

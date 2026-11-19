@@ -311,7 +311,22 @@ def _failed(ctx: CheckContext, argv: list[str]) -> bool:
 
 def hosting(ctx: CheckContext) -> Iterator[Finding]:
     provider = ctx.settings.git_provider
-    if provider in ("local", "forgejo"):
+    if provider == "local":
+        return
+    if provider == "forgejo":
+        from aifactory.home import reload_env_file
+        from aifactory.providers.base import ProviderError
+        from aifactory.providers.forgejo_rest import NOT_CONFIGURED, TOKEN_ENV, URL_ENV, ForgejoRest
+
+        reload_env_file()
+        try:
+            ForgejoRest(ctx.machine.env(URL_ENV) or "", ctx.machine.env(TOKEN_ENV) or "")
+        except ProviderError as exc:
+            fix = "configure Forgejo in $GIRO_HOME/env"
+            if exc.code == NOT_CONFIGURED:
+                yield Finding("forgejo_not_configured", "machine", "error", exc.message, fix)
+            else:
+                yield Finding("forgejo_invalid_config", "machine", "error", exc.message, fix)
         return
     if provider == "github":
         if ctx.machine.which("gh") is None:

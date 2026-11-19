@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from aifactory.config.settings import ProjectSettings
+from aifactory.home import reload_env_file
 from aifactory.providers.base import (
     BRANCH_PREFIX,
     CHECKS_FAILING,
@@ -60,6 +61,7 @@ __all__ = [
 
 def get_provider(settings: ProjectSettings, root: Path) -> GitProvider:
     """The provider named by ``settings.git_provider``."""
+    reload_env_file()
     if settings.git_provider == "local":
         from aifactory.providers.local import LocalProvider
 

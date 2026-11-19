@@ -15,6 +15,7 @@ from pathlib import Path
 
 from aifactory.backlog import Task
 from aifactory.config.settings import ProjectSettings
+from aifactory.home import reload_env_file
 from aifactory.providers.base import OPEN, GitProvider, ProviderError, PullRequest
 from aifactory.review.prbody import pr_body, pr_title
 from aifactory.run.followups import CreatedFollowUp
@@ -24,6 +25,12 @@ from aifactory.runstore.rows import SUCCEEDED, TaskPrRow, TaskRunRow
 from aifactory.runstore.store import TaskRunStore
 from aifactory.workflow import WorkflowRun
 from aifactory.workflow.parse import INTERNAL_WORKFLOWS
+
+
+def publish_error_code(error: str) -> str:
+    """Keep the provider configuration code visible at the CLI boundary."""
+    code = error.partition(":")[0]
+    return code if code == "forgejo_not_configured" else "pr_failed"
 
 
 def run_pr_body(
@@ -108,6 +115,7 @@ def publish(
     `adopt_first` it is looked up before opening one, otherwise when opening fails.
     Raises ``ProviderError`` when the push or the hosting fails.
     """
+    reload_env_file()
     if body is None:
         body = run_pr_body(store, row, task, wf)
     stack = open_stack(store, row.branch)

@@ -353,12 +353,48 @@ def test_missing_credentials_or_wrong_remote_stop_before_request(
     assert wire.calls == []
 
 
+@pytest.mark.parametrize("variable", [forgejo_rest.URL_ENV, forgejo_rest.TOKEN_ENV])
+@pytest.mark.parametrize("value", [None, "", "  "])
+def test_missing_setting_has_its_own_code(
+    provider: GitProvider,
+    wire: Wire,
+    monkeypatch: pytest.MonkeyPatch,
+    variable: str,
+    value: str | None,
+) -> None:
+    if value is None:
+        monkeypatch.delenv(variable)
+    else:
+        monkeypatch.setenv(variable, value)
+    for operation in (
+        lambda: provider.status(PR),
+        lambda: provider.create_pr(BRANCH, "Change", ""),
+        lambda: provider.merge(PR, SHA, "Change"),
+    ):
+        with pytest.raises(ProviderError, match=variable) as error:
+            operation()
+        assert error.value.code == "forgejo_not_configured"
+        assert "$GIRO_HOME/env" in error.value.message
+    assert wire.calls == []
+
+
+def test_invalid_token_has_config_error(
+    provider: GitProvider, wire: Wire, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(forgejo_rest.TOKEN_ENV, "invalid token")
+    with pytest.raises(ProviderError, match=forgejo_rest.TOKEN_ENV) as error:
+        provider.status(PR)
+    assert error.value.code == "invalid_config"
+    assert wire.calls == []
+
+
 def test_refuses_insecure_base_url(
     provider: GitProvider, wire: Wire, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GIRO_FORGEJO_URL", f"http://{HOST}")
-    with pytest.raises(ProviderError, match="HTTPS base URL"):
+    with pytest.raises(ProviderError, match="HTTPS base URL") as error:
         provider.status(PR)
+    assert error.value.code == "invalid_config"
     assert wire.calls == []
 
 
