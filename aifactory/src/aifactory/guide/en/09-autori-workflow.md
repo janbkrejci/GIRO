@@ -12,6 +12,14 @@ The tester uses a local project profile containing commands, selection rules and
 
 `test_plan.coverage`: `full` requests the whole suite, `scoped` checks the change; other values are rejected.
 
+The `plan_keeps_checks` gate does not allow removing a failed check. To correct its
+`argv`, the tester must keep the same name in `checks` and add a `dropped` entry
+with that same `name` and a `reason` explaining the command change. For example,
+fixing the hash in `diff-check` requires `dropped: [{"name": "diff-check", "reason": "fix a typo in the hash"}]`.
+The entry documents replacement of the old command, not removal of the failed check.
+The exception is narrowing a failed whole suite (`full`) to a targeted regression
+when `scoped` coverage is required: the same name is still required, but no `dropped` entry is needed.
+
 ## Conditions and loops <!-- section:podminky-a-smycky -->
 
 - `repeat: {max: N, until: condition}` with nested `steps` repeats steps; `until` is evaluated after each step.

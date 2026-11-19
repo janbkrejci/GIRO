@@ -361,6 +361,68 @@ def test_plan_keeps_checks_fails_a_check_left_out_silently() -> None:
 # ── interpreter ─────────────────────────────────────────────────────────────
 
 
+@pytest.mark.parametrize("drop", [False, True])
+@pytest.mark.parametrize("narrowing", [False, True])
+def test_failed_check_missing_message_requires_same_name(drop: bool, narrowing: bool) -> None:
+    previous = checks_plan(("diff-check", ["git", "diff", "--check", "bad-hash"]))
+    if narrowing:
+        previous.coverage = "full"
+    new = checks_plan(
+        ("renamed", ["git", "diff", "--check", "HEAD"]), dropped=("diff-check",) if drop else ()
+    )
+    run = SimpleNamespace(
+        previous_test_plan=previous, failed_test_checks=["diff-check"], required_coverage="scoped"
+    )
+    report = gates.plan_keeps_checks(new, run)
+    assert report.violations == [
+        "diff-check: failed check is missing; keep a check named `diff-check` in the plan; "
+        "a `dropped` entry alone cannot discard a failure"
+    ]
+
+
+@pytest.mark.parametrize("coverage", ["scoped", "full"])
+def test_failed_check_changed_argv_message_requests_dropped_reason(coverage: str) -> None:
+    previous = checks_plan(("diff-check", ["git", "diff", "--check", "bad-hash"]))
+    new = checks_plan(("diff-check", ["git", "diff", "--check", "HEAD"]))
+    new = new.model_copy(update={"coverage": coverage})
+    run = SimpleNamespace(
+        previous_test_plan=previous, failed_test_checks=["diff-check"], required_coverage=coverage
+    )
+    report = gates.plan_keeps_checks(new, run)
+    assert report.violations == [
+        "diff-check: failed check `diff-check` has changed argv; keep that name and add "
+        "a `dropped` entry with name `diff-check` and a reason for changing the command"
+    ]
+    new.dropped = checks_plan(
+        ("diff-check", ["git", "diff", "--check", "HEAD"]), dropped=("diff-check",)
+    ).dropped
+    assert gates.plan_keeps_checks(new, run).passed
+
+
+def test_failed_full_suite_narrowing_needs_no_dropped_reason() -> None:
+    previous = checks_plan(("suite", ["pytest"]))
+    previous.coverage = "full"
+    new = checks_plan(("suite", ["pytest", "tests/regression"]))
+    run = SimpleNamespace(
+        previous_test_plan=previous, failed_test_checks=["suite"], required_coverage="scoped"
+    )
+    report = gates.plan_keeps_checks(new, run)
+    assert report.passed
+    assert report.checks[0].note == (
+        "failed check replaced explicitly or suite narrowed to a regression"
+    )
+
+
+def test_failed_check_unchanged_argv_still_matches_under_another_name() -> None:
+    previous = checks_plan(("diff-check", ["git", "diff", "--check"]))
+    new = checks_plan(("renamed", ["git", "diff", "--check"]))
+    report = gates.plan_keeps_checks(
+        new, SimpleNamespace(previous_test_plan=previous, failed_test_checks=["diff-check"])
+    )
+    assert report.passed
+    assert report.checks[0].note == "kept"
+
+
 def test_every_test_runs_the_latest_plan(workflow_env: EngineEnv) -> None:
     text = (
         HEADER
