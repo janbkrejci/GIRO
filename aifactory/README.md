@@ -48,6 +48,25 @@ kontroly se dál vyčkávají, neúspěšné kontroly dál brání sloučení a 
 před i po načtení kontrol zůstává zachované. Použij ji pouze tam, kde neočekáváš
 opožděné spuštění CI.
 
+## Azure DevOps: rychlejší čtení
+
+Na Azure DevOps Services GIRO automaticky čte stav a seznam PR a CI přes HTTPS
+s opakovaným použitím spojení. Token získá přes Azure CLI a drží ho jen v paměti
+do expirace; podporuje také `AZURE_DEVOPS_EXT_PAT`. Stav PR ani CI se necachuje,
+kontroly HEAD před a po schválení zůstávají čerstvé. Zápisy (vytvoření PR,
+hlasování, merge, komentáře) dál používají Azure CLI a automaticky se neopakují.
+
+Vlastní Azure servery, proxy nebo vlastní CA nastavené přes prostředí,
+`GIRO_AZ` a uložený PAT Azure CLI zachovávají CLI čtení. Pokud nelze získat
+REST token, GIRO také použije CLI; tuto možnost znovu zkusí po minutě.
+Selhání již autentizovaného REST čtení se hlásí jako chyba, nikdy jako prázdné CI.
+HTTP čtení včetně stránek a retry sdílí limit 30 sekund; získání tokenu přes CLI
+a čekání na sdílené spojení mají vlastní limity. Nejde o timeout celého schválení.
+
+Měření na Windows / NEO_HEF: čtyři čtení stejného PR přes CLI trvala 1,53–1,85 s.
+První REST čtení se získáním tokenu trvalo 1,43 s, další 0,15–0,19 s bez procesu
+`az`. Jde o malý vzorek čtení metadat, nikoli o zrychlení celého tasku.
+
 ## Licence
 
 GIRO je pod licencí MIT. Licence převzatých částí jsou v `THIRD_PARTY_NOTICES`.
