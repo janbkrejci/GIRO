@@ -270,7 +270,11 @@ def test_azure_approve_final_push_before_vote_and_retry(
                 if fail and failure == "merge":
                     raise AzError(args, 1, "branch policy rejected completion")
                 return json.dumps(
-                    {"status": "completed", "lastMergeCommit": {"commitId": MERGE_SHA}}
+                    {
+                        "status": "completed",
+                        "lastMergeCommit": {"commitId": MERGE_SHA},
+                        "lastMergeSourceCommit": {"commitId": git(origin, "rev-parse", BRANCH)},
+                    }
                 )
             return "{}"
 

@@ -38,4 +38,6 @@ Empty values are inherited from the step, then project: `workflow`, `writes`, `t
 
 Edits are written to the working tree, but **runs read the backlog from base**. Commit using the **Uncommitted backlog** icon or `giro backlog commit`. After manual file edits, run `giro backlog check`.
 
+With `base_changes: pr` and `base_pr_merge: auto`, merging the backlog also catches up the local base when other commits have reached the remote, including during an active task. Conflicting local edits, separately staged changes, or divergence block automatic catch-up. The server commit is retained and the dashboard shows a warning.
+
 Legacy `auto_continue`, `auto_merge` and `harness/model/thinking` remain readable metadata. Ordinary editing preserves them; new tasks do not need them. The new GIRO uses local repository choices on Overview for automations and the default harness.

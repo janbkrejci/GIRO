@@ -22,6 +22,8 @@ Konfigurace je v `.factory/` repa: `config.yaml`, `agents.yaml` (roster agentů)
 
 Další klíče: `levels`, `workdir`, `worktrees_dir`, `generated`.
 
+Azure DevOps Services automaticky používá opakovaně využívané HTTPS spojení pro čtení i zápisy PR. Vlastní servery, proxy a přihlášení dostupné jen přes Azure CLI dál používají `az`. Po výpadku při zápisu GIRO ověří stav na serveru; zápis slepě neopakuje. Pokud výsledek nelze ověřit, operace skončí chybou.
+
 ## Záložka GIRO <!-- section:zalozka-factory -->
 
 - **Stav repa**, **Nainstalovat GIRO**, **Stáhnout konfiguraci z base** a po instalaci **Co dál**.

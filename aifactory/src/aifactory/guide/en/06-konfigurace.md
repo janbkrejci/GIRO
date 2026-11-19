@@ -22,6 +22,8 @@ Configuration lives in the repository's `.factory/`: `config.yaml`, `agents.yaml
 
 Other keys: `levels`, `workdir`, `worktrees_dir`, `generated`.
 
+Azure DevOps Services automatically reuses HTTPS connections for PR reads and writes. Custom servers, proxies, and credentials available only to Azure CLI continue to use `az`. After a connection failure during a write, GIRO checks the server state without blindly repeating the write. If the outcome cannot be verified, the operation fails.
+
 ## GIRO tab <!-- section:zalozka-factory -->
 
 - **Repository status**, **Install GIRO**, **Pull configuration from base**, and **Next steps** after installation.

@@ -468,6 +468,15 @@ def _finish_pr(
         except Exception as exc:  # merged on the hosting: nothing is rolled back
             warnings.append(f"{base} not advanced: {exc}")
         advanced = git.rev_parse(root, f"refs/heads/{base}") == merged
+    elif command == "backlog commit" and merged is not None:
+        # The hosting can merge on a newer target. Pull the complete tree rather
+        # than staging only the backlog plan and moving past unrelated changes.
+        try:
+            pulled = pull_base(root, settings=settings, store=store, preserve_index=True)
+            warnings.extend(pulled.warnings)
+            advanced = git.is_ancestor(root, merged, pulled.after)
+        except Exception as exc:  # the hosted merge succeeded; preserve local work
+            warnings.append(f"{base} not advanced: {exc}")
     if not advanced:
         warnings.append(f"{base} stays at {plan.base_sha[:7]}; run factory config pull")
     return replace(result, advanced=advanced, merged=True, warnings=tuple(warnings))
@@ -832,7 +841,9 @@ def _stage_brought(checkout: Path, files: Sequence[PlannedFile]) -> None:
         git.git(checkout, "update-index", "--force-remove", "--", *remove)
 
 
-def plan_pull_base(root: Path, *, settings: ProjectSettings, store: RunStore) -> dict[str, Any]:
+def plan_pull_base(
+    root: Path, *, settings: ProjectSettings, store: RunStore | None
+) -> dict[str, Any]:
     """Fetch and review a fast-forward without moving a checkout or local branch."""
     base, remote = settings.base, settings.remote
     blockers: list[Blocker] = []
@@ -871,7 +882,12 @@ def plan_pull_base(root: Path, *, settings: ProjectSettings, store: RunStore) ->
 
 
 def pull_base(
-    root: Path, *, settings: ProjectSettings, store: RunStore, expect: str | None = None
+    root: Path,
+    *,
+    settings: ProjectSettings,
+    store: RunStore | None,
+    expect: str | None = None,
+    preserve_index: bool = False,
 ) -> PullResult:
     """Fast-forward base under the run-start lock; journal the move for active runs."""
     if expect is not None:
@@ -907,7 +923,12 @@ def pull_base(
         )
     where = git.checked_out_in(root, base)
     files = (
-        _pull_files(root, ours, theirs, paths=_dirty_paths(where, include_untracked=True))
+        _pull_files(
+            root,
+            ours,
+            theirs,
+            paths=None if preserve_index else _dirty_paths(where, include_untracked=True),
+        )
         if where
         else []
     )
@@ -917,8 +938,34 @@ def pull_base(
         )
     # Existing runs accept this foreign move through the base-move journal.
     # Keep the run-start lock through both the fast-forward and journal write.
-    with store.serialized():
+    with store.serialized() if store is not None else contextlib.nullcontext():
         if where is not None:
+            if preserve_index:
+                _check_automatic_pull(where, files)
             _stage_brought(where, files)
         git.advance_branch(root, base, theirs, ours, command="config pull")
     return PullResult(base, remote, ours, theirs, True)
+
+
+def _check_automatic_pull(checkout: Path, files: Sequence[PlannedFile]) -> None:
+    """Reject known blockers before staging matching archive edits for automatic pull."""
+    if git.run_bytes(checkout, ["diff", "--cached", "--quiet"], env=_READ_ENV).returncode:
+        raise ProviderError("dirty_base", "staged changes require an explicit pull")
+    result = git.run_bytes(
+        checkout, ["ls-files", "-z", "--others", "--exclude-standard"], env=_READ_ENV
+    )
+    if result.returncode:
+        raise ProviderError("dirty_base", "cannot check untracked files before automatic pull")
+    untracked = result.stdout.decode("utf-8", "surrogateescape").split("\0")
+    for path in filter(None, untracked):
+        for incoming in files:
+            if incoming.content is None:
+                continue
+            if path == incoming.path and _brought(checkout, incoming):
+                continue
+            if (
+                path == incoming.path
+                or path.startswith(incoming.path + "/")
+                or incoming.path.startswith(path + "/")
+            ):
+                raise ProviderError("dirty_base", f"untracked file blocks automatic pull: {path}")

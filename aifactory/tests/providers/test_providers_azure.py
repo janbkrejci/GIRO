@@ -640,7 +640,10 @@ def test_comment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         "json",
         "--only-show-errors",
     ]
-    assert call["in_file"] == {
+    payload = call["in_file"]
+    marker = payload.pop("properties")["GIRO.OperationId"]["$value"]
+    assert isinstance(marker, str) and len(marker) == 32
+    assert payload == {
         "comments": [{"parentCommentId": 0, "content": "hello", "commentType": 1}],
         "status": 1,
     }

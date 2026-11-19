@@ -38,4 +38,6 @@ Prázdná hodnota se dědí od stepu, pak projektu: `workflow`, `writes`, `test_
 
 Úpravy se zapisují do pracovního stromu, ale **běhy čtou backlog z base**. Commitni ho ikonou s tooltipem **Necommitnutý backlog** nebo `giro backlog commit`. Po ruční úpravě souborů spusť `giro backlog check`.
 
+Při `base_changes: pr` a `base_pr_merge: auto` se po mergi backlogu lokální base automaticky stáhne i tehdy, když na remote přibyly další commity. To funguje i během tasku. Konfliktní lokální úpravy, samostatně připravené změny v indexu nebo divergence automatické stažení zastaví; commit na serveru zůstane zachovaný a dashboard zobrazí varování.
+
 Staré `auto_continue`, `auto_merge` a `harness/model/thinking` zůstávají čitelná metadata. Běžná editace je zachová; nové tasky je nepotřebují. Nová GIRO řídí automatizace a výchozí harness místními volbami repozitáře na Přehledu.
