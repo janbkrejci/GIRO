@@ -265,6 +265,9 @@ _CODES: tuple[tuple[str, str, str], ...] = (
     ("az_timeout", "2", "an Azure CLI command exceeded its timeout; retry the operation"),
     ("az_devops_missing", "2", "the az devops extension is not installed"),
     ("az_not_logged_in", "2", "az is not logged in"),
+    ("forgejo_failed", "2", "a Forgejo REST request failed or returned an unexpected response"),
+    ("forgejo_timeout", "2", "a Forgejo REST request timed out"),
+    ("forgejo_not_logged_in", "2", "set GIRO_FORGEJO_TOKEN to a Forgejo access token"),
     # Library in the home directory.
     ("library_exists", "2", "library init: the library directory already exists"),
     (
