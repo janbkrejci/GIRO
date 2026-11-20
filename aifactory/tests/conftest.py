@@ -286,3 +286,11 @@ def _real_giro_snapshot(_real_giro_home: Path) -> Snapshot:
 
 def _protected_home_snapshots(root: Path) -> Snapshot:
     return {f"{root}/{key}": item for key, item in _snapshot(root).items()}
+
+
+@pytest.fixture(autouse=True)
+def _network_backoff_without_waiting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Simulate the network backoff clock; retry tests override it to assert delays."""
+    from aifactory.providers import network
+
+    monkeypatch.setattr(network, "_sleep", lambda seconds: None)

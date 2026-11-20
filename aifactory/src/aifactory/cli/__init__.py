@@ -79,6 +79,17 @@ def _leave_deleted_cwd() -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    argv_list = list(sys.argv[1:] if argv is None else argv)
+    if argv_list == ["--version"] or "--help" in argv_list:
+        return _captured_main(argv)
+
+    from aifactory.providers.network import capture
+
+    with capture():
+        return _captured_main(argv)
+
+
+def _captured_main(argv: Sequence[str] | None = None) -> int:
     from aifactory.home import giro_home
     from aifactory.versioning import UpgradeError
 

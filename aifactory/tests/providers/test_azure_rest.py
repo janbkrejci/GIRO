@@ -191,7 +191,7 @@ def test_retry_after_respected_and_bounded(wire: Wire, monkeypatch: pytest.Monke
     wire.responses = [Response({}, 429, **{"Retry-After": "2"}), Response({})]
     assert rest.read("k", ORG, Tokens(), "/p") == {}
     assert sleeps == [2]
-    wire.responses = [Response({}, 503, **{"Retry-After": "1000"})]
+    wire.responses = [Response({}, 429, **{"Retry-After": "1000"})]
     with pytest.raises(ProviderError) as error:
         rest.read("k", ORG, Tokens(), "/p")
     assert error.value.code == "az_timeout"
@@ -201,10 +201,14 @@ def test_retry_after_respected_and_bounded(wire: Wire, monkeypatch: pytest.Monke
 def test_errors_are_not_empty_success_and_redirects_are_not_followed(
     wire: Wire, status: int
 ) -> None:
-    wire.responses = [Response({"token": "secret"}, status, Location="https://elsewhere.test")]
+    attempts = 5 if status == 500 else 1
+    wire.responses = [
+        Response({"token": "secret"}, status, Location="https://elsewhere.test")
+        for _ in range(attempts)
+    ]
     with pytest.raises(ProviderError) as error:
         rest.read("k", ORG, Tokens(), "/p")
-    assert "secret" not in str(error.value) and len(wire.requests) == 1
+    assert "secret" not in str(error.value) and len(wire.requests) == attempts
 
 
 def test_response_size_limit(wire: Wire, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -370,7 +374,7 @@ def test_invalid_json_and_connection_failure_never_mean_no_checks(wire: Wire) ->
     wire.responses = [reply]
     with pytest.raises(ProviderError, match="invalid JSON"):
         rest.read("k", ORG, Tokens(), "/p")
-    wire.responses = [ConnectionResetError() for _ in range(3)]
+    wire.responses = [ConnectionResetError() for _ in range(5)]
     with pytest.raises(ProviderError, match="connection failed"):
         rest.read("k", ORG, Tokens(), "/p")
 

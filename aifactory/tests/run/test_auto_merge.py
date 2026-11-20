@@ -364,6 +364,61 @@ def test_chain_continues_after_the_merge(repo: Path, script: Script) -> None:
         assert status_on_main(repo, task_id) == "done"
 
 
+@pytest.mark.parametrize("outage_at", ["run", "approve"])
+def test_chain_continues_after_transient_fetch_outage(
+    repo: Path,
+    script: Script,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    outage_at: str,
+) -> None:
+    from aifactory import gitrun
+    from aifactory.providers import git as pgit
+    from aifactory.providers import network
+    from aifactory.providers.local import LocalProvider
+
+    setup(repo, step="auto_merge: true\nauto_continue: true\n")
+    origin = tmp_path / "origin.git"
+    git(tmp_path, "init", "-q", "--bare", str(origin))
+    git(repo, "remote", "add", "origin", str(origin))
+    git(repo, "push", "-q", "origin", "main")
+    build(script, "one")
+    review(script)
+    build(script, "two")
+    review(script)
+    real_run = pgit._run
+    real_merge = LocalProvider.merge
+    outage = outage_at == "run"
+    failures = 0
+    delays: list[float] = []
+
+    def merge(self: LocalProvider, *args: Any, **kwargs: Any) -> str | None:
+        nonlocal outage
+        result = real_merge(self, *args, **kwargs)
+        if outage_at == "approve" and failures == 0:
+            outage = True
+        return result
+
+    def run(cwd: Path, args: tuple[str, ...], input: str | None) -> gitrun.Result:
+        nonlocal outage, failures
+        if args[0] == "fetch" and outage:
+            outage = False
+            failures += 1
+            return gitrun.Result(("git", *args), 128, b"", b"Could not resolve host")
+        return real_run(cwd, args, input)
+
+    monkeypatch.setattr(LocalProvider, "merge", merge)
+    monkeypatch.setattr(pgit, "_run", run)
+    monkeypatch.setattr(network, "_sleep", delays.append)
+    with network.capture() as records:
+        chain = run_chain(repo, T01)
+    assert [r.run.task_id for r in chain.runs] == [T01, T02]
+    assert chain.stop == STOP_EXHAUSTED
+    assert all(r.auto_merge is not None and r.auto_merge.merged for r in chain.runs)
+    assert failures == 1 and delays == [10.0]
+    assert records == [{"operation": "fetch", "attempts": 2, "succeeded": True}]
+
+
 def test_cli_json_reports_auto_merge(repo: Path, script: Script, capsys: Capsys) -> None:
     setup(repo)
     build(script, "one")

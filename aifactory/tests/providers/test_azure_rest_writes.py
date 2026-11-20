@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import socket
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -253,3 +254,34 @@ def test_invalid_request_never_dispatches(wire: Wire, method: str, path: str, bo
     with pytest.raises((ValueError, ProviderError)):
         rest.write("k", ORG, Tokens(), path, method, body)
     assert not wire.requests and wire.connections == 0
+
+
+@pytest.mark.parametrize("stage", ["send", "response", "body"])
+def test_dns_failure_is_retryable_only_before_dispatch(
+    wire: Wire,
+    monkeypatch: pytest.MonkeyPatch,
+    stage: str,
+) -> None:
+    failure = socket.gaierror(socket.EAI_AGAIN, "secret")
+    if stage == "send":
+
+        def unresolved(*args: Any, **kwargs: Any) -> None:
+            raise failure
+
+        monkeypatch.setattr(wire, "request", unresolved)
+    elif stage == "response":
+        wire.failure = failure
+    else:
+
+        def unreadable(limit: int) -> bytes:
+            raise failure
+
+        monkeypatch.setattr(wire, "read1", unreadable)
+    with pytest.raises(ProviderError) as error:
+        rest.write("k", ORG, Tokens(), "/p", "PUT", {})
+    assert isinstance(error.value, rest.WriteUncertain) == (stage != "send")
+    assert error.value.code == "az_failed" and "secret" not in str(error.value)
+    assert len(wire.requests) == (0 if stage == "send" else 1)
+    assert wire.closed == 1 and rest._pool["k"].client.connection is None
+    if stage == "send":
+        assert error.value.retryable and "could not resolve host" in error.value.message

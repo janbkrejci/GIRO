@@ -12,6 +12,7 @@ import http.client
 import json
 import math
 import os
+import socket
 import threading
 import time
 from collections.abc import Iterator
@@ -22,6 +23,7 @@ from typing import Any, Protocol
 from urllib.parse import urlencode, urlsplit
 
 from aifactory.providers.base import ProviderError
+from aifactory.providers.network import retry_network
 
 RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
 TIMEOUT = 30.0
@@ -138,17 +140,24 @@ class ReadClient:
             self.connection.timeout = remaining
             if self.connection.sock is not None:
                 self.connection.sock.settimeout(remaining)
-            # No retry, even when request() fails: bytes may already have been sent.
-            self.connection.request(
-                method,
-                target,
-                body=body,
-                headers={
-                    "Authorization": self.authorization,
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                },
-            )
+            # DNS resolution in request() happens while connecting, before any bytes
+            # can be sent. Other send errors remain ambiguous, including timeouts.
+            try:
+                self.connection.request(
+                    method,
+                    target,
+                    body=body,
+                    headers={
+                        "Authorization": self.authorization,
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                    },
+                )
+            except socket.gaierror:
+                self.close()
+                raise ProviderError(
+                    "az_failed", "Azure REST write could not resolve host"
+                ) from None
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise WriteUncertain("Azure REST write exceeded its deadline")
@@ -244,8 +253,6 @@ class ReadClient:
                     raise ProviderError("az_failed", "Azure REST response exceeds the read limit")
             except (OSError, http.client.HTTPException):
                 self.close()
-                if attempt < 2 and time.monotonic() < deadline:
-                    continue
                 raise ProviderError("az_failed", "Azure REST connection failed") from None
             if status == 401 and attempt == 0:
                 self.authorization = ""
@@ -253,7 +260,7 @@ class ReadClient:
                 self.unavailable_until = 0
                 if self.authenticate(az):
                     continue
-            if status in (429, 503) and attempt < 2:
+            if status == 429 and attempt < 2:
                 delay = _retry_delay(retry_after)
                 if delay >= deadline - time.monotonic():
                     raise ProviderError("az_timeout", "Azure REST retry exceeds the read deadline")
@@ -330,6 +337,7 @@ def lease(key: str, organization: str) -> Iterator[ReadClient]:
                 entry.client.close()
 
 
+@retry_network
 def read(
     key: str,
     organization: str,
