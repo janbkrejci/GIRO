@@ -29,8 +29,6 @@ import {
   childContainerIds,
   commitBacklog,
   editTask,
-  expandKeys,
-  nodeKey,
   fetchBacklog,
   fetchGraph,
   fetchRunCheck,
@@ -145,7 +143,17 @@ watch(repoId, (id) => {
 const filters = computed<Filters>(() => ({
   project: filterProjects.value.some((p) => p.id === project.value) ? project.value : undefined,
 }))
-const mode = ref<BacklogMode>('tree')
+function savedMode(): BacklogMode {
+  try {
+    return localStorage.getItem('giro.backlog.mode') === 'kanban' ? 'kanban' : 'tree'
+  } catch {
+    return 'tree'
+  }
+}
+const mode = ref<BacklogMode>(savedMode())
+watch(mode, (next) => {
+  try { localStorage.setItem('giro.backlog.mode', next) } catch { /* Storage may be unavailable. */ }
+})
 const detail = ref<TaskDetailData | null>(null)
 /** The task id `detail` belongs to: a detail of another task is never shown. */
 const detailFor = ref<string | null>(null)
@@ -297,8 +305,7 @@ async function loadList() {
         const selected = items.value.find((n) => n.kind === 'container' && !n.archived && n.id === params.value[1])
         project.value = selected?.id ?? undefined
         if (repoId.value) setBacklogProject(repoId.value, project.value)
-        mode.value = 'tree'
-        if (selected?.kind === 'container') expandKeys([nodeKey(selected)])
+        mode.value = 'kanban'
         window.history.replaceState(null, '', here('backlog'))
         window.dispatchEvent(new HashChangeEvent('hashchange'))
       }
