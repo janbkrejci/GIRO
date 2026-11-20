@@ -102,6 +102,7 @@ from aifactory.providers.base import (
     PullRequest,
     utc_iso,
 )
+from aifactory.providers.network import retry_network
 
 UNKNOWN_ATTEMPTS = 5
 UNKNOWN_DELAY = 2.0
@@ -207,7 +208,9 @@ class AzCli:
         except FileNotFoundError as exc:
             raise ProviderError("az_missing", _MISSING) from exc
         except subprocess.TimeoutExpired as exc:
-            raise ProviderError("az_timeout", f"Azure CLI exceeded {AZ_TIMEOUT}s; retry") from exc
+            raise ProviderError(
+                "az_timeout", f"Azure CLI timed out after {AZ_TIMEOUT}s; retry"
+            ) from exc
         except OSError as exc:
             raise ProviderError("az_missing", f"{_MISSING}; could not launch: {exc}") from exc
         if result.returncode != 0:
@@ -527,6 +530,7 @@ class AzureProvider(GitProvider):
         repo = quote(self.azure.repository, safe="")
         return f"{self.azure.organization_url}/{project}/_git/{repo}/pullrequest/{pr_id}"
 
+    @retry_network
     def _read(
         self,
         suffix: str,
@@ -685,6 +689,7 @@ class AzureProvider(GitProvider):
 
     # -- operations ---------------------------------------------------------
 
+    @retry_network
     def create_pr(self, branch: str, title: str, body: str) -> PullRequest:
         self._ready()
         args = [
@@ -756,6 +761,9 @@ class AzureProvider(GitProvider):
                 except ProviderError:
                     pass
             if len(matches) != 1:
+                # Preserve this attempt's snapshot/field checks; a generic lookup on
+                # replay cannot establish which request created the PR.
+                exc.retryable = False
                 raise
             data = matches[0]
         if not isinstance(data, dict) or not isinstance(data.get("pullRequestId"), int):
@@ -769,6 +777,7 @@ class AzureProvider(GitProvider):
             title=title,
         )
 
+    @retry_network
     def find_open_pr(self, branch: str) -> PullRequest | None:
         """Find the active PR for this source branch and configured target."""
         self._ready()
@@ -847,6 +856,7 @@ class AzureProvider(GitProvider):
     def _status_once(self, pr: PullRequest) -> PrStatus:
         return self._parse(self._show(pr))
 
+    @retry_network
     def status(self, pr: PullRequest) -> PrStatus:
         """The PR status; an open PR with ``unknown`` mergeability is asked again."""
         self._ready()
@@ -888,6 +898,7 @@ class AzureProvider(GitProvider):
                 listed[str(item["pullRequestId"])] = self._parse(item)
         return self._with_listed(prs, listed)
 
+    @retry_network
     def approve(self, pr: PullRequest, head_sha: str) -> bool:
         """Vote after the final push, guarded by head checks (neither vote is atomic).
 
@@ -941,9 +952,11 @@ class AzureProvider(GitProvider):
             except ProviderError:
                 pass
             if not verified:
-                raise ProviderError(
+                error = ProviderError(
                     "approve_failed", f"Azure approval vote for PR {pr.id} failed: {exc.message}"
-                ) from exc
+                )
+                error.retryable = False
+                raise error from exc
         self._approval_head(pr, self._status_once(pr), head_sha)
         return True
 
@@ -1046,6 +1059,7 @@ class AzureProvider(GitProvider):
                 latest[key] = _run_check(run)
         return list(latest.values())
 
+    @retry_network
     def checks(self, pr: PullRequest) -> ChecksStatus:
         """``failing`` when any check is red, else ``pending`` / ``passing`` / ``none``."""
         found = self._ci_checks(pr)
@@ -1134,6 +1148,7 @@ class AzureProvider(GitProvider):
                 out += [str(line) for line in value[-CHECK_LOG_LINES:]]
         return "\n".join(out)
 
+    @retry_network
     def merge(
         self, pr: PullRequest, head_sha: str, subject: str, strategy: str | None = None
     ) -> str | None:
@@ -1227,6 +1242,7 @@ class AzureProvider(GitProvider):
                 self.sleep(self.delay)
         raise MergeFailed("merge_failed", f"PR {pr.id} not completed after {self.attempts} checks")
 
+    @retry_network
     def update_pr(self, pr: PullRequest, body: str) -> None:
         self._ready()
         args = ["repos", "pr", "update", "--id", pr.id, *self._org()]
@@ -1249,6 +1265,7 @@ class AzureProvider(GitProvider):
             try:
                 verified = self._show(pr).get("description") == description
             except ProviderError:
+                exc.retryable = False
                 verified = False
             if not verified:
                 raise

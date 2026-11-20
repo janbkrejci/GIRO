@@ -21,9 +21,9 @@ a computed mergeability up to ``merge_attempts`` times (``MERGE_WAIT_ATTEMPTS`` 
 rejection of an open PR that is not ``CONFLICTING`` within the same bound; only
 then it gives up with ``merge_failed``.
 
-Reads (``gh pr view``, ``gh pr checks``) that fail on the network ("connection reset by
-peer", a timeout, a 502/503/504) are asked again after the same pause, at most
-``retry_attempts`` times; a write is never retried this way.
+Network failures of reads and guarded PR operations use the shared five-attempt
+policy (10/20/40/80 s backoff). Merge retries recheck PR state and the expected head;
+PR creation looks for an existing open PR before replaying a failed request.
 
 ``checks`` reads ``gh pr checks ID --json name,bucket``; a PR without checks
 (``no checks reported``) has ``none``. ``check_logs`` reads the failed-step log of each
@@ -71,6 +71,7 @@ from aifactory.providers.base import (
     PullRequest,
     utc_iso,
 )
+from aifactory.providers.network import retry_network, retrying
 
 UNKNOWN_ATTEMPTS = 30
 UNKNOWN_DELAY = 2.0
@@ -89,27 +90,6 @@ TRANSIENT_MERGE_ERRORS = (
 def _transient(detail: str) -> bool:
     lowered = detail.lower()
     return any(marker in lowered for marker in TRANSIENT_MERGE_ERRORS)
-
-
-# A network blip of a read (``gh pr view``, ``gh pr checks``): the read is asked again.
-NETWORK_ERRORS = (
-    "connection reset",
-    "connection refused",
-    "i/o timeout",
-    "timeout awaiting",
-    "tls handshake timeout",
-    "unexpected eof",
-    "could not resolve host",
-    "no such host",
-    "502 bad gateway",
-    "503 service unavailable",
-    "504 gateway timeout",
-)
-
-
-def _network(detail: str) -> bool:
-    lowered = detail.lower()
-    return any(marker in lowered for marker in NETWORK_ERRORS)
 
 
 class GhError(ProviderError):
@@ -145,7 +125,7 @@ class GhCli:
             raise ProviderError("gh_missing", "gh is not installed or not on PATH") from exc
         except subprocess.TimeoutExpired as exc:
             raise ProviderError(
-                "gh_timeout", f"gh {' '.join(args[:2])} exceeded {GH_TIMEOUT}s; retry"
+                "gh_timeout", f"gh {' '.join(args[:2])} timed out after {GH_TIMEOUT}s; retry"
             ) from exc
         if result.returncode != 0:
             raise GhError(args, result.returncode, result.stderr)
@@ -202,19 +182,17 @@ class GitHubProvider(GitProvider):
         self.delay = delay
         self.sleep = sleep
 
+    @retry_network
     def _read(self, *args: str) -> Any:
-        """``gh ... --json`` of a read; a network error is retried ``retry_attempts`` times."""
-        attempt = 0
-        while True:
-            try:
-                return self.gh.json(*args)
-            except GhError as exc:
-                if not _network(exc.stderr) or attempt >= self.retry_attempts:
-                    raise
-                attempt += 1
-                self.sleep(self.delay)
+        """Read JSON using the shared bounded network retry policy."""
+        return self.gh.json(*args)
 
+    @retry_network
     def create_pr(self, branch: str, title: str, body: str) -> PullRequest:
+        if retrying():
+            existing = self.find_open_pr(branch)
+            if existing is not None:
+                return existing
         out = self.gh.run(
             "pr",
             "create",
@@ -234,6 +212,7 @@ class GitHubProvider(GitProvider):
             raise ProviderError("gh_failed", f"gh pr create: no PR URL in output {out.strip()!r}")
         return PullRequest(id=number, url=url, branch=branch, base=self.settings.base, title=title)
 
+    @retry_network
     def find_open_pr(self, branch: str) -> PullRequest | None:
         """``gh pr list --head BRANCH --state open``: the newest open PR of `branch`."""
         data = self.gh.json(
@@ -311,6 +290,7 @@ class GitHubProvider(GitProvider):
                 listed[str(item["number"])] = self._parse(item)
         return self._with_listed(prs, listed)
 
+    @retry_network
     def status(self, pr: PullRequest) -> PrStatus:
         """The PR status; an open PR with ``unknown`` mergeability is asked again."""
         return self._poll_status(pr, self.attempts)
@@ -325,6 +305,7 @@ class GitHubProvider(GitProvider):
                 self.sleep(self.delay)
         return status
 
+    @retry_network
     def approve(self, pr: PullRequest, head_sha: str) -> bool:
         """An APPROVE review as ``github_approver``; False when none is configured."""
         login = self.settings.github_approver
@@ -367,6 +348,7 @@ class GitHubProvider(GitProvider):
             ) from exc
         return True
 
+    @retry_network
     def checks(self, pr: PullRequest) -> ChecksStatus:
         """``failing`` when any check failed or was cancelled, else ``pending`` / ``passing``."""
         try:
@@ -446,6 +428,7 @@ class GitHubProvider(GitProvider):
                 pass  # Keep the original diagnostic when annotations are unavailable.
         return logs
 
+    @retry_network
     def merge(
         self, pr: PullRequest, head_sha: str, subject: str, strategy: str | None = None
     ) -> str | None:
@@ -505,6 +488,7 @@ class GitHubProvider(GitProvider):
                 raise MergeFailed("merge_failed", detail) from exc
             return self._status_once(pr).merge_sha
 
+    @retry_network
     def merge_own(self, pr: PullRequest, head_sha: str, subject: str) -> str | None:
         """GitHub refuses an author's own approval: merge, else merge with ``--admin``.
 
@@ -532,6 +516,7 @@ class GitHubProvider(GitProvider):
                 raise MergeFailed("merge_failed", f"{plain}; with --admin: {detail}") from exc
         return self._status_once(pr).merge_sha
 
+    @retry_network
     def update_pr(self, pr: PullRequest, body: str) -> None:
         self.gh.run("pr", "edit", pr.id, "--body-file", "-", stdin=body)
 

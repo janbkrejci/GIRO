@@ -425,7 +425,7 @@ def test_rest_does_not_follow_redirects_or_report_raw_body(
 def test_response_timeout_and_limit(
     provider: GitProvider, wire: Wire, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    wire.replies.append(TimeoutError("fixture-token"))
+    wire.replies.extend(TimeoutError("fixture-token") for _ in range(5))
     with pytest.raises(ProviderError, match="timed out") as error:
         provider.status(PR)
     assert "fixture-token" not in str(error.value)

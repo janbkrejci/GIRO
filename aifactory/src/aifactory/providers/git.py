@@ -19,6 +19,7 @@ from pathlib import Path
 
 from aifactory import basemoves, gitquery, gitrun
 from aifactory.providers.base import ProviderError
+from aifactory.providers.network import retry_network
 
 # Global options for commands that check files out: write them with parallel workers.
 # Checkout is dominated by per-file cost, which is high on Windows.
@@ -155,8 +156,12 @@ def push(cwd: Path, remote: str, branch: str, lease: str | None = None) -> None:
         raise ProviderError("push_failed", f"git push {remote} {branch}: {detail}")
 
 
+@retry_network
 def fetch(root: Path, remote: str, branch: str) -> None:
-    result = _run(root, ("fetch", "--quiet", remote, branch), None)
+    try:
+        result = _run(root, ("fetch", "--quiet", remote, branch), None)
+    except gitrun.GitTimeout as exc:
+        raise ProviderError("fetch_failed", str(exc)) from exc
     if result.returncode != 0:
         raise ProviderError(
             "fetch_failed", f"git fetch {remote} {branch}: {result.error or 'failed'}"

@@ -447,7 +447,11 @@ def test_retry_from_build_reuses_the_builder_session(
 
 @pytest.mark.parametrize("published", [False, True])
 def test_retry_rebases_onto_a_moved_base_and_tests_before_the_review(
-    repo: Path, script: Script, tmp_path: Path, published: bool
+    repo: Path,
+    script: Script,
+    tmp_path: Path,
+    published: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     origin = add_origin(repo, tmp_path)
     first = rejected_run(repo, script)
@@ -458,8 +462,26 @@ def test_retry_rebases_onto_a_moved_base_and_tests_before_the_review(
 
     review(script, approved=True)
     code = GitCode([True])
+    from aifactory import gitrun
+    from aifactory.providers import git as pgit
+    from aifactory.providers import network
+
+    real_run = pgit._run
+    failures = 0
+    delays: list[float] = []
+
+    def run(cwd: Path, args: tuple[str, ...], input: str | None) -> gitrun.Result:
+        nonlocal failures
+        if args[0] == "fetch" and failures == 0:
+            failures += 1
+            return gitrun.Result(("git", *args), 128, b"", b"Could not resolve host")
+        return real_run(cwd, args, input)
+
+    monkeypatch.setattr(pgit, "_run", run)
+    monkeypatch.setattr(network, "_sleep", delays.append)
     result = retry_run(repo, T01, code=code)
 
+    assert failures == 1 and delays == [10.0]
     assert result.ok, result.run.error
     assert git(repo, "rev-parse", "main") == moved  # base was pulled first
     branch = first.run.branch

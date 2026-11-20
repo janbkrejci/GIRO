@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 import copy
+import http.client
 import json
+import logging
+import socket
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
+from aifactory.cli.envelope import emit_fail, emit_ok
 from aifactory.config.settings import AzureSettings, ProjectSettings
-from aifactory.providers import azure_rest
+from aifactory.providers import azure_rest, network
 from aifactory.providers.azure import AzCli, AzError, AzureProvider
 from aifactory.providers.base import ProviderError, PullRequest
 
@@ -184,7 +190,8 @@ def test_write_outcomes(setup: tuple[AzureProvider, Fake], operation: str, mode:
             assert result.id == "7"
         if operation == "merge":
             assert result == "merged"
-    assert len(fake.writes) == 1  # no replay or fallback after dispatch
+    retries = fake.transport == "cli" and mode == "unaccepted" and operation in ("update", "merge")
+    assert len(fake.writes) == (5 if retries else 1)
     if mode == "lost" and operation == "approve":
         assert any(path.endswith("7") or path == "pr" for path in fake.reads)
 
@@ -278,9 +285,10 @@ def test_create_does_not_adopt_unverified_pr(
 
         monkeypatch.setattr(provider, "_creation_candidates", candidates)
         fake.mode = "unaccepted"
-    with pytest.raises(ProviderError):
+    with network.capture() as records, pytest.raises(ProviderError):
         provider.create_pr("task", "Title", "body")
     assert len(fake.writes) == 1
+    assert records[0]["attempts"] == 1
 
 
 def test_rest_merge_contract(setup: tuple[AzureProvider, Fake]) -> None:
@@ -305,9 +313,10 @@ def test_cli_approval_unknown_identity_reads_then_fails(setup: tuple[AzureProvid
     if fake.transport != "cli":
         pytest.skip("CLI identity limitation")
     fake.mode = "lost"
-    with pytest.raises(ProviderError, match="response|Connection"):
+    with network.capture() as records, pytest.raises(ProviderError, match="response|Connection"):
         provider.approve(PR, "head")
     assert fake.reads == ["pr", "pr"]
+    assert len(fake.writes) == 1 and records[0]["attempts"] == 1
 
 
 @pytest.mark.parametrize("operation", ["create", "update", "approve", "merge", "comment"])
@@ -358,3 +367,67 @@ def test_cli_timeout_reads_back_without_replaying(
     else:
         perform(provider, operation)
     assert len(fake.writes) == 1
+
+
+@pytest.mark.parametrize("failures", [1, 5])
+def test_approve_retries_dns_before_rest_vote(
+    setup: tuple[AzureProvider, Fake],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+    failures: int,
+) -> None:
+    provider, fake = setup
+    if fake.transport != "rest":
+        pytest.skip("REST DNS transport")
+    recovered = failures == 1
+    connection = Mock(sock=None)
+    connection.request.side_effect = [
+        socket.gaierror(socket.EAI_AGAIN, "secret") for _ in range(failures)
+    ] + ([None] if recovered else [])
+    response = Mock(status=200)
+    response.read1.side_effect = [b'{"id": "self", "vote": 10}', b""]
+    response.getheader.return_value = None
+    connection.getresponse.return_value = response
+    monkeypatch.setattr(http.client, "HTTPSConnection", Mock(return_value=connection))
+    client = azure_rest.ReadClient("https://dev.azure.com/example")
+
+    def write(path: str, method: str, body: dict[str, Any]) -> Any:
+        return client.write(
+            path,
+            method,
+            json.dumps(body).encode(),
+            {},
+            deadline=time.monotonic() + azure_rest.TIMEOUT,
+        )
+
+    monkeypatch.setattr(provider, "_write", write)
+    cli = Mock(side_effect=AssertionError("DNS failure must not fall back to CLI"))
+    monkeypatch.setattr(fake, "run", cli)
+    delays: list[float] = []
+    monkeypatch.setattr(network, "_sleep", delays.append)
+    with network.capture(), caplog.at_level(logging.WARNING):
+        if recovered:
+            assert provider.approve(PR, "head") is True
+            emit_ok({"reviewed": True})
+        else:
+            with pytest.raises(ProviderError) as error:
+                provider.approve(PR, "head")
+            assert error.value.code == "approve_failed"
+            emit_fail(error.value.code, error.value.message, exit_code=2)
+    attempts = 2 if recovered else 5
+    assert connection.request.call_count == attempts
+    assert connection.close.call_count == failures
+    assert connection.getresponse.call_count == int(recovered)
+    assert cli.call_count == 0 and fake.writes == []
+    assert delays == list(network.DELAYS[: attempts - 1])
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["ok"] is recovered
+    assert envelope["data"]["network_operations"] == [
+        {
+            "operation": "AzureProvider.approve",
+            "attempts": attempts,
+            "succeeded": recovered,
+        }
+    ]
+    assert f"attempts={attempts}" in caplog.text and "secret" not in caplog.text

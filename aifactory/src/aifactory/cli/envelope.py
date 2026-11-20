@@ -11,6 +11,14 @@ from aifactory.skill.envelope import envelope_fail, envelope_ok
 
 
 def emit(envelope: Mapping[str, Any]) -> None:
+    from aifactory.providers.network import diagnostics
+
+    records = diagnostics()
+    if records:
+        envelope = {
+            **envelope,
+            "data": {**(envelope.get("data") or {}), "network_operations": records},
+        }
     print(json.dumps(envelope, ensure_ascii=False, indent=2))
 
 

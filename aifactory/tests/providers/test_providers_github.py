@@ -663,18 +663,24 @@ def test_checks_are_read_again_after_a_network_error(
         monkeypatch,
         {"pr checks": [reply(exit=1, stderr=RESET), reply([{"name": "ci", "bucket": "pass"}])]},
     )
+    from aifactory.providers import network
+
     sleeps: list[float] = []
+    monkeypatch.setattr(network, "_sleep", sleeps.append)
     status = _provider(tmp_path, sleeps).checks(PR)
     assert status.state == "passing"
-    assert len(_pr_calls(log, "pr checks")) == 2 and sleeps == [DELAY]
+    assert len(_pr_calls(log, "pr checks")) == 2 and sleeps == [10.0]
 
 
 def test_status_gives_up_after_the_retries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    install_fake_gh(tmp_path, monkeypatch, {"pr view": [reply(exit=1, stderr=RESET)] * 3})
+    from aifactory.providers import network
+
+    install_fake_gh(tmp_path, monkeypatch, {"pr view": [reply(exit=1, stderr=RESET)] * 5})
     sleeps: list[float] = []
+    monkeypatch.setattr(network, "_sleep", sleeps.append)
     with pytest.raises(ProviderError) as info:
         _provider(tmp_path, sleeps, attempts=2).status(PR)
-    assert "connection reset" in info.value.message and sleeps == [DELAY, DELAY]
+    assert "connection reset" in info.value.message and sleeps == [10.0, 20.0, 40.0, 80.0]
 
 
 def test_other_gh_errors_are_not_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

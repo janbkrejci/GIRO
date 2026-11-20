@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-HEAVY = ("starlette", "uvicorn", "pydantic", "rich")
+HEAVY = ("starlette", "uvicorn", "pydantic", "rich", "aifactory.providers")
 
 PROBE = """
 import contextlib, io, json, sys
@@ -18,7 +18,10 @@ with contextlib.redirect_stdout(io.StringIO()):
         main({argv!r})
     except SystemExit as exc:
         assert exc.code in (0, None), exc.code
-print(json.dumps(sorted(name for name in sys.modules if name.split(".")[0] in {heavy!r})))
+print(json.dumps(sorted(
+    name for name in sys.modules
+    if any(name == prefix or name.startswith(prefix + ".") for prefix in {heavy!r})
+)))
 """
 
 

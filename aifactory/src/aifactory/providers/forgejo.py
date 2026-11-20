@@ -31,6 +31,7 @@ from aifactory.providers.base import (
     utc_iso,
 )
 from aifactory.providers.forgejo_rest import TOKEN_ENV, URL_ENV, ForgejoHttpError, ForgejoRest
+from aifactory.providers.network import retry_network, retrying
 
 _FAILED = {"error", "failure"}
 _PASSED = {"success", "warning", "skipped"}
@@ -150,7 +151,12 @@ class ForgejoProvider(GitProvider):
             raise ProviderError("forgejo_failed", "Forgejo REST returned an invalid pull request")
         return PullRequest(str(number), url, branch, self.settings.base, title)
 
+    @retry_network
     def create_pr(self, branch: str, title: str, body: str) -> PullRequest:
+        if retrying():
+            existing = self.find_open_pr(branch)
+            if existing is not None:
+                return existing
         data, _ = self._api.json(
             "POST",
             f"{self._repos}/pulls",
@@ -158,6 +164,7 @@ class ForgejoProvider(GitProvider):
         )
         return self._pull_request(_object(data), branch)
 
+    @retry_network
     def find_open_pr(self, branch: str) -> PullRequest | None:
         for data in self._pages(
             f"{self._repos}/pulls", {"state": OPEN, "head": branch, "base": self.settings.base}
@@ -171,6 +178,7 @@ class ForgejoProvider(GitProvider):
                 return self._pull_request(data, branch)
         return None
 
+    @retry_network
     def update_pr(self, pr: PullRequest, body: str) -> None:
         self._api.request("PATCH", self._pr_path(pr), body={"body": body})
 
@@ -181,6 +189,7 @@ class ForgejoProvider(GitProvider):
             "POST", f"{self._pr_path(pr)}/reviews", body={"event": "COMMENT", "body": body}
         )
 
+    @retry_network
     def status(self, pr: PullRequest) -> PrStatus:
         obj, _ = self._api.json("GET", self._pr_path(pr))
         data = _object(obj)
@@ -200,6 +209,7 @@ class ForgejoProvider(GitProvider):
             return PrStatus(CLOSED, head_sha=head)
         raise ProviderError("forgejo_failed", "Forgejo REST returned an invalid pull request state")
 
+    @retry_network
     def merge(
         self, pr: PullRequest, head_sha: str, subject: str, strategy: str | None = None
     ) -> str | None:
@@ -263,6 +273,7 @@ class ForgejoProvider(GitProvider):
             f"{self._repos}/commits/{quote(head, safe='')}/status", {}, field="statuses"
         )
 
+    @retry_network
     def checks(self, pr: PullRequest) -> ChecksStatus:
         statuses = list(self._commit_statuses(pr))
         if not statuses:

@@ -31,6 +31,9 @@ CHECKS_FAILING, CHECKS_NONE = "failing", "none"
 class ProviderError(Exception):
     """A git or hosting operation failed; ``code`` says which kind."""
 
+    # A transport/provider can forbid replay when a dispatched write cannot be verified.
+    retryable: bool = True
+
     def __init__(self, code: str, message: str) -> None:
         self.code = code
         self.message = message
