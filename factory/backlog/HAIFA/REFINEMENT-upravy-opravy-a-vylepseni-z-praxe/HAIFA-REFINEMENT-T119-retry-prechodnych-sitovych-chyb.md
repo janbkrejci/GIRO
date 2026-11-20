@@ -1,7 +1,7 @@
 ---
 id: HAIFA-REFINEMENT-T119
 title: Přechodné síťové chyby při git fetch nesmí zastavit approve ani auto-continue řetěz
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -23,3 +23,4 @@ Hotovo znamená:
 
 ## Běhy
 <!-- doplňuje GIRO při schválení PR -->
+- 2026-11-20 · workflow build-test-review · PR https://github.com/janbkrejci/GIRO/pull/19 · náklady $0.00
