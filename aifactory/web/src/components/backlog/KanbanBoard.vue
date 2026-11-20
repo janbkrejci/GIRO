@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { t } from '@/lib/i18n'
+import { shownFailureKind } from '@/lib/failure'
 // The kanban of the Backlog screen. The Připraveno column is the auto-continue queue: its
 // order changes by drag and drop or the ↑/↓ buttons (`reorder` with the whole new order).
 // Odloženo holds tasks excluded from auto continue; a card moves there and back by drag and
 // drop or its switch (`exclude`). Tasks with priority (blocked during a run, and their
 // blockers) are on top of their column with the label „přednostně“; `clearPriority` takes it away.
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Archive, ArchiveRestore, ArrowDown, ArrowUp, ChevronsDown, PauseCircle, PlayCircle } from 'lucide-vue-next'
 import Tooltip from '@/components/ui/Tooltip.vue'
 import {
@@ -13,6 +14,7 @@ import {
   DEFERRABLE_STATES,
   STATE_TOOLTIPS,
   hasPriority,
+  fetchTask,
   kanbanColumn,
   kanbanColumns,
   prioritySorted,
@@ -22,7 +24,7 @@ import {
   type KanbanColumn,
   type TaskNode,
 } from '@/lib/backlog'
-import { taskHref } from '@/lib/router'
+import { taskHref, runHref, useRepoId } from '@/lib/router'
 
 const props = defineProps<{
   tasks: TaskNode[]
@@ -30,6 +32,30 @@ const props = defineProps<{
   /** A queue write is running: the reorder and exclude controls wait. */
   busy?: boolean
 }>()
+
+// Resolve only cards whose current state points to a run. Never reuse a failed
+// attempt for a task that is now running, or a response from a previous repository.
+const repoId = useRepoId()
+const runLinks = ref<Record<string, string>>({})
+watch([() => props.tasks, repoId], async (_, __, onCleanup) => {
+  let current = true
+  onCleanup(() => { current = false })
+  runLinks.value = {}
+  await Promise.all(props.tasks.map(async (task) => {
+    if (task.board_state !== 'running' && task.board_state !== 'failed') return
+    try {
+      const detail = await fetchTask(task.id)
+      const run = (detail.runs ?? [])
+        .filter((run) => run.task_id === task.id && (task.board_state === 'running'
+          ? run.state === 'running'
+          : (run.state === 'failed' || run.state === 'aborted') && shownFailureKind(run) !== 'blocked'))
+        .sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at))[0]
+      if (current && run?.run_id?.trim()) runLinks.value[task.id] = runHref(run.run_id)
+    } catch {
+      // The task detail remains accessible when run data is unavailable.
+    }
+  }))
+}, { immediate: true, deep: true })
 
 const emit = defineEmits<{
   reorder: [ids: string[]]
@@ -197,7 +223,7 @@ function onDrop(event: DragEvent, column: KanbanColumn, beforeId: string | null 
         @dragend="onDragEnd"
         @drop.stop="onDrop($event, col.column, col.column === 'ready' ? task.id : null)"
       >
-        <a class="card" :href="taskHref(task.id)" :data-card="task.id" draggable="false">
+        <a class="card" :href="runLinks[task.id] ?? taskHref(task.id)" :data-card="task.id" draggable="false">
           <span class="id">
             <span v-if="col.column === 'ready'" class="rank" data-test="queue-rank">{{ index + 1 }}.</span>
             {{ task.id }}

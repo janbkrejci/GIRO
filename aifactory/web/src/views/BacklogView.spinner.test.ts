@@ -53,6 +53,7 @@ function disabled(wrapper: VueWrapper, selector: string): boolean {
 const written = () => ok({ action: 'edit', changed: true, path: 'x', task: taskNode(), issues: [] })
 
 afterEach(() => {
+  localStorage.removeItem('giro.backlog.mode')
   resetLiveForTests()
   FakeEventSource.reset()
   vi.unstubAllGlobals()

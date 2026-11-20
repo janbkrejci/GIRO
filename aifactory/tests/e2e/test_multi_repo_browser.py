@@ -285,12 +285,13 @@ def test_multi_repo_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
                     expect(running).to_have_count(0)
                     project = card.locator('[data-project="M01"] h3.project-name a')
                     expect(project).to_have_attribute("href", f"#/r/{id_a}/backlog/project/M01")
+                    # A saved tree preference must not override the project link.
+                    page.evaluate("localStorage.setItem('giro.backlog.mode', 'tree')")
                     project.focus()
                     project.press("Enter")
                     expect(page).to_have_url(f"{obs.url}/#/r/{id_a}/backlog")
-                    expect(page.locator('[data-test="tree"]')).to_be_visible()
-                    expect(page.locator('[data-node="M01-S01"]')).to_be_visible()
-                    expect(page.locator('[data-node="M02"]')).to_have_count(0)
+                    expect(page.locator('[data-test="kanban"]')).to_be_visible()
+                    expect(page.locator('[data-test="tree"]')).to_have_count(0)
                     expect(page.locator('[data-test="project-filter"]')).to_contain_text("M01")
                     assert (
                         page.evaluate(
@@ -298,10 +299,13 @@ def test_multi_repo_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
                         )
                         == "M01"
                     )
-                    page.locator('[data-test="mode-kanban"]').click()
                     expect(page.locator(f'[data-item="{task}"]')).to_be_visible()
                     expect(page.locator('[data-item="M02-S01-T01"]')).to_have_count(0)
                     expect(page.locator('[data-test="project-filter"]')).to_contain_text("M01")
+                    page.locator('[data-test="mode-tree"]').focus()
+                    page.locator('[data-test="mode-tree"]').press("Enter")
+                    expect(page.locator('[data-node="M01"]')).to_be_visible()
+                    expect(page.locator('[data-node="M02"]')).to_have_count(0)
                     _menu(page, "switch-overview")
                     expect(
                         page.locator('[data-test="total-review"] [data-test="total-count"]')

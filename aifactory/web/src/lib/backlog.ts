@@ -386,6 +386,7 @@ export interface BlocksRef {
 }
 
 export interface TaskRun {
+  failure_kind?: string | null
   run_id: string
   task_id: string
   branch: string

@@ -4,11 +4,18 @@ import { setLocale } from '@/lib/i18n'
 beforeLocaleTest(() => setLocale('cs'))
 afterLocaleTest(() => setLocale('en'))
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import KanbanBoard from './KanbanBoard.vue'
-import { BOARD_STATES, kanbanColumns, presentStates, resetShowArchivedForTests } from '@/lib/backlog'
-import { backlogData, taskNode } from '@/test/backlogFixtures'
+import { deferred } from '@/test/deferred'
+import type { TaskDetail } from '@/lib/backlog'
+import { BOARD_STATES, fetchTask, kanbanColumns, presentStates, resetShowArchivedForTests } from '@/lib/backlog'
+import { backlogData, taskNode, taskDetail } from '@/test/backlogFixtures'
+
+vi.mock('@/lib/backlog', async (original) => ({
+  ...await original<typeof import('@/lib/backlog')>(),
+  fetchTask: vi.fn(),
+}))
 
 function readyTasks() {
   return [
@@ -36,6 +43,8 @@ const cards = (wrapper: ReturnType<typeof mount>, column: string) =>
   wrapper.find(`[data-column="${column}"]`).findAll('[data-card]').map((c) => c.attributes('data-card'))
 
 beforeEach(() => {
+  vi.mocked(fetchTask).mockReset()
+  vi.mocked(fetchTask).mockRejectedValue(new Error('unavailable'))
   localStorage.clear()
   resetShowArchivedForTests()
 })
@@ -46,6 +55,83 @@ afterEach(() => {
 })
 
 describe('KanbanBoard', () => {
+  it.each(['haifa', 'other'])('links running and failed cards to the newest matching run in repo %s', async (repo) => {
+    window.location.hash = `#/r/${repo}/backlog`
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    const baseRun = taskDetail().runs[0]!
+    const runs = [
+      { ...baseRun, task_id: 'T-1', run_id: 'old-failure', state: 'failed', started_at: '2026-01-01' },
+      { ...baseRun, task_id: 'T-1', run_id: 'new-failure', state: 'failed', started_at: '2026-01-02' },
+      { ...baseRun, task_id: 'T-1', run_id: 'active/run', state: 'running', started_at: '2026-01-03' },
+      { ...baseRun, task_id: 'another-task', run_id: 'unrelated', state: 'running', started_at: '2026-01-04' },
+    ]
+    vi.mocked(fetchTask).mockResolvedValue(taskDetail({ runs }))
+    const task = taskNode({ id: 'T-1', board_state: 'running' })
+    const wrapper = mount(KanbanBoard, { props: { tasks: [task], states: BOARD_STATES } })
+    await flushPromises()
+    expect(wrapper.get('[data-card]').attributes('href')).toBe(`#/r/${repo}/runs/active%2Frun`)
+    await wrapper.setProps({ tasks: [{ ...task, board_state: 'failed' }] })
+    await flushPromises()
+    expect(wrapper.get('[data-card]').attributes('href')).toBe(`#/r/${repo}/runs/new-failure`)
+    wrapper.unmount()
+  })
+
+  it('uses the latest aborted attempt in the failed column and skips blocked failures', async () => {
+    const baseRun = taskDetail().runs[0]!
+    vi.mocked(fetchTask).mockResolvedValue(taskDetail({ runs: [
+      { ...baseRun, state: 'failed', run_id: 'old', started_at: '2026-01-01' },
+      { ...baseRun, state: 'aborted', run_id: 'aborted', started_at: '2026-01-02' },
+      { ...baseRun, state: 'failed', failure_kind: 'blocked', run_id: 'blocked', started_at: '2026-01-03' },
+    ] }))
+    const wrapper = mount(KanbanBoard, {
+      props: { tasks: [taskNode({ board_state: 'failed' })], states: BOARD_STATES },
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-card]').attributes('href')).toBe('#/r/haifa/runs/aborted')
+    wrapper.unmount()
+  })
+
+  it('discards an older failure response after the task starts running', async () => {
+    const pending = deferred<TaskDetail>()
+    vi.mocked(fetchTask).mockReturnValueOnce(pending.promise)
+    const task = taskNode({ board_state: 'failed' })
+    const wrapper = mount(KanbanBoard, { props: { tasks: [task], states: BOARD_STATES } })
+    vi.mocked(fetchTask).mockResolvedValue(taskDetail({ runs: [
+      { ...taskDetail().runs[0]!, state: 'running', run_id: 'active' },
+    ] }))
+    await wrapper.setProps({ tasks: [{ ...task, board_state: 'running' }] })
+    await flushPromises()
+    pending.resolve(taskDetail({ runs: [{ ...taskDetail().runs[0]!, state: 'failed', run_id: 'stale' }] }))
+    await flushPromises()
+    expect(wrapper.get('[data-card]').attributes('href')).toBe('#/r/haifa/runs/active')
+    wrapper.unmount()
+  })
+
+  it.each(['running', 'failed', 'ready'] as const)('falls back to the task for %s without a matching run ID', async (state) => {
+    const baseRun = taskDetail().runs[0]!
+    vi.mocked(fetchTask).mockResolvedValue(taskDetail({ runs: [
+      { ...baseRun, task_id: 'T-1', state, run_id: '', started_at: '2026-01-03' },
+      { ...baseRun, task_id: 'T-1', state: 'failed', run_id: 'old-failure', started_at: '2026-01-01' },
+      { ...baseRun, task_id: 'T-1', state: 'succeeded', run_id: 'old-success' },
+    ] }))
+    const wrapper = mount(KanbanBoard, {
+      props: { tasks: [taskNode({ id: 'T-1', board_state: state })], states: BOARD_STATES },
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-card]').attributes('href')).toBe('#/r/haifa/backlog/T-1')
+    if (state === 'ready') expect(fetchTask).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('keeps the task link when run data cannot be loaded', async () => {
+    const wrapper = mount(KanbanBoard, {
+      props: { tasks: [taskNode({ id: 'T-1', board_state: 'failed' })], states: BOARD_STATES },
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-card]').attributes('href')).toBe('#/r/haifa/backlog/T-1')
+    wrapper.unmount()
+  })
+
   it('hides archived cards and toggles each terminal column with visible counts', async () => {
     const tasks = [
       taskNode({ id: 'done', path: 'done.md', board_state: 'done' }),
