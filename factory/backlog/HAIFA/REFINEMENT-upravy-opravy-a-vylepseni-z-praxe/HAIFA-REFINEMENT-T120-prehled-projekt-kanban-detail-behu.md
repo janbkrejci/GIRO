@@ -1,7 +1,7 @@
 ---
 id: HAIFA-REFINEMENT-T120
 title: Z Přehledu na projektový Kanban a z karty přímo na běh
-status: todo
+status: done
 depends_on: []
 related: [HAIFA-REFINEMENT-T115]
 writes: [aifactory/web/src/, aifactory/tests/e2e/test_multi_repo_browser.py, aifactory/src/aifactory/web/static/]
@@ -16,3 +16,4 @@ Doplň regresní testy pro výchozí Kanban a filtr projektu při přechodu z P�
 
 ## Běhy
 <!-- doplňuje GIRO při schválení PR -->
+- 2026-11-20 · workflow build-test-review · PR https://github.com/janbkrejci/GIRO/pull/20 · náklady $0.00
