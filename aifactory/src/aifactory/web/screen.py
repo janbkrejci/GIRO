@@ -8,6 +8,7 @@ import struct
 import threading
 import time
 from collections.abc import AsyncIterator
+from typing import cast
 
 import anyio
 from starlette.requests import Request
@@ -16,11 +17,15 @@ from starlette.types import Receive, Scope, Send
 
 from aifactory.skill.envelope import envelope_fail, envelope_ok
 from aifactory.web import screen_capture as capture
+from aifactory.web.screen_input import InputState, validate
 from aifactory.web.terminal import _enabled
 
 
 class ScreenSession:
-    def __init__(self, fps: int, max_width: int, quality: int) -> None:
+    def __init__(
+        self, fps: int, max_width: int, quality: int, *, input_state: InputState | None = None
+    ) -> None:
+        self.input_state = input_state
         self.parameters = fps, max_width, quality
         self.stop = threading.Event()
         self.frames: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=1)
@@ -68,7 +73,11 @@ class ScreenSession:
     async def close(self) -> None:
         self.stop.set()
         with anyio.CancelScope(shield=True):
-            await self.task
+            try:
+                await self.task
+            finally:
+                if self.input_state is not None:
+                    await anyio.to_thread.run_sync(self.input_state.release_all)
 
     async def stream(self) -> AsyncIterator[bytes]:
         while (frame := await self.frames.get()) is not None:
@@ -89,9 +98,11 @@ class ScreenResponse(StreamingResponse):
         try:
             await super().__call__(scope, receive, send)
         finally:
-            await self.session.close()
-            if self.request.app.state.screen_session is self.session:
-                self.request.app.state.screen_session = None
+            try:
+                await self.session.close()
+            finally:
+                if self.request.app.state.screen_session is self.session:
+                    self.request.app.state.screen_session = None
 
 
 async def screen_get(request: Request) -> Response:
@@ -138,7 +149,7 @@ async def screen_stream(request: Request) -> Response:
         return JSONResponse(
             envelope_fail("busy", "Screen already has a subscriber."), status_code=409
         )
-    session = ScreenSession(*values)
+    session = ScreenSession(*values, input_state=_input_state(request))
     request.app.state.screen_session = session
     try:
         info = await asyncio.shield(session.ready)
@@ -154,3 +165,36 @@ async def screen_stream(request: Request) -> Response:
         await session.close()
         request.app.state.screen_session = None
         raise
+
+
+def _input_state(request: Request) -> InputState:
+    state = cast(InputState | None, getattr(request.app.state, "screen_input", None))
+    if state is None:
+        state = InputState()
+        request.app.state.screen_input = state
+    return state
+
+
+async def screen_input(request: Request) -> Response:
+    if not _enabled(request):
+        return JSONResponse(
+            envelope_fail("screen_disabled", "Screen requires loopback."), status_code=403
+        )
+    try:
+        events = validate(await request.json())
+    except (ValueError, OverflowError):
+        return JSONResponse(
+            envelope_fail("usage_error", "Invalid screen input batch."), status_code=400
+        )
+    try:
+        result = await anyio.to_thread.run_sync(_input_state(request).apply, events)
+    except capture.Unsupported as exc:
+        return JSONResponse(
+            envelope_fail("screen_unsupported", str(exc), data={"reason": exc.reason}),
+            status_code=501,
+        )
+    except OSError:
+        return JSONResponse(
+            envelope_fail("screen_input_failed", "Screen input could not be sent."), status_code=502
+        )
+    return JSONResponse(envelope_ok(result))
