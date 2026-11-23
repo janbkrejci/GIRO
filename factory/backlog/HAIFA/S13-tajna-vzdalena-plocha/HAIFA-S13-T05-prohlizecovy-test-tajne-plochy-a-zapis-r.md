@@ -1,7 +1,7 @@
 ---
 id: HAIFA-S13-T05
 title: Prohlížečový test tajné plochy a zápis rozhodnutí
-status: todo
+status: done
 workflow: build-test-review
 depends_on: [HAIFA-S13-T03, HAIFA-S13-T04]
 writes: [aifactory/tests/e2e/test_screen_browser.py, aifactory/tests/tiers.py, docs/decisions.md]
@@ -47,3 +47,4 @@ Hotovo znamená:
 
 ## Běhy
 <!-- doplňuje GIRO při schválení PR -->
+- 2026-11-23 · workflow build-test-review · PR https://github.com/janbkrejci/GIRO/pull/25 · náklady $0.00
