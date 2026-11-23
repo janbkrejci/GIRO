@@ -1,19 +1,17 @@
 /** A fresh detector per mounted dashboard; repeats never advance or reset it. */
 export function createSecretKeys() {
-  const sequence = ['Control', 'Shift', 'Control', 'Shift']
-  let position = 0
+  let keys: string[] = []
   let previous = 0
-  return (event: Pick<KeyboardEvent, 'key' | 'repeat'>, now = performance.now()): boolean => {
-    if (event.repeat) return false
-    if (now - previous > 1000) position = 0
+  return (event: Pick<KeyboardEvent, 'key' | 'repeat'>, now = performance.now()): 'terminal' | 'screen' | undefined => {
+    if (event.repeat) return
+    if (now - previous > 1000) keys = []
     previous = now
-    if (event.key !== sequence[position]) {
-      position = event.key === sequence[0] ? 1 : 0
-      return false
-    }
-    position++
-    if (position !== sequence.length) return false
-    position = 0
-    return true
+    if (event.key !== 'Control' && event.key !== 'Shift') { keys = []; return }
+    if (keys.at(-1) === event.key) keys = []
+    keys.push(event.key)
+    if (keys.length < 4) return
+    const result = keys[0] === 'Control' ? 'terminal' : 'screen'
+    keys = []
+    return result
   }
 }

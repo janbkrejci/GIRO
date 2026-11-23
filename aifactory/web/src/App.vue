@@ -48,12 +48,16 @@ import Tooltip from './components/ui/Tooltip.vue'
 import LanguageSelect from './components/LanguageSelect.vue'
 
 const TerminalOverlay = asyncView(() => import('./components/terminal/TerminalOverlay.vue'))
+const ScreenOverlay = asyncView(() => import('./components/screen/ScreenOverlay.vue'))
 const SetupView = asyncView(() => import('./views/SetupView.vue'))
 
 const terminalOpen = ref(false)
+const screenOpen = ref(false)
 const secretKeys = createSecretKeys()
 function terminalKeydown(event: KeyboardEvent) {
-  if (secretKeys(event)) terminalOpen.value = !terminalOpen.value
+  const sequence = secretKeys(event)
+  if (sequence === 'terminal' && !screenOpen.value) terminalOpen.value = !terminalOpen.value
+  if (sequence === 'screen' && !terminalOpen.value) screenOpen.value = !screenOpen.value
 }
 
 const route = useRoute()
@@ -311,6 +315,7 @@ onBeforeUnmount(() => {
   <MachineHarnessesDialog :open="harnessDialog" @close="harnessDialog = false" @saved="limits.refresh(); readiness.refresh(true)" @tested="limits.refresh(); readiness.refresh(true)" />
   <AssistantPanel :repos="repoIds" />
   <TerminalOverlay v-if="terminalOpen" @close="terminalOpen = false" />
+  <ScreenOverlay v-if="screenOpen" @close="screenOpen = false" />
   <ConfirmDialog v-bind="leaveDialog" @confirm="confirmLeave" @cancel="cancelLeave" />
 </template>
 
