@@ -143,6 +143,30 @@ describe('App', () => {
     }
   })
 
+  it('opens the screen in capture phase, ignores terminal while open and closes with the same sequence', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    stubApi({ handler: url => url === '/api/screen'
+      ? envelope({ enabled: false, supported: true, reason: null, width: 800, height: 600 }) : undefined })
+    const wrapper = mount(App, { attachTo: document.body })
+    await flushPromises()
+    const sequence = async (keys: string[]) => {
+      for (const key of keys) document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+      await flushPromises()
+    }
+    const screen = ['Shift', 'Control', 'Shift', 'Control']
+    await sequence(screen)
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    expect(wrapper.find('[data-test="screen-overlay"]').exists()).toBe(true)
+    const canvas = wrapper.get('canvas').element
+    canvas.addEventListener('keydown', event => event.stopPropagation())
+    await sequence(['Control', 'Shift', 'Control', 'Shift'])
+    expect(wrapper.find('[data-test="terminal-overlay"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="screen-overlay"]').exists()).toBe(true)
+    await sequence(screen)
+    expect(wrapper.find('[data-test="screen-overlay"]').exists()).toBe(false)
+  })
+
   it('toggles from the xterm textarea even when bubbling stops and removes the listener', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
     stubApi({ handler: url => {
@@ -168,6 +192,12 @@ describe('App', () => {
     await flushPromises()
     await vi.waitFor(() => expect(wrapper.find('[data-test="terminal-overlay"]').exists()).toBe(true))
     expect(document.activeElement).toBe(wrapper.get('.xterm-helper-textarea').element)
+    for (const key of ['Shift', 'Control', 'Shift', 'Control']) {
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+    }
+    await flushPromises()
+    expect(wrapper.find('[data-test="screen-overlay"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="terminal-overlay"]').exists()).toBe(true)
     await wrapper.get('.xterm-helper-textarea').trigger('keydown', { key: 'Escape' })
     expect(wrapper.find('[data-test="terminal-overlay"]').exists()).toBe(true)
     await sequence()

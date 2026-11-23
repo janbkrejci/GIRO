@@ -1,7 +1,7 @@
 ---
 id: HAIFA-S13-T04
 title: "Overlay tajné plochy otevřený sekvencí Shift, Control, Shift, Control"
-status: todo
+status: done
 workflow: build-test-review
 depends_on: [HAIFA-S13-T02]
 writes: [aifactory/web/src/lib/secretKeys.ts, aifactory/web/src/lib/secretKeys.test.ts, aifactory/web/src/lib/screen.ts, aifactory/web/src/lib/screen.test.ts, aifactory/web/src/components/screen/, aifactory/web/src/App.vue, aifactory/web/src/App.test.ts, aifactory/src/aifactory/web/static/]
@@ -68,3 +68,4 @@ Hotovo znamená:
 
 ## Běhy
 <!-- doplňuje GIRO při schválení PR -->
+- 2026-11-23 · workflow build-test-review · PR https://github.com/janbkrejci/GIRO/pull/24 · náklady $0.00

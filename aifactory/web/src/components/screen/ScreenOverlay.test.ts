@@ -1,0 +1,225 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { setLocale } from '../../lib/i18n'
+import { fetchScreen, inputScreen, streamScreen, type ScreenInfo, type ScreenInput } from '../../lib/screen'
+import ScreenOverlay from './ScreenOverlay.vue'
+vi.mock('../../lib/screen', () => ({ fetchScreen: vi.fn(), inputScreen: vi.fn(), streamScreen: vi.fn() }))
+let wrapper: VueWrapper | undefined
+let frames: (frame: Uint8Array<ArrayBuffer>) => void
+let endStream: () => void
+let signal: AbortSignal
+let callbacks: Map<number, FrameRequestCallback>
+let nextId: number
+const drawImage = vi.fn()
+const info: ScreenInfo = { enabled: true, supported: true, reason: null, width: 200, height: 100 }
+const bitmap = () => ({ width: 200, height: 100, close: vi.fn() })
+function tick() {
+  const current = [...callbacks.values()]
+  callbacks.clear()
+  current.forEach(callback => callback(0))
+}
+async function open(value = info) {
+  vi.mocked(fetchScreen).mockResolvedValue(value)
+  wrapper = mount(ScreenOverlay, { attachTo: document.body })
+  await flushPromises()
+  return wrapper
+}
+async function showFrame() {
+  frames(new Uint8Array([1]))
+  await flushPromises()
+  tick()
+  await flushPromises()
+}
+function batches() { return vi.mocked(inputScreen).mock.calls.map(call => call[0]) }
+beforeEach(() => {
+  vi.resetAllMocks()
+  setLocale('en')
+  callbacks = new Map(); nextId = 0
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callbacks.set(++nextId, callback); return nextId })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id))
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+  vi.stubGlobal('createImageBitmap', vi.fn(async () => bitmap()))
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage, clearRect: vi.fn() } as unknown as CanvasRenderingContext2D)
+  vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({ left: 10, top: 20, width: 400, height: 400 } as DOMRect)
+  vi.mocked(inputScreen).mockResolvedValue()
+  vi.mocked(streamScreen).mockImplementation((abortSignal, onFrame) => {
+    signal = abortSignal; frames = onFrame
+    return new Promise(resolve => { endStream = resolve })
+  })
+})
+afterEach(() => {
+  wrapper?.unmount(); wrapper = undefined
+  vi.restoreAllMocks(); vi.unstubAllGlobals()
+})
+describe('ScreenOverlay', () => {
+  it('letterboxes frames and maps only points inside the image; batches mouse buttons and wheel', async () => {
+    const view = await open()
+    await showFrame()
+    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 100, 400, 200)
+    const canvas = view.get('canvas')
+    await canvas.trigger('pointerdown', { clientX: 210, clientY: 50, button: 0 })
+    tick(); await flushPromises()
+    expect(inputScreen).not.toHaveBeenCalled()
+    for (const button of [0, 1, 2]) {
+      await canvas.trigger('pointerdown', { clientX: 110, clientY: 170, button })
+      await canvas.trigger('pointerup', { clientX: 310, clientY: 270, button })
+    }
+    await canvas.trigger('wheel', { clientX: 210, clientY: 220, deltaX: 100, deltaY: 200 })
+    tick(); await flushPromises()
+    expect(batches()[0]).toEqual([
+      ...(['left', 'middle', 'right'] as const).flatMap(button => [
+        { type: 'button', button, down: true, x: .25, y: .25 },
+        { type: 'button', button, down: false, x: .75, y: .75 },
+      ]), { type: 'move', x: .5, y: .5 }, { type: 'wheel', dx: 1, dy: -2 },
+    ])
+    const context = new MouseEvent('contextmenu', { cancelable: true })
+    canvas.element.dispatchEvent(context)
+    expect(context.defaultPrevented).toBe(true)
+  })
+  it('coalesces moves per animation frame and keeps only one request in flight', async () => {
+    const view = await open(); await showFrame()
+    let finish!: () => void
+    vi.mocked(inputScreen).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const move = (clientX: number) => view.get('canvas').trigger('pointermove', { clientX, clientY: 220 })
+    await move(110); await move(210)
+    expect(inputScreen).not.toHaveBeenCalled()
+    tick(); await flushPromises()
+    expect(batches()).toEqual([[{ type: 'move', x: .5, y: .5 }]])
+    await move(110); tick(); await move(210); tick(); await move(310); tick()
+    expect(inputScreen).toHaveBeenCalledTimes(1)
+    finish(); await flushPromises()
+    expect(batches()).toEqual([[{ type: 'move', x: .5, y: .5 }], [{ type: 'move', x: .75, y: .5 }]])
+  })
+  it.each([false, true])('preserves wheel positions before later moves (request in flight: %s)', async inFlight => {
+    const view = await open(); await showFrame()
+    const canvas = view.get('canvas')
+    let finish!: () => void
+    if (inFlight) {
+      vi.mocked(inputScreen).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+      await canvas.trigger('keydown', { code: 'KeyA' })
+      tick(); await flushPromises()
+    }
+    await canvas.trigger('wheel', { clientX: 110, clientY: 220, deltaX: 0, deltaY: 100 })
+    await canvas.trigger('pointermove', { clientX: 210, clientY: 220 })
+    if (inFlight) tick()
+    await canvas.trigger('wheel', { clientX: 210, clientY: 170, deltaX: 100, deltaY: 0 })
+    await canvas.trigger('pointermove', { clientX: 210, clientY: 220 })
+    if (inFlight) tick()
+    await canvas.trigger('pointermove', { clientX: 310, clientY: 220 })
+    tick(); await flushPromises()
+    if (inFlight) {
+      expect(inputScreen).toHaveBeenCalledTimes(1)
+      finish(); await flushPromises()
+    }
+    expect(batches()).toEqual([
+      ...(inFlight ? [[{ type: 'key', code: 'KeyA', down: true }]] : []),
+      [
+        { type: 'move', x: .25, y: .5 }, { type: 'wheel', dx: 0, dy: -1 },
+        { type: 'move', x: .5, y: .25 }, { type: 'wheel', dx: 1, dy: -0 },
+        { type: 'move', x: .75, y: .5 },
+      ],
+    ])
+  })
+  it('splits more than 200 inputs into bounded serial batches without losing order', async () => {
+    const view = await open()
+    const finish: (() => void)[] = []
+    let inFlight = 0
+    let maxInFlight = 0
+    vi.mocked(inputScreen).mockImplementation(() => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      return new Promise<void>(resolve => finish.push(resolve)).finally(() => { inFlight-- })
+    })
+    const expected: ScreenInput[] = []
+    for (let index = 0; index < 450; index++) {
+      const code = `Key${String.fromCharCode(65 + Math.floor(index / 2) % 26)}`
+      const down = index % 2 === 0
+      expected.push({ type: 'key', code, down })
+      view.get('canvas').element.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, bubbles: true }))
+    }
+    expect(inputScreen).not.toHaveBeenCalled()
+    tick(); await flushPromises()
+    expect(batches().map(batch => batch.length)).toEqual([200])
+    tick(); await flushPromises()
+    expect(inputScreen).toHaveBeenCalledTimes(1)
+    finish[0]!(); await flushPromises()
+    expect(batches().map(batch => batch.length)).toEqual([200, 200])
+    finish[1]!(); await flushPromises()
+    expect(batches().map(batch => batch.length)).toEqual([200, 200, 50])
+    finish[2]!(); await flushPromises()
+    expect(inFlight).toBe(0)
+    expect(maxInFlight).toBe(1)
+    expect(batches().flat()).toEqual(expected)
+    vi.mocked(inputScreen).mockResolvedValue()
+  })
+  it('sends physical key codes, prevents browser defaults and releases on blur and close', async () => {
+    const view = await open()
+    for (const type of ['keydown', 'keyup']) {
+      const event = new KeyboardEvent(type, { code: 'KeyW', key: 'w', ctrlKey: true, bubbles: true, cancelable: true })
+      view.get('canvas').element.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+    }
+    tick(); await flushPromises()
+    expect(batches()[0]).toEqual([{ type: 'key', code: 'KeyW', down: true }, { type: 'key', code: 'KeyW', down: false }])
+    window.dispatchEvent(new Event('blur')); await flushPromises()
+    expect(batches().at(-1)).toEqual([{ type: 'release_all' }])
+    await view.get('.close').trigger('click'); await flushPromises()
+    expect(batches().filter(batch => batch[0]?.type === 'release_all')).toHaveLength(2)
+    expect(signal.aborted).toBe(true)
+    expect(view.emitted('close')).toHaveLength(1)
+  })
+  it('queues cleanup behind an in-flight input request', async () => {
+    const view = await open()
+    let finish!: () => void
+    vi.mocked(inputScreen).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    await view.get('canvas').trigger('keydown', { code: 'ShiftLeft' })
+    tick(); await flushPromises()
+    view.unmount(); wrapper = undefined
+    expect(inputScreen).toHaveBeenCalledTimes(1)
+    finish(); await flushPromises()
+    expect(batches().at(-1)).toEqual([{ type: 'release_all' }])
+  })
+  it('discards older decoded and undrawn bitmaps, and frees images on page exit', async () => {
+    await open()
+    const resolvers: ((value: ImageBitmap) => void)[] = []
+    vi.mocked(createImageBitmap).mockImplementation(() => new Promise(resolve => resolvers.push(resolve)))
+    frames(new Uint8Array([1])); frames(new Uint8Array([2])); frames(new Uint8Array([3]))
+    const first = bitmap(), second = bitmap(), third = bitmap()
+    resolvers[1]!(second as unknown as ImageBitmap); await flushPromises()
+    resolvers[0]!(first as unknown as ImageBitmap); await flushPromises()
+    expect(first.close).toHaveBeenCalledOnce()
+    resolvers[2]!(third as unknown as ImageBitmap); await flushPromises()
+    expect(second.close).toHaveBeenCalledOnce()
+    expect(drawImage).not.toHaveBeenCalled()
+    tick(); expect(drawImage).toHaveBeenCalledWith(third, 0, 100, 400, 200)
+    window.dispatchEvent(new Event('pagehide'))
+    expect(third.close).toHaveBeenCalledOnce()
+    expect(signal.aborted).toBe(true)
+  })
+  it('shows loopback status and updates it when the locale changes', async () => {
+    const view = await open({ ...info, enabled: false })
+    const english = view.get('[data-test="screen-disabled"]').text()
+    setLocale('cs'); await flushPromises()
+    expect(view.get('[data-test="screen-disabled"]').text()).not.toBe(english)
+    expect(streamScreen).not.toHaveBeenCalled()
+    expect(inputScreen).not.toHaveBeenCalled()
+  })
+  it.each(['permission_denied', 'wayland_unsupported', 'no_display', 'capture_failed', 'unexpected'])('translates unsupported reason %s', async reason => {
+    const view = await open({ ...info, supported: false, reason })
+    const english = view.get('[data-test="screen-unsupported"]').text()
+    expect(english).not.toContain(reason)
+    if (reason === 'permission_denied') expect(view.get('a').attributes('href')).toContain('support.apple.com')
+    setLocale('cs'); await flushPromises()
+    expect(view.get('[data-test="screen-unsupported"]').text()).not.toBe(english)
+    expect(streamScreen).not.toHaveBeenCalled()
+  })
+  it('offers reconnection on stream end and aborts the previous stream', async () => {
+    const view = await open()
+    const firstSignal = signal
+    endStream(); await flushPromises()
+    expect(view.get('[role="status"]').text()).toContain('ended')
+    await view.get('.status button').trigger('click'); await flushPromises()
+    expect(firstSignal.aborted).toBe(true)
+    expect(streamScreen).toHaveBeenCalledTimes(2)
+  })
+})
