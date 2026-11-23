@@ -21,3 +21,11 @@ krok workflow. Diagnostický test
 prošel (1 test, 18,41 s). Ověřil dva platné JPEG rámce s délkovou hlavičkou,
 odmítnutí druhého odběratele, odpojení a opětovné připojení.
 Frontend a ovládání vzdálené plochy nejsou součástí tohoto API.
+
+Po rebase jsou `screen_disabled` a `screen_unsupported` zaregistrovány v katalogu
+chyb a obě cesty zahrnuty do očekávaného seznamu API rout. Testy odmítnutí
+streamu kontrolují také platnost envelope vůči katalogu. Ověření integrace
+pokrývají `tests/web/test_web_routes.py`, `tests/web/test_web_app.py`,
+`tests/web/test_web_cleanup.py` a `tests/web/test_web_terminal.py`; přímé použití
+katalogu dále pokrývají `tests/test_skill.py` a `tests/test_json_envelope.py`.
+V navazujícím builder kroku se kontroly neopakovaly; běží v testovacím kroku.

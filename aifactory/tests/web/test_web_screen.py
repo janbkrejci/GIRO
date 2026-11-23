@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
+import mss
 import pytest
 from PIL import Image
 from starlette.applications import Starlette
@@ -19,6 +20,7 @@ from starlette.testclient import TestClient
 from starlette.types import Message
 
 from aifactory.codeprint import CodeWatch
+from aifactory.skill import envelope_problems
 from aifactory.web import screen
 from aifactory.web import screen_capture as capture
 from aifactory.web.app import create_multi_app
@@ -60,7 +62,10 @@ def test_availability_and_access(
             "height": 360,
         }
         if not enabled:
-            assert client.get("/api/screen/stream").status_code == 403
+            response = client.get("/api/screen/stream")
+            assert response.status_code == 403
+            assert response.json()["error"]["code"] == "screen_disabled"
+            assert envelope_problems(response.json()) == []
 
 
 @pytest.mark.parametrize("wayland,reason", [(False, "no_display"), (True, "wayland_unsupported")])
@@ -88,6 +93,7 @@ def test_unsupported_linux(
         response = client.get("/api/screen/stream")
         assert response.status_code == 501
         assert response.json()["error"]["code"] == "screen_unsupported"
+        assert envelope_problems(response.json()) == []
         assert response.json()["data"]["reason"] == reason
         assert cast(Starlette, client.app).state.screen_session is None
 
@@ -204,7 +210,7 @@ def test_mss_thread_affinity_geometry_unchanged_and_cleanup(
 
     monkeypatch.delenv("GIRO_SCREEN_BACKEND", raising=False)
     monkeypatch.setenv("DISPLAY", ":0")
-    monkeypatch.setattr(capture.mss, "mss", Device)
+    monkeypatch.setattr(mss, "mss", Device)
 
     async def scenario() -> None:
         session = screen.ScreenSession(30, 320, 60)

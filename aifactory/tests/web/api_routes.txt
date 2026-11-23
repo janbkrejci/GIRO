@@ -130,6 +130,8 @@ PATCH /api/repos/{repo_id}/settings/local
 GET /api/repos/{repo_id}/settings/local/legacy
 POST /api/repos/{repo_id}/settings/local/legacy
 POST /api/restart
+GET /api/screen
+GET /api/screen/stream
 GET /api/terminal
 POST /api/terminal/exec
 POST /api/terminal/sessions
