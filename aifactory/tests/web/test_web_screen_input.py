@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from starlette.applications import Starlette
@@ -251,6 +251,7 @@ def _windows(
     user32 = SimpleNamespace(
         SendInput=Mock(),
         GetSystemMetrics=Mock(side_effect=lambda i: metrics[i - 76]),
+        SetThreadDpiAwarenessContext=Mock(return_value=-1),
     )
     backend = InputBackend(geometry, user32=user32)
 
@@ -314,6 +315,57 @@ def test_windows_edges_buttons_wheel_and_scancodes() -> None:
         assert [v.ki.wScan for v in sent[-2:]] == [scan, scan]
         assert [v.ki.wVk for v in sent[-2:]] == [0, 0]
         assert [v.ki.dwFlags for v in sent[-2:]] == [8 | int(extended), 10 | int(extended)]
+
+
+@pytest.mark.parametrize("scale", [1, 1.25, 1.5, 2])
+def test_windows_coordinates_use_physical_pixels_on_every_input_thread(scale: float) -> None:
+    backend, sent = _windows(Geometry(0, 0, 2048, 1152), (0, 0, 2048, 1152))
+    context = -1
+
+    def set_context(value: int) -> int:
+        nonlocal context
+        previous, context = context, value
+        return previous
+
+    def metric(index: int) -> int:
+        physical = (0, 0, 2048, 1152)[index - 76]
+        return physical if context == -4 else round(physical / scale)
+
+    dpi_context = cast(Mock, backend.user32.SetThreadDpiAwarenessContext)
+    dpi_context.side_effect = set_context
+    cast(Mock, backend.user32.GetSystemMetrics).side_effect = metric
+    # Simulate subsequent requests landing on threads with different DPI modes.
+    for original in (-1, -2):
+        context = original
+        backend.move(0.5, 0.5)
+        assert (sent[-1].mi.dx, sent[-1].mi.dy) == (32768, 32768)
+        assert context == original
+    assert dpi_context.call_args_list == [
+        call(-4),
+        call(-1),
+        call(-4),
+        call(-2),
+    ]
+
+
+def test_windows_failed_dpi_context_does_not_send_input() -> None:
+    backend, sent = _windows(Geometry(0, 0, 640, 360), (0, 0, 640, 360))
+    cast(Mock, backend.user32.SetThreadDpiAwarenessContext).return_value = None
+    with pytest.raises(OSError, match="DPI context"):
+        backend.move(0.5, 0.5)
+    assert not sent
+    cast(Mock, backend.user32.GetSystemMetrics).assert_not_called()
+
+
+def test_windows_failed_move_restores_thread_dpi_context() -> None:
+    backend, _ = _windows(Geometry(0, 0, 640, 360), (0, 0, 640, 360))
+    cast(Mock, backend.user32.SendInput).side_effect = OSError("send failed")
+    with pytest.raises(OSError, match="send failed"):
+        backend.move(0.5, 0.5)
+    assert cast(Mock, backend.user32.SetThreadDpiAwarenessContext).call_args_list == [
+        call(-4),
+        call(-1),
+    ]
 
 
 def test_windows_send_failure_retains_key_for_release(client: TestClient) -> None:

@@ -51,6 +51,8 @@ class InputBackend:
         self.user32.SendInput.restype = ctypes.c_uint32
         self.user32.GetSystemMetrics.argtypes = [ctypes.c_int]
         self.user32.GetSystemMetrics.restype = ctypes.c_int
+        self.user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+        self.user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
 
     def _send(self, kind: int, payload: Any) -> None:
         value = self.input()
@@ -63,6 +65,18 @@ class InputBackend:
             raise OSError("Screen input could not be sent.")
 
     def move(self, x: float, y: float) -> None:
+        # Requests can run on different pool threads. Capture uses physical pixels,
+        # whereas an unaware input thread receives virtualized screen metrics.
+        # Scope this to each move, rather than changing the host process's DPI mode.
+        previous = self.user32.SetThreadDpiAwarenessContext(-4)  # PER_MONITOR_AWARE_V2
+        if not previous:
+            raise OSError("Screen input DPI context could not be set.")
+        try:
+            self._move_physical(x, y)
+        finally:
+            self.user32.SetThreadDpiAwarenessContext(previous)
+
+    def _move_physical(self, x: float, y: float) -> None:
         left, top, width, height = (self.user32.GetSystemMetrics(i) for i in (76, 77, 78, 79))
         g = self.geometry
         # Endpoints address the first and last pixels of the primary monitor.
