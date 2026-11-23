@@ -6,6 +6,7 @@ SLOW_FILES = frozenset(
     {
         "tests/e2e/test_f3_browser.py",
         "tests/e2e/test_multi_repo_browser.py",
+        "tests/e2e/test_screen_browser.py",
         "tests/validation/test_validation_local.py",
         "tests/validation/test_validation_roster.py",
         "tests/validation/test_validation_prompt_paths.py",
@@ -24,4 +25,10 @@ SLOW_FILES = frozenset(
         "tests/backlog/test_backlog_snapshot_large.py",
     }
 )
-BROWSER_FILES = frozenset({"tests/e2e/test_f3_browser.py", "tests/e2e/test_multi_repo_browser.py"})
+BROWSER_FILES = frozenset(
+    {
+        "tests/e2e/test_f3_browser.py",
+        "tests/e2e/test_multi_repo_browser.py",
+        "tests/e2e/test_screen_browser.py",
+    }
+)
