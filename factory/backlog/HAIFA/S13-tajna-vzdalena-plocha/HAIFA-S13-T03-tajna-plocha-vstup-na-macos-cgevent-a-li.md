@@ -1,7 +1,7 @@
 ---
 id: HAIFA-S13-T03
 title: "Tajná plocha: vstup na macOS (CGEvent) a Linuxu (XTest)"
-status: todo
+status: done
 workflow: build-test-review
 depends_on: [HAIFA-S13-T02]
 writes: [aifactory/src/aifactory/web/screen_input_macos.py, aifactory/src/aifactory/web/screen_input_x11.py, aifactory/tests/web/test_web_screen_input_platforms.py]
@@ -56,3 +56,4 @@ Hotovo znamená:
 
 ## Běhy
 <!-- doplňuje GIRO při schválení PR -->
+- 2026-11-23 · workflow build-test-review · PR https://github.com/janbkrejci/GIRO/pull/23 · náklady $0.00
