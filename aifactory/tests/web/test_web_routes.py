@@ -1,7 +1,8 @@
-"""The API serves the same (path, method) pairs as before the split of ``web/app.py``.
+"""Track API route changes against the inventory before splitting ``web/app.py``.
 
 ``api_routes.txt`` is the list from before the split; only the two routes nothing called
 (``GET .../backlog/task-advice/options`` and ``POST /api/terminal/exec``) are gone since.
+The screen input endpoint was added after the split.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ REMOVED = {
     ("/api/repos/{repo_id}/backlog/task-advice/options", "GET"),
     ("/api/terminal/exec", "POST"),
 }
+ADDED = {("/api/screen/input", "POST")}
 
 
 def _before() -> set[tuple[str, str]]:
@@ -23,8 +25,9 @@ def _before() -> set[tuple[str, str]]:
     return {(path, method) for method, path in (line.split(" ", 1) for line in lines if line)}
 
 
-def test_routes_match_the_list_before_the_split_minus_the_unused_two(tmp_path: Path) -> None:
+def test_routes_match_the_inventory_with_explicit_changes(tmp_path: Path) -> None:
     app = create_multi_app(home=tmp_path / "home", static_dir=tmp_path / "nostatic")
     before = _before()
     assert REMOVED <= before
-    assert api_routes(app) == before - REMOVED
+    assert ADDED.isdisjoint(before)
+    assert api_routes(app) == (before - REMOVED) | ADDED

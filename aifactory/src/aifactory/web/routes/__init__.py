@@ -232,7 +232,13 @@ returns ``{enabled, supported, reason, width, height}`` in the JSON envelope.
 server and client (403), support (501 ``screen_unsupported``), and one subscriber
 (409 if busy). Frames are a four-byte big-endian length followed by JPEG bytes;
 unchanged raw frames are omitted. Limits are fps 1–30, width 320–3840, quality
-20–95 (400 ``usage_error``). Disconnect and app shutdown release capture resources.
+20–95 (400 ``usage_error``). Disconnect and app shutdown release capture resources and held input.
+``POST /api/screen/input`` accepts ``{events: [...]}`` with at most 200 mouse/key
+operations and returns ``{applied, ignored}`` (unknown key codes). Coordinates
+are 0-1 on the primary monitor; wheel deltas are detents, positive right/up.
+Input requires loopback and the JSON write guard; invalid batches return 400
+``usage_error`` before any input is sent, unsupported platforms return 501.
+Input is transient and never logged or persisted.
 
 The guide (``assistant.py``, multi-repository app only) reads, never writes:
 ``GET /api/assistant/threads`` (newest first), ``POST /api/assistant/threads``
