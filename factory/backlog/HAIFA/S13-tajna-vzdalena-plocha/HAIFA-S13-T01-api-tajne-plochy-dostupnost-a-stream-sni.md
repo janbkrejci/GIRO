@@ -4,7 +4,7 @@ title: "API tajné plochy: dostupnost a stream snímků obrazovky"
 status: todo
 workflow: build-test-review
 depends_on: []
-writes: [aifactory/pyproject.toml, aifactory/uv.lock, aifactory/src/aifactory/web/screen_capture.py, aifactory/src/aifactory/web/screen.py, aifactory/src/aifactory/web/routes/screen.py, aifactory/src/aifactory/web/app.py, aifactory/src/aifactory/web/routes/__init__.py, aifactory/tests/web/test_web_screen.py]
+writes: [aifactory/pyproject.toml, aifactory/uv.lock, aifactory/src/aifactory/web/screen_capture.py, aifactory/src/aifactory/web/screen.py, aifactory/src/aifactory/web/routes/screen.py, aifactory/src/aifactory/web/app.py, aifactory/src/aifactory/web/routes/__init__.py, aifactory/tests/web/test_web_screen.py, aifactory/src/aifactory/skill/codes.py, aifactory/tests/web/api_routes.txt]
 ---
 
 ## Zadání
