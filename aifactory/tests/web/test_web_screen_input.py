@@ -360,6 +360,10 @@ def test_platform_selection_uses_capture_geometry(
     monkeypatch.setattr(inputs, "probe", lambda: geometry)
     backend = inputs.FakeBackend()
     constructor = Mock(return_value=backend)
+    if platform == "win32":
+        from aifactory.web import screen_service
+
+        monkeypatch.setattr(screen_service, "WindowsInput", constructor)
 
     def load(name: str) -> SimpleNamespace:
         assert name == f"aifactory.web.screen_input_{module}"

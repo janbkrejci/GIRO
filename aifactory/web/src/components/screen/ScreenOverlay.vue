@@ -153,6 +153,12 @@ async function start() {
     active = true
     canvas.value?.focus()
     await streamScreen(current.signal, frame => { void decode(frame, current) })
+    // A lock or service outage may end a stream that was supported at startup.
+    const latest = await fetchScreen(current.signal)
+    if (!disposed && current === controller) {
+      info.value = latest
+      if (!latest.supported) { clearImages(); canvas.value?.getContext('2d')?.clearRect(0, 0, canvas.value.width, canvas.value.height) }
+    }
   } catch {
     if (!disposed && !current.signal.aborted) failed.value = true
   } finally {
@@ -205,7 +211,7 @@ onBeforeUnmount(() => {
       </p>
       <p v-if="failed" role="alert">{{ text.error }}</p>
       <p v-if="ended" role="status">{{ text.ended }}</p>
-      <button v-if="ended || failed" type="button" @click="start">{{ text.restart }}</button>
+      <button v-if="ended || failed || (info?.enabled && !info.supported)" type="button" @click="start">{{ text.restart }}</button>
     </div>
   </section>
 </template>

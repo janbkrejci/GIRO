@@ -83,6 +83,10 @@ class FakeCapture:
 def open_capture() -> Capture:
     if os.environ.get("GIRO_SCREEN_BACKEND") == "fake":
         return FakeCapture()
+    if sys.platform == "win32":
+        from aifactory.web.screen_service import WindowsCapture
+
+        return WindowsCapture()
     if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
         raise Unsupported(
             "wayland_unsupported" if os.environ.get("WAYLAND_DISPLAY") else "no_display"

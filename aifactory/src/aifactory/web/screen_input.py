@@ -169,6 +169,10 @@ def open_backend() -> Backend:
     geometry = probe()
     if not isinstance(geometry, Geometry):
         raise geometry
+    if sys.platform == "win32":
+        from aifactory.web.screen_service import WindowsInput
+
+        return WindowsInput(geometry)
     return cast(Backend, implementation.InputBackend(geometry))
 
 

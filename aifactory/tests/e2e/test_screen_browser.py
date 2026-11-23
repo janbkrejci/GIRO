@@ -88,5 +88,39 @@ def test_screen_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
                     page.keyboard.press(key)
             expect(overlay).to_have_count(0)
             expect(terminal).to_have_count(0)
+            # A protected desktop offers recovery without a page reload.
+            page.route(
+                "**/api/screen",
+                lambda route: route.fulfill(
+                    json={
+                        "ok": True,
+                        "data": {
+                            "enabled": True,
+                            "supported": False,
+                            "reason": "desktop_service_required",
+                            "width": None,
+                            "height": None,
+                        },
+                        "error": None,
+                        "warnings": [],
+                    }
+                ),
+                times=1,
+            )
+            for key in ("Shift", "Control", "Shift", "Control"):
+                page.keyboard.press(key)
+            expect(overlay.locator('[data-test="screen-unsupported"]')).to_contain_text(
+                "GIRO Desktop"
+            )
+            canvas.evaluate("""canvas => Object.defineProperty(canvas, 'hasFrame', {
+                get() {
+                    return canvas.getContext('2d').getImageData(
+                        Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1
+                    ).data[3] === 255;
+                }
+            })""")
+            overlay.locator(".status button").click()
+            expect(overlay.locator('[data-test="screen-unsupported"]')).to_have_count(0)
+            expect(canvas).to_have_js_property("hasFrame", True)
         finally:
             browser.close()

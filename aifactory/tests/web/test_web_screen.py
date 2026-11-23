@@ -213,6 +213,7 @@ def test_mss_thread_affinity_geometry_unchanged_and_cleanup(
     monkeypatch.delenv("GIRO_SCREEN_BACKEND", raising=False)
     monkeypatch.setenv("DISPLAY", ":0")
     monkeypatch.setattr(mss, "mss", Device)
+    monkeypatch.setattr(capture, "open_capture", capture.MSSCapture)
 
     assert capture.probe() == capture.Geometry(-100, 20, 640, 360)
     assert closed.is_set()

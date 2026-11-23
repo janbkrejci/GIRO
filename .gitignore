@@ -38,3 +38,6 @@ aifactory/validation/results/*/*/logs/
 .factory/worktrees/
 .factory/local.yaml
 .factory/trace.db*
+
+# The optional Windows service belongs in its separate private repository.
+/windows-desktop-service/

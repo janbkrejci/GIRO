@@ -204,7 +204,7 @@ describe('ScreenOverlay', () => {
     expect(streamScreen).not.toHaveBeenCalled()
     expect(inputScreen).not.toHaveBeenCalled()
   })
-  it.each(['permission_denied', 'wayland_unsupported', 'no_display', 'capture_failed', 'unexpected'])('translates unsupported reason %s', async reason => {
+  it.each(['permission_denied', 'wayland_unsupported', 'no_display', 'capture_failed', 'desktop_service_required', 'unexpected'])('translates unsupported reason %s', async reason => {
     const view = await open({ ...info, supported: false, reason })
     const english = view.get('[data-test="screen-unsupported"]').text()
     expect(english).not.toContain(reason)
@@ -220,6 +220,18 @@ describe('ScreenOverlay', () => {
     expect(view.get('[role="status"]').text()).toContain('ended')
     await view.get('.status button').trigger('click'); await flushPromises()
     expect(firstSignal.aborted).toBe(true)
+    expect(streamScreen).toHaveBeenCalledTimes(2)
+  })
+  it('refreshes the reason after a lock and translates it while displayed', async () => {
+    const view = await open()
+    await showFrame()
+    vi.mocked(fetchScreen).mockResolvedValue({ ...info, supported: false, reason: 'desktop_service_required' })
+    endStream(); await flushPromises()
+    expect(view.get('[data-test="screen-unsupported"]').text()).toContain('protected')
+    setLocale('cs'); await flushPromises()
+    expect(view.get('[data-test="screen-unsupported"]').text()).toContain('chráněná')
+    vi.mocked(fetchScreen).mockResolvedValue(info)
+    await view.get('.status button').trigger('click'); await flushPromises()
     expect(streamScreen).toHaveBeenCalledTimes(2)
   })
 })
