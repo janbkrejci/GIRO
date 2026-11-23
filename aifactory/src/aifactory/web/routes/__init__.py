@@ -226,6 +226,14 @@ and remove the session. All session routes require loopback server and client (4
 At most four sessions run (429); dimensions are 1–1000. TERM is xterm-256color,
 COLORTERM truecolor, default cwd is home. Sessions have no time limit or persistence.
 
+The hidden screen (``screen.py``, multi-repository app only): ``GET /api/screen``
+returns ``{enabled, supported, reason, width, height}`` in the JSON envelope.
+``GET /api/screen/stream?fps=15&max_width=1280&quality=60`` requires loopback
+server and client (403), support (501 ``screen_unsupported``), and one subscriber
+(409 if busy). Frames are a four-byte big-endian length followed by JPEG bytes;
+unchanged raw frames are omitted. Limits are fps 1–30, width 320–3840, quality
+20–95 (400 ``usage_error``). Disconnect and app shutdown release capture resources.
+
 The guide (``assistant.py``, multi-repository app only) reads, never writes:
 ``GET /api/assistant/threads`` (newest first), ``POST /api/assistant/threads``
 (``{title?, harness?, screen?: {repo?, task?, run?}}``, HTTP 201; explicit harness takes

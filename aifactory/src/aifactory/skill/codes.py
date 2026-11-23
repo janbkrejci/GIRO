@@ -375,6 +375,16 @@ _CODES: tuple[tuple[str, str, str], ...] = (
         "upgrade: uv tool install failed (data.stdout, data.stderr); the old version stays",
     ),
     # Dashboard.
+    (
+        "screen_disabled",
+        "2",
+        "dashboard API: screen capture requires a loopback server and client (HTTP 403)",
+    ),
+    (
+        "screen_unsupported",
+        "2",
+        "dashboard API: screen capture is unavailable; see data.reason (HTTP 501)",
+    ),
     ("port_in_use", "2", "the dashboard port is already taken (giro obs --port N)"),
     ("not_found", "2", "dashboard API: no such endpoint (HTTP 404)"),
     (
@@ -443,7 +453,7 @@ _CODES: tuple[tuple[str, str, str], ...] = (
         "busy",
         "2",
         "dashboard API: another apply or base pull runs in this repository, or another "
-        "global library write is running (HTTP 409)",
+        "global library write is running, or the screen already has a subscriber (HTTP 409)",
     ),
     # CLI.
     ("not_a_repository", "2", "the folder is not a git repository"),

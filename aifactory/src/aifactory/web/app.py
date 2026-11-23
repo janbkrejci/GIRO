@@ -56,6 +56,7 @@ from aifactory.web.routes import machine as machine_routes
 from aifactory.web.routes import repos as repos_routes
 from aifactory.web.routes import review as review_routes
 from aifactory.web.routes import runs as runs_routes
+from aifactory.web.routes import screen as screen_routes
 from aifactory.web.routes import settings as settings_routes
 from aifactory.web.routes import system as system_routes
 from aifactory.web.routes import terminal as terminal_routes
@@ -311,6 +312,7 @@ def create_multi_app(
         routes=[
             *system_routes.ROUTES,
             *terminal_routes.ROUTES,
+            *screen_routes.ROUTES,
             *machine_routes.ROUTES,
             *library_routes.ROUTES,
             *repos_routes.ROUTES,
@@ -374,6 +376,9 @@ def create_multi_app(
             await asyncio.gather(*checks, return_exceptions=True)
             await app.state.worktree_cleanup.close()
             await close_sessions(app.state.terminal_sessions)
+            if app.state.screen_session is not None:
+                await app.state.screen_session.close()
+                app.state.screen_session = None
             await run_in_threadpool(app.state.workflow_advice.close)
             await run_in_threadpool(app.state.task_advice.close)
             await run_in_threadpool(app.state.intent.close)
@@ -387,6 +392,7 @@ def create_multi_app(
     app.state.intent = IntentManager()
     app.state.learn = LearnManager()
     app.state.terminal_sessions = {}
+    app.state.screen_session = None
     app.state.terminal_session_lock = asyncio.Lock()
     app.state.terminal_enabled = bool(allowed_hosts) and set(allowed_hosts) <= web_server.LOOPBACK
     app.state.library = machine.GlobalState()

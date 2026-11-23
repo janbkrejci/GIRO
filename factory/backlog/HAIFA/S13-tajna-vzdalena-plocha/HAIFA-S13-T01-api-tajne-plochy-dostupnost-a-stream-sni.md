@@ -1,7 +1,7 @@
 ---
 id: HAIFA-S13-T01
 title: "API tajné plochy: dostupnost a stream snímků obrazovky"
-status: todo
+status: done
 workflow: build-test-review
 depends_on: []
 writes: [aifactory/pyproject.toml, aifactory/uv.lock, aifactory/src/aifactory/web/screen_capture.py, aifactory/src/aifactory/web/screen.py, aifactory/src/aifactory/web/routes/screen.py, aifactory/src/aifactory/web/app.py, aifactory/src/aifactory/web/routes/__init__.py, aifactory/tests/web/test_web_screen.py, aifactory/src/aifactory/skill/codes.py, aifactory/tests/web/api_routes.txt]
@@ -59,3 +59,4 @@ Hotovo znamená:
 
 ## Běhy
 <!-- doplňuje GIRO při schválení PR -->
+- 2026-11-23 · workflow build-test-review · PR https://github.com/janbkrejci/GIRO/pull/21 · náklady $0.00
