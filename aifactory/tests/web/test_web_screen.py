@@ -181,8 +181,10 @@ def test_stream_frames_exclusion_disconnect_and_reconnect(monkeypatch: pytest.Mo
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("metadata", [{}, {"is_primary": True}])
 def test_mss_thread_affinity_geometry_unchanged_and_cleanup(
     monkeypatch: pytest.MonkeyPatch,
+    metadata: dict[str, bool],
 ) -> None:
     threads: list[int] = []
     closed = threading.Event()
@@ -191,7 +193,7 @@ def test_mss_thread_affinity_geometry_unchanged_and_cleanup(
     class Device:
         monitors = [
             {"left": 0, "top": 0, "width": 800, "height": 400},
-            {"left": -100, "top": 20, "width": 640, "height": 360},
+            {"left": -100, "top": 20, "width": 640, "height": 360, **metadata},
         ]
 
         def __init__(self) -> None:
@@ -211,6 +213,11 @@ def test_mss_thread_affinity_geometry_unchanged_and_cleanup(
     monkeypatch.delenv("GIRO_SCREEN_BACKEND", raising=False)
     monkeypatch.setenv("DISPLAY", ":0")
     monkeypatch.setattr(mss, "mss", Device)
+
+    assert capture.probe() == capture.Geometry(-100, 20, 640, 360)
+    assert closed.is_set()
+    threads.clear()
+    closed.clear()
 
     async def scenario() -> None:
         session = screen.ScreenSession(30, 320, 60)

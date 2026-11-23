@@ -44,7 +44,12 @@ class MSSCapture:
         self.device = mss.mss()
         try:
             self.monitor = self.device.monitors[1]
-            self.geometry = Geometry(**self.monitor)
+            self.geometry = Geometry(
+                left=self.monitor["left"],
+                top=self.monitor["top"],
+                width=self.monitor["width"],
+                height=self.monitor["height"],
+            )
         except BaseException:
             self.device.close()
             raise
