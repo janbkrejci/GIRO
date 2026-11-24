@@ -33,6 +33,7 @@ async function showFrame() {
 }
 function batches() { return vi.mocked(inputScreen).mock.calls.map(call => call[0]) }
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   vi.resetAllMocks()
   setLocale('en')
   callbacks = new Map(); nextId = 0
@@ -50,6 +51,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   wrapper?.unmount(); wrapper = undefined
+  vi.useRealTimers()
   vi.restoreAllMocks(); vi.unstubAllGlobals()
 })
 describe('ScreenOverlay', () => {
@@ -252,12 +254,20 @@ describe('ScreenOverlay', () => {
     expect(view.get('[data-test="screen-unsupported"]').text()).not.toBe(english)
     expect(streamScreen).not.toHaveBeenCalled()
   })
-  it('offers reconnection on stream end and aborts the previous stream', async () => {
+  it('automatically reconnects only after stream end and translates the status', async () => {
     const view = await open()
     const firstSignal = signal
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(streamScreen).toHaveBeenCalledTimes(1)
     endStream(); await flushPromises()
-    expect(view.get('[role="status"]').text()).toContain('ended')
-    await view.get('.status button').trigger('click'); await flushPromises()
+    expect(view.get('[role="status"]').text()).toContain('Reconnecting')
+    expect(view.find('.status button').exists()).toBe(false)
+    setLocale('cs'); await flushPromises()
+    expect(view.get('[role="status"]').text()).toContain('Automaticky')
+    await view.get('canvas').trigger('keydown', { code: 'KeyA' })
+    tick(); await flushPromises()
+    expect(batches().flat().some(event => event.type === 'key')).toBe(false)
+    await vi.advanceTimersByTimeAsync(1000); await flushPromises()
     expect(firstSignal.aborted).toBe(true)
     expect(streamScreen).toHaveBeenCalledTimes(2)
   })
@@ -270,7 +280,87 @@ describe('ScreenOverlay', () => {
     setLocale('cs'); await flushPromises()
     expect(view.get('[data-test="screen-unsupported"]').text()).toContain('chráněnou')
     vi.mocked(fetchScreen).mockResolvedValue(info)
-    await view.get('.status button').trigger('click'); await flushPromises()
+    await vi.advanceTimersByTimeAsync(1000); await flushPromises()
     expect(streamScreen).toHaveBeenCalledTimes(2)
   })
+  it('does not disconnect for failed input or a bad frame, and clears input errors on success', async () => {
+    const view = await open(); await showFrame()
+    vi.mocked(inputScreen).mockRejectedValueOnce(new Error('temporary input failure'))
+    await view.get('canvas').trigger('keydown', { code: 'KeyA' })
+    tick(); await flushPromises()
+    expect(view.get('[role="alert"]').text()).toContain('input')
+    setLocale('cs'); await flushPromises()
+    expect(view.get('[role="alert"]').text()).toContain('Ovládání')
+    vi.mocked(createImageBitmap).mockRejectedValueOnce(new Error('bad JPEG'))
+    await showFrame()
+    await showFrame()
+    await view.get('canvas').trigger('keyup', { code: 'KeyA' })
+    tick(); await flushPromises()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(view.find('.status').exists()).toBe(false)
+    expect(streamScreen).toHaveBeenCalledTimes(1)
+    expect(signal.aborted).toBe(false)
+  })
+  it('backs off repeated failures, recovers and cancels retries on close', async () => {
+    vi.mocked(streamScreen).mockRejectedValue(new Error('offline'))
+    const view = await open()
+    expect(streamScreen).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(999)
+    expect(streamScreen).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1); await flushPromises()
+    expect(streamScreen).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(streamScreen).toHaveBeenCalledTimes(2)
+    vi.mocked(streamScreen).mockImplementation((abortSignal, onFrame) => {
+      signal = abortSignal; frames = onFrame
+      return new Promise(resolve => { endStream = resolve })
+    })
+    await vi.advanceTimersByTimeAsync(1); await flushPromises()
+    await showFrame()
+    expect(view.find('[role="status"]').exists()).toBe(false)
+    endStream(); await flushPromises()
+    await vi.advanceTimersByTimeAsync(1000); await flushPromises()
+    expect(streamScreen).toHaveBeenCalledTimes(4)
+    endStream(); await flushPromises()
+    await view.get('.close').trigger('click')
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(streamScreen).toHaveBeenCalledTimes(4)
+  })
+  it('retries a failed status request but never retries a disabled desktop', async () => {
+    vi.mocked(fetchScreen).mockRejectedValueOnce(new Error('offline'))
+    const view = await open()
+    expect(view.get('[role="status"]').text()).toContain('Reconnecting')
+    vi.mocked(fetchScreen).mockResolvedValue({ ...info, enabled: false })
+    await vi.advanceTimersByTimeAsync(1000); await flushPromises()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(fetchScreen).toHaveBeenCalledTimes(2)
+    expect(streamScreen).not.toHaveBeenCalled()
+    expect(view.find('[role="status"]').exists()).toBe(false)
+  })
+
+  it('caps retry delays at ten seconds', async () => {
+    vi.mocked(streamScreen).mockRejectedValue(new Error('offline'))
+    await open()
+    let calls = 1
+    for (const delay of [1000, 2000, 4000, 8000, 10000, 10000]) {
+      await vi.advanceTimersByTimeAsync(delay - 1)
+      expect(streamScreen).toHaveBeenCalledTimes(calls)
+      await vi.advanceTimersByTimeAsync(1); await flushPromises()
+      expect(streamScreen).toHaveBeenCalledTimes(++calls)
+    }
+  })
+  it('ignores a late decoded frame after the stream has ended', async () => {
+    const view = await open()
+    let finish!: (value: ImageBitmap) => void
+    vi.mocked(createImageBitmap).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    frames(new Uint8Array([1]))
+    endStream(); await flushPromises()
+    const late = bitmap()
+    finish(late as unknown as ImageBitmap); await flushPromises()
+    expect(late.close).toHaveBeenCalledOnce()
+    expect(view.get('[role="status"]').text()).toContain('Reconnecting')
+    await vi.advanceTimersByTimeAsync(1000); await flushPromises()
+    expect(streamScreen).toHaveBeenCalledTimes(2)
+  })
+
 })

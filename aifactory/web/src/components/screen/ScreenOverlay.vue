@@ -10,8 +10,8 @@ const text = computed(() => messages[locale.value])
 const canvas = ref<HTMLCanvasElement>()
 const info = ref<ScreenInfo>()
 const loading = ref(true)
-const ended = ref(false)
-const failed = ref(false)
+const reconnecting = ref(false)
+const inputFailed = ref(false)
 const reason = computed(() => {
   const key = info.value?.reason
   const catalog = text.value
@@ -45,6 +45,18 @@ const sessionOptions = computed(() => {
 function selectSession(value: string) { selectedSession.value = value; void start() }
 let streamTask: Promise<void> | undefined
 let starting = false
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+let retryDelay = 1000
+function cancelRetry() {
+  clearTimeout(retryTimer)
+  retryTimer = undefined
+}
+function retry() {
+  if (disposed || retryTimer !== undefined) return
+  reconnecting.value = true
+  retryTimer = setTimeout(() => { retryTimer = undefined; void start() }, retryDelay)
+  retryDelay = Math.min(retryDelay * 2, 10000)
+}
 
 function schedule() {
   if (!animation && !disposed) animation = requestAnimationFrame(paint)
@@ -70,13 +82,15 @@ async function decode(frame: Uint8Array<ArrayBuffer>, current: AbortController) 
   const number = ++frameNumber
   try {
     const bitmap = await createImageBitmap(new Blob([frame], { type: 'image/jpeg' }))
-    if (disposed || current.signal.aborted || current !== controller || number < decodedNumber) { bitmap.close(); return }
+    if (disposed || !active || current.signal.aborted || current !== controller || number < decodedNumber) { bitmap.close(); return }
+    retryDelay = 1000
+    reconnecting.value = false
     decodedNumber = number
     pendingBitmap?.close()
     pendingBitmap = bitmap
     schedule()
   } catch {
-    if (!disposed && current === controller && !current.signal.aborted) failed.value = true
+    // A bad frame does not imply that the live stream has disconnected.
   }
 }
 function coordinates(event: MouseEvent) {
@@ -110,8 +124,13 @@ function sendPending(): Promise<void> {
   sendTask = (async () => {
     while (pending.length) {
       const events = pending.splice(0, 200)
-      try { await inputScreen(events, session) }
-      catch { if (!disposed) failed.value = true }
+      try {
+        await inputScreen(events, session)
+        if (!disposed) inputFailed.value = false
+      } catch {
+        // Input and video use separate requests. Do not restart healthy video.
+        if (!disposed) inputFailed.value = true
+      }
     }
   })().finally(() => { sendTask = undefined })
   return sendTask
@@ -157,6 +176,7 @@ function clearImages() {
 async function start() {
   if (disposed || starting) return
   starting = true
+  cancelRetry()
   release()
   active = false
   controller?.abort()
@@ -167,32 +187,41 @@ async function start() {
   const current = new AbortController()
   controller = current
   clearImages()
-  loading.value = true; ended.value = false; failed.value = false
+  loading.value = true; inputFailed.value = false
+  let shouldRetry = false
   try {
     const result = await fetchScreen(current.signal, connectionSession)
     if (disposed || current !== controller) return
     info.value = result
     loading.value = false
-    if (!result.enabled || !result.supported) return
+    if (!result.enabled || !result.supported) {
+      reconnecting.value = false
+      shouldRetry = result.enabled && ['desktop_service_required', 'desktop_session_unavailable', 'capture_failed', 'no_display'].includes(result.reason ?? '')
+      return
+    }
     active = true
     canvas.value?.focus()
     starting = false
     streamTask = streamScreen(current.signal, frame => { void decode(frame, current) }, connectionSession)
     await streamTask
     if (current.signal.aborted) return
+    release(); active = false
+    shouldRetry = true
     // A lock or service outage may end a stream that was supported at startup.
     const latest = await fetchScreen(current.signal, connectionSession)
     if (!disposed && current === controller) {
       info.value = latest
+      shouldRetry = latest.enabled && (latest.supported || ['desktop_service_required', 'desktop_session_unavailable', 'capture_failed', 'no_display'].includes(latest.reason ?? ''))
       if (!latest.supported) { clearImages(); canvas.value?.getContext('2d')?.clearRect(0, 0, canvas.value.width, canvas.value.height) }
     }
   } catch {
-    if (!disposed && !current.signal.aborted) failed.value = true
+    if (!disposed && !current.signal.aborted) shouldRetry = true
   } finally {
-    if (!disposed && current === controller) {
+    if (!disposed && current === controller && !current.signal.aborted) {
       starting = false
       loading.value = false
-      if (active) { release(); active = false; ended.value = true }
+      if (active) { release(); active = false }
+      if (shouldRetry) retry()
     }
   }
 }
@@ -200,6 +229,7 @@ function dispose() {
   if (disposed) return
   release()
   active = false; disposed = true
+  cancelRetry()
   controller?.abort()
   cancelAnimationFrame(animation)
   observer?.disconnect()
@@ -234,16 +264,15 @@ onBeforeUnmount(() => {
       <button type="button" :disabled="loading" @click="start">{{ text.refresh }}</button>
     </div>
     <button class="close" type="button" :aria-label="text.close" @click="close">×</button>
-    <div v-if="loading || failed || ended || !info?.enabled || !info?.supported" class="status">
+    <div v-if="loading || inputFailed || reconnecting || !info?.enabled || !info?.supported" class="status">
       <p v-if="loading">{{ text.loading }}</p>
       <p v-else-if="info && !info.enabled" data-test="screen-disabled">{{ t('helpers.terminalDisabled') }}</p>
       <p v-else-if="info && !info.supported" data-test="screen-unsupported">
         {{ reason }}
         <a v-if="info.reason === 'permission_denied'" href="https://support.apple.com/guide/mac-help/control-access-to-screen-and-system-audio-recording-mchld6aa7d23/mac" target="_blank" rel="noopener noreferrer">{{ text.permissions }}</a>
       </p>
-      <p v-if="failed" role="alert">{{ text.error }}</p>
-      <p v-if="ended" role="status">{{ text.ended }}</p>
-      <button v-if="ended || failed || (info?.enabled && !info.supported)" type="button" @click="start">{{ text.restart }}</button>
+      <p v-if="inputFailed" role="alert">{{ text.input_failed }}</p>
+      <p v-if="reconnecting" role="status">{{ text.reconnecting }}</p>
     </div>
   </section>
 </template>

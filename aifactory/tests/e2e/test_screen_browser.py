@@ -178,7 +178,7 @@ def test_screen_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
                     ).data[3] === 255;
                 }
             })""")
-            overlay.locator(".status button").click()
+            expect(overlay.locator(".status button")).to_have_count(0)
             expect(overlay.locator('[data-test="screen-unsupported"]')).to_have_count(0)
             expect(canvas).to_have_js_property("hasFrame", True)
         finally:
