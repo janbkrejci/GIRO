@@ -377,3 +377,27 @@ def test_session_catalog_validates_service_data(monkeypatch: pytest.MonkeyPatch)
         assert screen_service.sessions() == []
     monkeypatch.setattr(screen_pipe, "exchange", Mock(side_effect=OSError))
     assert screen_service.sessions() == []
+
+
+@pytest.mark.parametrize("failure", ["event", "read", "result"])
+def test_pipe_preserves_windows_error_code(monkeypatch: pytest.MonkeyPatch, failure: str) -> None:
+    pipe = object.__new__(screen_pipe.Pipe)
+    error = Mock(side_effect=lambda code: OSError(code, "native failure"))
+    monkeypatch.setattr(ctypes, "WinError", error, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: 233, raising=False)
+    for name, value in {
+        "event": Mock(return_value=123),
+        "read": Mock(return_value=False),
+        "wait": Mock(return_value=0),
+        "result": Mock(return_value=False),
+        "close": Mock(),
+    }.items():
+        monkeypatch.setattr(pipe, name, value, raising=False)
+    if failure == "event":
+        monkeypatch.setattr(pipe, "event", Mock(return_value=0))
+    elif failure == "result":
+        monkeypatch.setattr(ctypes, "get_last_error", Mock(side_effect=[997, 233]))
+    with pytest.raises(OSError) as raised:
+        pipe._transfer(1, ctypes.create_string_buffer(4), 4, 0, write=False)
+    assert raised.value.errno == 233
+    error.assert_called_once_with(233)

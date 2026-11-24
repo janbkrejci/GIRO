@@ -128,7 +128,7 @@ class Pipe:
     ) -> int:
         event = self.event(None, True, False, None)
         if not event:
-            raise ctypes.WinError()
+            raise ctypes.WinError(ctypes.get_last_error())
         operation = Overlapped(event=event)
         count = ctypes.c_uint32()
         pending = False
@@ -136,14 +136,14 @@ class Pipe:
             function = self.write if write else self.read
             if not function(handle, buffer, size, ctypes.byref(count), ctypes.byref(operation)):
                 if ctypes.get_last_error() != 997:  # ERROR_IO_PENDING
-                    raise ctypes.WinError()
+                    raise ctypes.WinError(ctypes.get_last_error())
                 pending = True
                 remaining = max(0, int((deadline - time.monotonic()) * 1000))
                 if self.wait(event, remaining) != 0:
                     raise TimeoutError("Desktop service timed out")
                 pending = False
                 if not self.result(handle, ctypes.byref(operation), ctypes.byref(count), False):
-                    raise ctypes.WinError()
+                    raise ctypes.WinError(ctypes.get_last_error())
             if count.value == 0:
                 raise OSError("Desktop service disconnected")
             return count.value
