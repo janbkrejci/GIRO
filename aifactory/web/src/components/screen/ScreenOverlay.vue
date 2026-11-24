@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { locale, t } from '../../lib/i18n'
 import { fetchScreen, inputScreen, streamScreen, type ScreenInfo, type ScreenInput } from '../../lib/screen'
 import { messages } from './messages'
+import SelectMenu from '../ui/SelectMenu.vue'
 
 const emit = defineEmits<{ close: [] }>()
 const text = computed(() => messages[locale.value])
@@ -29,7 +30,21 @@ let frameNumber = 0
 let decodedNumber = 0
 let pending: ScreenInput[] = []
 let pendingMove: Extract<ScreenInput, { type: 'move' }> | undefined
-let sending = false
+let sendTask: Promise<void> | undefined
+let connectionSession: number | undefined
+const selectedSession = ref('')
+const sessionOptions = computed(() => {
+  const options = [{ value: '', label: text.value.current }, ...(info.value?.sessions ?? []).map(session => ({
+    value: String(session.id), label: `${text.value[session.kind]} ${session.id} · ${text.value[session.state]}`,
+  }))]
+  if (selectedSession.value && !options.some(option => option.value === selectedSession.value)) {
+    options.push({ value: selectedSession.value, label: `${text.value.session} ${selectedSession.value} · ${text.value.unavailable}` })
+  }
+  return options
+})
+function selectSession(value: string) { selectedSession.value = value; void start() }
+let streamTask: Promise<void> | undefined
+let starting = false
 
 function schedule() {
   if (!animation && !disposed) animation = requestAnimationFrame(paint)
@@ -89,17 +104,19 @@ function enqueue(event: ScreenInput) {
   }
   schedule()
 }
-async function sendPending() {
-  if (sending) return
-  sending = true
-  try {
+function sendPending(): Promise<void> {
+  if (sendTask) return sendTask
+  const session = connectionSession
+  sendTask = (async () => {
     while (pending.length) {
       const events = pending.splice(0, 200)
-      try { await inputScreen(events) }
+      try { await inputScreen(events, session) }
       catch { if (!disposed) failed.value = true }
     }
-  } finally { sending = false }
+  })().finally(() => { sendTask = undefined })
+  return sendTask
 }
+
 function pointer(event: PointerEvent) {
   const point = coordinates(event)
   if (!point || !active) return
@@ -120,7 +137,7 @@ function wheel(event: WheelEvent) {
   enqueue({ type: 'wheel', dx: event.deltaX * unit, dy: -event.deltaY * unit })
 }
 function key(event: KeyboardEvent) {
-  if (!active || disposed) return
+  if (!active || disposed || (event.target instanceof Element && event.target.closest('.toolbar, .close, .status'))) return
   event.preventDefault()
   event.stopPropagation()
   enqueue({ type: 'key', code: event.code, down: event.type === 'keydown' })
@@ -134,27 +151,37 @@ function release() {
 function clearImages() {
   pendingBitmap?.close(); pendingBitmap = undefined
   displayed?.close(); displayed = undefined
+  const el = canvas.value
+  if (el) el.getContext('2d')?.clearRect(0, 0, el.width, el.height)
 }
 async function start() {
-  if (disposed) return
+  if (disposed || starting) return
+  starting = true
   release()
   active = false
   controller?.abort()
+  await sendPending()
+  await streamTask?.catch(() => {})
+  if (disposed) { starting = false; return }
+  connectionSession = selectedSession.value === '' ? undefined : Number(selectedSession.value)
   const current = new AbortController()
   controller = current
   clearImages()
   loading.value = true; ended.value = false; failed.value = false
   try {
-    const result = await fetchScreen(current.signal)
+    const result = await fetchScreen(current.signal, connectionSession)
     if (disposed || current !== controller) return
     info.value = result
     loading.value = false
     if (!result.enabled || !result.supported) return
     active = true
     canvas.value?.focus()
-    await streamScreen(current.signal, frame => { void decode(frame, current) })
+    starting = false
+    streamTask = streamScreen(current.signal, frame => { void decode(frame, current) }, connectionSession)
+    await streamTask
+    if (current.signal.aborted) return
     // A lock or service outage may end a stream that was supported at startup.
-    const latest = await fetchScreen(current.signal)
+    const latest = await fetchScreen(current.signal, connectionSession)
     if (!disposed && current === controller) {
       info.value = latest
       if (!latest.supported) { clearImages(); canvas.value?.getContext('2d')?.clearRect(0, 0, canvas.value.width, canvas.value.height) }
@@ -163,6 +190,7 @@ async function start() {
     if (!disposed && !current.signal.aborted) failed.value = true
   } finally {
     if (!disposed && current === controller) {
+      starting = false
       loading.value = false
       if (active) { release(); active = false; ended.value = true }
     }
@@ -201,6 +229,10 @@ onBeforeUnmount(() => {
 <template>
   <section class="screen-overlay" role="dialog" aria-modal="true" :aria-label="text.title" data-test="screen-overlay">
     <canvas ref="canvas" tabindex="0" :aria-label="text.title" @pointermove="pointer" @pointerdown="pointer" @pointerup="pointer" @wheel="wheel" @contextmenu.prevent />
+    <div class="toolbar" @keydown.stop @keyup.stop>
+      <SelectMenu v-if="info?.sessions?.length || selectedSession" data-test="desktop-session" :model-value="selectedSession" :options="sessionOptions" :label="text.session" :disabled="loading" @update:model-value="selectSession" />
+      <button type="button" :disabled="loading" @click="start">{{ text.refresh }}</button>
+    </div>
     <button class="close" type="button" :aria-label="text.close" @click="close">×</button>
     <div v-if="loading || failed || ended || !info?.enabled || !info?.supported" class="status">
       <p v-if="loading">{{ text.loading }}</p>
@@ -218,6 +250,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .screen-overlay { position: fixed; inset: 0; z-index: 1000; background: #000; color: #e7eaf3; }
+.toolbar { position: absolute; top: 8px; left: 12px; right: 60px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 canvas { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
 .close { position: absolute; top: 8px; right: 12px; opacity: .5; font-size: 24px; }
 button { background: #151922; color: inherit; border: 1px solid #303849; border-radius: 5px; cursor: pointer; }

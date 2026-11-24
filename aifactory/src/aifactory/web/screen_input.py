@@ -148,7 +148,16 @@ class FakeBackend:
         self.events.append(("release_all",))
 
 
-def open_backend() -> Backend:
+def open_backend(target_session: int | None = None) -> Backend:
+    if target_session is not None:
+        if sys.platform != "win32":
+            raise Unsupported("desktop_session_unavailable")
+        from aifactory.web.screen_service import WindowsInput
+
+        geometry = probe(target_session)
+        if not isinstance(geometry, Geometry):
+            raise geometry
+        return WindowsInput(geometry, target_session)
     if os.environ.get("GIRO_SCREEN_BACKEND") == "fake":
         return FakeBackend()
     module = (
@@ -218,7 +227,9 @@ def validate(body: Any) -> list[dict[str, Any]]:
 class InputState:
     """Serialize batches and cleanup, retaining only currently held inputs."""
 
-    def __init__(self) -> None:
+    def __init__(self, target_session: int | None = None) -> None:
+        self.target_session = target_session
+        self.closed = False
         self.backend: Backend | None = None
         self.keys: dict[str, None] = {}
         self.buttons: dict[str, None] = {}
@@ -237,10 +248,21 @@ class InputState:
                 del self.buttons[name]
             self.backend.release_all()
 
+    def close(self) -> None:
+        with self.lock:
+            self.closed = True
+            self.release_all()
+
     def apply(self, events: list[dict[str, Any]]) -> dict[str, Any]:
         with self.lock:
+            if self.closed:
+                raise Unsupported("desktop_session_unavailable")
             if self.backend is None:
-                self.backend = open_backend()
+                self.backend = (
+                    open_backend()
+                    if self.target_session is None
+                    else open_backend(self.target_session)
+                )
             ignored: list[str] = []
             applied = 0
             for event in events:

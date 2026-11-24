@@ -163,7 +163,7 @@ class Pipe:
             )
         return buffer.raw
 
-    def exchange(self, body: bytes) -> bytes:
+    def exchange(self, body: bytes, target_session: int | None = None) -> bytes:
         if not 1 <= len(body) <= 4096:
             raise ValueError("Invalid desktop request size")
         number = ctypes.c_uint32
@@ -174,6 +174,10 @@ class Pipe:
         )
         if not get_session(get_pid(), ctypes.byref(session)) or not session.value:
             raise OSError("No interactive session")
+        if target_session is not None:
+            if type(target_session) is not int or not 0 < target_session < 0xFFFFFFFF:
+                raise ValueError("Invalid desktop session")
+            session.value = target_session
         name = rf"\\.\pipe\GIRO.Desktop.v1.{session.value}"
         deadline = time.monotonic() + TIMEOUT
         # Read/write + READ_CONTROL; overlapped I/O; identification-only impersonation.
@@ -205,8 +209,8 @@ class Pipe:
             self.close(handle)
 
 
-def exchange(body: bytes) -> bytes:
-    return Pipe().exchange(body)
+def exchange(body: bytes, target_session: int | None = None) -> bytes:
+    return Pipe().exchange(body, target_session)
 
 
 def protected_desktop() -> bool:

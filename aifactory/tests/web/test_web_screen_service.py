@@ -6,6 +6,7 @@ import ctypes
 import json
 import struct
 import sys
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
@@ -295,3 +296,84 @@ def test_native_pipe_rejects_user_owned_server(monkeypatch: pytest.MonkeyPatch) 
         send.assert_not_called()
     finally:
         pipe.close(server)
+
+
+def test_explicit_session_routes_every_operation_and_never_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, int]] = []
+
+    def exchange(body: bytes, target_session: int) -> bytes:
+        operation = json.loads(body)["operation"]
+        calls.append((operation, target_session))
+        return packet() if operation == "capture" else b'{"version":1,"ok":true}'
+
+    monkeypatch.setattr(screen_pipe, "exchange", exchange)
+    device = screen_service.WindowsCapture(2)
+    backend = screen_service.WindowsInput(device.geometry, 2)
+    backend.move(0.5, 0.5)
+    backend.key("KeyA", True)
+    backend.button("left", True)
+    backend.wheel(0, 1)
+    backend.release_all()
+    assert {operation for operation, _ in calls} == {
+        "capture",
+        "hello",
+        "move",
+        "key",
+        "button",
+        "wheel",
+        "release",
+    }
+    assert all(target == 2 for _, target in calls)
+    monkeypatch.setattr(screen_pipe, "exchange", Mock(side_effect=FileNotFoundError))
+    with pytest.raises(capture.Unsupported, match="desktop_session_unavailable"):
+        screen_service.WindowsCapture(2)
+    sends: list[Callable[[], None]] = [
+        lambda: backend.move(0, 0),
+        lambda: backend.key("KeyB", True),
+        lambda: backend.button("right", True),
+    ]
+    for send in sends:
+        with pytest.raises(capture.Unsupported, match="desktop_session_unavailable"):
+            send()
+    assert backend.local.events == [("release_all",)]  # type: ignore[attr-defined]
+    assert device.local is None
+    device.close()
+
+
+def test_explicit_pipe_session_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
+    pipe = _pipe(monkeypatch)
+    create = Mock(return_value=123)
+    monkeypatch.setattr(pipe, "create", create)
+    monkeypatch.setattr(
+        pipe,
+        "_read_exactly",
+        Mock(side_effect=[struct.pack("!I", 2), b"{}", struct.pack("!I", 2), b"{}"]),
+    )
+    assert pipe.exchange(b"{}", 2) == b"{}"
+    assert create.call_args.args[0].endswith(".2")
+    assert pipe.exchange(b"{}") == b"{}"
+    assert create.call_args.args[0].endswith(".1")
+    for bad in (0, -1, 0xFFFFFFFF, True):
+        with pytest.raises(ValueError):
+            pipe.exchange(b"{}", bad)
+
+
+def test_session_catalog_validates_service_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GIRO_SCREEN_BACKEND", raising=False)
+    monkeypatch.setattr(sys, "platform", "win32")
+    entries = [{"id": 2, "kind": "remote", "state": "disconnected"}]
+    response = {"version": 1, "ok": True, "sessions": entries}
+    monkeypatch.setattr(screen_pipe, "exchange", lambda _: json.dumps(response).encode())
+    assert screen_service.sessions() == entries
+    for invalid in (
+        [{"id": 0}],
+        [{"id": True, "kind": "remote", "state": "active"}],
+        entries * 257,
+        "bad",
+    ):
+        response["sessions"] = invalid
+        assert screen_service.sessions() == []
+    monkeypatch.setattr(screen_pipe, "exchange", Mock(side_effect=OSError))
+    assert screen_service.sessions() == []

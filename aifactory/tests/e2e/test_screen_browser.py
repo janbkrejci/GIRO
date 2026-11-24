@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,42 @@ def test_screen_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
         try:
             page = browser.new_page()
             page.set_default_timeout(15000)
+            page.route(
+                re.compile(r"/api/screen(?:\?.*)?$"),
+                lambda route: route.fulfill(
+                    json={
+                        "ok": True,
+                        "data": {
+                            "enabled": True,
+                            "supported": True,
+                            "reason": None,
+                            "width": 640,
+                            "height": 360,
+                            "sessions": [
+                                {"id": 1, "kind": "console", "state": "active"},
+                                {"id": 2, "kind": "remote", "state": "disconnected"},
+                            ],
+                        },
+                        "error": None,
+                        "warnings": [],
+                    }
+                ),
+            )
+            page.route(
+                "**/api/screen/stream?session=*",
+                lambda route: route.continue_(url=route.request.url.split("?")[0]),
+            )
+            page.route(
+                "**/api/screen/input?session=*",
+                lambda route: route.fulfill(
+                    json={
+                        "ok": True,
+                        "data": {"applied": 1, "ignored": []},
+                        "error": None,
+                        "warnings": [],
+                    }
+                ),
+            )
             page.goto(f"{url}/#/r/{identifier}/runs")
             expect(page.locator('[data-test="assistant-toggle"]')).to_be_visible()
             overlay = page.locator('[data-test="screen-overlay"]')
@@ -77,6 +114,28 @@ def test_screen_browser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
                 lambda request: _has_event(request, "key", code="KeyA", down=True)
             ):
                 page.keyboard.press("KeyA")
+
+            # Switching keeps input explicitly bound to the selected session.
+            with page.expect_request(
+                lambda request: request.url.endswith("/api/screen/stream?session=2")
+            ):
+                overlay.locator('[data-test="desktop-session"]').click()
+                page.locator('[role="option"][data-value="2"]').click()
+            expect(canvas).to_have_js_property("hasFrame", True)
+            with page.expect_request(
+                lambda request: (
+                    request.method == "POST" and request.url.endswith("/api/screen/input?session=2")
+                )
+            ) as selected:
+                canvas.click()
+            assert selected.value.post_data_json is not None
+            expect(overlay.locator('[data-test="desktop-session"]')).to_have_attribute(
+                "data-value", "2"
+            )
+            with page.expect_request(lambda request: request.url.endswith("/api/screen/stream")):
+                overlay.locator('[data-test="desktop-session"]').click()
+                page.locator('[role="option"][data-value=""]').click()
+            expect(canvas).to_have_js_property("hasFrame", True)
 
             # The terminal shortcut must leave the screen open and usable.
             for key in ("Control", "Shift", "Control", "Shift"):

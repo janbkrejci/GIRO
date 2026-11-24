@@ -11,9 +11,12 @@ from aifactory.web import screen_pipe
 from aifactory.web.screen_capture import Geometry, MSSCapture, Unsupported
 
 
-def request(operation: str, **parameters: Any) -> bytes:
-    raw = screen_pipe.exchange(
-        json.dumps({"version": 1, "operation": operation, **parameters}).encode("utf-8")
+def request(operation: str, *, target_session: int | None = None, **parameters: Any) -> bytes:
+    body = json.dumps({"version": 1, "operation": operation, **parameters}).encode("utf-8")
+    raw = (
+        screen_pipe.exchange(body)
+        if target_session is None
+        else screen_pipe.exchange(body, target_session)
     )
     if operation == "capture" and raw.startswith(b"GDS1"):
         return raw
@@ -28,6 +31,33 @@ def request(operation: str, **parameters: Any) -> bytes:
     return raw
 
 
+def sessions() -> list[dict[str, Any]]:
+    """Only the authenticated service may advertise accessible sessions."""
+    import os
+    import sys
+
+    if sys.platform != "win32" or os.environ.get("GIRO_SCREEN_BACKEND") == "fake":
+        return []
+    try:
+        values = json.loads(request("sessions")).get("sessions")
+        if not isinstance(values, list) or len(values) > 256:
+            return []
+        result = []
+        for item in values:
+            if (
+                not isinstance(item, dict)
+                or type(item.get("id")) is not int
+                or not 0 < item["id"] < 0xFFFFFFFF
+                or item.get("kind") not in ("console", "remote")
+                or item.get("state") not in ("active", "connected", "disconnected")
+            ):
+                return []
+            result.append({key: item[key] for key in ("id", "kind", "state")})
+        return result
+    except OSError:
+        return []
+
+
 def frame(raw: bytes) -> tuple[Geometry, bytes]:
     if len(raw) < 16 or raw[:4] != b"GDS1":
         raise OSError("Invalid desktop frame")
@@ -38,7 +68,8 @@ def frame(raw: bytes) -> tuple[Geometry, bytes]:
 
 
 class WindowsCapture:
-    def __init__(self) -> None:
+    def __init__(self, target_session: int | None = None) -> None:
+        self.target_session = target_session
         self.local: MSSCapture | None = None
         self.geometry = Geometry(0, 0, 1, 1)
         self.service_active = False
@@ -55,13 +86,15 @@ class WindowsCapture:
         attempts = 4 if self.service_active else 1
         for attempt in range(attempts):
             try:
-                self.geometry, raw = frame(request("capture"))
+                self.geometry, raw = frame(request("capture", target_session=self.target_session))
                 self.service_active = True
                 return raw
             except OSError:
                 if attempt + 1 < attempts:
                     time.sleep(0.05)
         self.service_active = False
+        if self.target_session is not None:
+            raise Unsupported("desktop_session_unavailable") from None
         if screen_pipe.protected_desktop():
             raise Unsupported("desktop_service_required") from None
         if self.local is None:
@@ -82,23 +115,26 @@ class WindowsCapture:
 
 
 class WindowsInput:
-    def __init__(self, geometry: Geometry) -> None:
+    def __init__(self, geometry: Geometry, target_session: int | None = None) -> None:
         from aifactory.web.screen_input_windows import InputBackend
 
         self.local = InputBackend(geometry)
+        self.target_session = target_session
         self.service_held = False
         self.keys: dict[str, bool] = {}
         self.buttons: dict[str, bool] = {}
 
     def _send(self, operation: str, **parameters: Any) -> None:
         # Never replay input after an ambiguous timeout: it may already have been applied.
-        request(operation, **parameters)
+        request(operation, target_session=self.target_session, **parameters)
 
     def _available(self) -> bool:
         try:
-            request("hello")
+            request("hello", target_session=self.target_session)
             return True
         except OSError:
+            if self.target_session is not None:
+                raise Unsupported("desktop_session_unavailable") from None
             if screen_pipe.protected_desktop():
                 raise Unsupported("desktop_service_required") from None
             return False
@@ -166,7 +202,7 @@ class WindowsInput:
                 del self.buttons[name]
         if self.service_held:
             try:
-                request("release")
+                request("release", target_session=self.target_session)
             except OSError:
                 pass  # The service independently releases held input after its lease expires.
             self.service_held = False

@@ -29,6 +29,17 @@ describe('screen client', () => {
     await done
     expect(cancel).toHaveBeenCalledOnce()
   })
+  it('binds discovery, frames and input to the selected session', async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true, data: {} })))
+    vi.stubGlobal('fetch', fetch)
+    await fetchScreen(undefined, 2)
+    expect(fetch).toHaveBeenLastCalledWith('/api/screen?session=2', expect.anything())
+    await inputScreen([{ type: 'release_all' }], 2)
+    expect(fetch).toHaveBeenLastCalledWith('/api/screen/input?session=2', expect.anything())
+    stream([])
+    await streamScreen(new AbortController().signal, () => {}, 2)
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/screen/stream?session=2', expect.anything())
+  })
   it('reads availability and posts input batches', async () => {
     const info = { enabled: false, supported: true, reason: null, width: 800, height: 600 }
     const fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true, data: info })))

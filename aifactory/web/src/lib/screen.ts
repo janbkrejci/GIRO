@@ -1,6 +1,8 @@
 import { ApiError, type Envelope } from './api'
 
-export interface ScreenInfo { enabled: boolean; supported: boolean; reason: string | null; width: number | null; height: number | null }
+export interface DesktopSession { id: number; kind: 'console' | 'remote'; state: 'active' | 'connected' | 'disconnected' }
+export interface ScreenInfo { enabled: boolean; supported: boolean; reason: string | null; width: number | null; height: number | null; sessions?: DesktopSession[] }
+function sessionQuery(session?: number) { return session === undefined ? '' : `?session=${session}` }
 export type ScreenInput =
   | { type: 'move'; x: number; y: number }
   | { type: 'button'; button: 'left' | 'middle' | 'right'; down: boolean; x: number; y: number }
@@ -13,18 +15,18 @@ async function readEnvelope<T>(response: Response): Promise<T> {
   if (!response.ok || !body.ok || body.data === null) throw new ApiError(body.error?.code ?? 'screen_error', 'Screen request failed')
   return body.data
 }
-export async function fetchScreen(signal?: AbortSignal): Promise<ScreenInfo> {
-  return readEnvelope(await fetch('/api/screen', { signal }))
+export async function fetchScreen(signal?: AbortSignal, session?: number): Promise<ScreenInfo> {
+  return readEnvelope(await fetch('/api/screen' + sessionQuery(session), { signal }))
 }
-export async function inputScreen(events: ScreenInput[]): Promise<void> {
-  await readEnvelope(await fetch('/api/screen/input', {
+export async function inputScreen(events: ScreenInput[], session?: number): Promise<void> {
+  await readEnvelope(await fetch('/api/screen/input' + sessionQuery(session), {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ events }), keepalive: true,
   }))
 }
 
 /** Parse bounded length-prefixed JPEGs without assuming fetch chunk boundaries. */
-export async function streamScreen(signal: AbortSignal, onFrame: (frame: Uint8Array<ArrayBuffer>) => void): Promise<void> {
-  const response = await fetch('/api/screen/stream', { signal })
+export async function streamScreen(signal: AbortSignal, onFrame: (frame: Uint8Array<ArrayBuffer>) => void, session?: number): Promise<void> {
+  const response = await fetch('/api/screen/stream' + sessionQuery(session), { signal })
   if (!response.ok) { await readEnvelope(response); throw new Error('Screen stream failed') }
   if (!response.body) throw new Error('Missing screen stream')
   const reader = response.body.getReader()

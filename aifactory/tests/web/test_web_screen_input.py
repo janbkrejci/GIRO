@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import ctypes
 import importlib
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
@@ -424,3 +425,43 @@ def test_platform_selection_uses_capture_geometry(
     monkeypatch.setattr(importlib, "import_module", load)
     assert inputs.open_backend() is backend
     constructor.assert_called_once_with(geometry)
+
+
+def test_closed_session_releases_input_and_rejects_late_batch() -> None:
+    state = inputs.InputState()
+    backend = inputs.FakeBackend()
+    state.backend = backend
+    state.apply([{"type": "key", "code": "ShiftLeft", "down": True}])
+    state.close()
+    assert backend.events[-2:] == [("key", "ShiftLeft", False), ("release_all",)]
+    before = list(backend.events)
+    with pytest.raises(Unsupported, match="desktop_session_unavailable"):
+        state.apply([{"type": "key", "code": "KeyA", "down": True}])
+    assert backend.events == before
+
+
+def test_explicit_input_requires_matching_live_stream(client: TestClient) -> None:
+    app = cast(Starlette, client.app)
+    state = inputs.InputState(2)
+    backend = inputs.FakeBackend()
+    state.backend = backend
+    app.state.screen_session = SimpleNamespace(
+        target_session=2, input_state=state, stop=threading.Event()
+    )
+    try:
+        for suffix in ("", "?session=1"):
+            response = client.post(
+                "/api/screen/input" + suffix, json={"events": [{"type": "move", "x": 0, "y": 0}]}
+            )
+            assert response.status_code == 501
+        assert not backend.events
+        response = client.post(
+            "/api/screen/input?session=2", json={"events": [{"type": "move", "x": 0.5, "y": 0.5}]}
+        )
+        assert response.status_code == 200
+        assert backend.events == [("move", 0.5, 0.5)]
+        app.state.screen_session.stop.set()
+        assert client.post("/api/screen/input?session=2", json={"events": []}).status_code == 501
+    finally:
+        app.state.screen_session = None
+    assert client.post("/api/screen/input?session=2", json={"events": []}).status_code == 501

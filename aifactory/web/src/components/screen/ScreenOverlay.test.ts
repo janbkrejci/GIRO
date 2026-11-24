@@ -3,6 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { setLocale } from '../../lib/i18n'
 import { fetchScreen, inputScreen, streamScreen, type ScreenInfo, type ScreenInput } from '../../lib/screen'
 import ScreenOverlay from './ScreenOverlay.vue'
+import { chooseOption, selectLabels } from '../../test/select'
 vi.mock('../../lib/screen', () => ({ fetchScreen: vi.fn(), inputScreen: vi.fn(), streamScreen: vi.fn() }))
 let wrapper: VueWrapper | undefined
 let frames: (frame: Uint8Array<ArrayBuffer>) => void
@@ -75,6 +76,44 @@ describe('ScreenOverlay', () => {
     const context = new MouseEvent('contextmenu', { cancelable: true })
     canvas.element.dispatchEvent(context)
     expect(context.defaultPrevented).toBe(true)
+  })
+  it('switches sessions, releases the old target and translates the session labels', async () => {
+    const view = await open({ ...info, sessions: [
+      { id: 1, kind: 'console', state: 'active' },
+      { id: 2, kind: 'remote', state: 'disconnected' },
+    ] })
+    vi.mocked(streamScreen).mockImplementation((abortSignal, onFrame) => {
+      signal = abortSignal; frames = onFrame
+      return new Promise(resolve => { endStream = resolve; abortSignal.addEventListener('abort', () => resolve(), { once: true }) })
+    })
+    // The original test stream also needs to finish when the first switch aborts it.
+    const oldSignal = signal
+    oldSignal.addEventListener('abort', () => endStream(), { once: true })
+    await showFrame()
+    await chooseOption(view, '[data-test="desktop-session"]', '2')
+    await flushPromises()
+    expect(oldSignal.aborted).toBe(true)
+    expect(inputScreen).toHaveBeenCalledWith([{ type: 'release_all' }], undefined)
+    expect(streamScreen).toHaveBeenLastCalledWith(expect.any(AbortSignal), expect.any(Function), 2)
+    await showFrame()
+    await view.get('canvas').trigger('keydown', { code: 'KeyA' })
+    tick(); await flushPromises()
+    expect(inputScreen).toHaveBeenLastCalledWith([{ type: 'key', code: 'KeyA', down: true }], 2)
+    expect((await selectLabels(view, '[data-test="desktop-session"]')).join(' ')).toContain('Disconnected')
+    setLocale('cs'); await flushPromises()
+    expect((await selectLabels(view, '[data-test="desktop-session"]')).join(' ')).toContain('Odpojen\u00e1')
+    expect((await selectLabels(view, '[data-test="desktop-session"]')).join(' ')).toContain('Fyzick\u00e1 konzole')
+    await chooseOption(view, '[data-test="desktop-session"]', '1'); await flushPromises()
+    expect(inputScreen).toHaveBeenLastCalledWith([{ type: 'release_all' }], 2)
+    expect(streamScreen).toHaveBeenLastCalledWith(expect.any(AbortSignal), expect.any(Function), 1)
+    vi.mocked(fetchScreen).mockResolvedValue({ ...info, sessions: [], supported: false, reason: 'desktop_session_unavailable' })
+    endStream(); await flushPromises()
+    expect(view.get('[data-test="desktop-session"]').attributes('data-value')).toBe('1')
+    expect((await selectLabels(view, '[data-test="desktop-session"]')).join(' ')).toContain('Nedostupná')
+    expect(view.get('[data-test="screen-unsupported"]').text()).toContain('Vybraná relace')
+    setLocale('en'); await flushPromises()
+    expect((await selectLabels(view, '[data-test="desktop-session"]')).join(' ')).toContain('Unavailable')
+    expect(view.get('[data-test="screen-unsupported"]').text()).toContain('selected session')
   })
   it('coalesces moves per animation frame and keeps only one request in flight', async () => {
     const view = await open(); await showFrame()
@@ -229,7 +268,7 @@ describe('ScreenOverlay', () => {
     endStream(); await flushPromises()
     expect(view.get('[data-test="screen-unsupported"]').text()).toContain('protected')
     setLocale('cs'); await flushPromises()
-    expect(view.get('[data-test="screen-unsupported"]').text()).toContain('chráněná')
+    expect(view.get('[data-test="screen-unsupported"]').text()).toContain('chráněnou')
     vi.mocked(fetchScreen).mockResolvedValue(info)
     await view.get('.status button').trigger('click'); await flushPromises()
     expect(streamScreen).toHaveBeenCalledTimes(2)

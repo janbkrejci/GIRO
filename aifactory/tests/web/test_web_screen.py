@@ -21,10 +21,15 @@ from starlette.types import Message
 
 from aifactory.codeprint import CodeWatch
 from aifactory.skill import envelope_problems
-from aifactory.web import screen
+from aifactory.web import screen, screen_service
 from aifactory.web import screen_capture as capture
 from aifactory.web.app import create_multi_app
 from aifactory.web.server import allowed_hosts
+
+
+@pytest.fixture(autouse=True)
+def no_live_session_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(screen_service, "sessions", lambda: [])
 
 
 def _client(tmp_path: Path, host: str, peer: str) -> TestClient:
@@ -60,6 +65,7 @@ def test_availability_and_access(
             "reason": None,
             "width": 640,
             "height": 360,
+            "sessions": [],
         }
         if not enabled:
             response = client.get("/api/screen/stream")
@@ -89,6 +95,7 @@ def test_unsupported_linux(
             "reason": reason,
             "width": None,
             "height": None,
+            "sessions": [],
         }
         response = client.get("/api/screen/stream")
         assert response.status_code == 501
@@ -277,3 +284,57 @@ def test_shutdown_closes_active_stream(tmp_path: Path, monkeypatch: pytest.Monke
     assert session.stop.is_set()
     assert session.task.done()
     assert cast(Starlette, client.app).state.screen_session is None
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "abc", "4294967295", "1.5"])
+def test_invalid_session_selector(
+    tmp_path: Path, value: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GIRO_SCREEN_BACKEND", "fake")
+    with _client(tmp_path, "127.0.0.1", "127.0.0.1") as client:
+        for path in ("/api/screen", "/api/screen/stream"):
+            assert client.get(path + "?session=" + value).status_code == 400
+        assert (
+            client.post("/api/screen/input?session=" + value, json={"events": []}).status_code
+            == 400
+        )
+
+
+def test_switching_session_closes_previous_input_and_routes_capture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aifactory.web.screen_input import FakeBackend
+
+    opened: list[int | None] = []
+
+    def open_capture(target: int | None = None) -> capture.FakeCapture:
+        opened.append(target)
+        return capture.FakeCapture()
+
+    monkeypatch.setattr(capture, "open_capture", open_capture)
+
+    async def scenario() -> None:
+        app = Starlette()
+        app.state.terminal_enabled = True
+        app.state.screen_session = None
+        first = await screen.screen_stream(_request(app, b"session=1"))
+        assert isinstance(first, screen.ScreenResponse)
+        state = first.session.input_state
+        assert state is not None
+        backend = FakeBackend()
+        state.backend = backend
+        state.apply([{"type": "key", "code": "ShiftLeft", "down": True}])
+        second = await screen.screen_stream(_request(app, b"session=2"))
+        assert isinstance(second, screen.ScreenResponse)
+        try:
+            assert state.closed
+            assert first.session.stop.is_set()
+            assert backend.events[-2:] == [("key", "ShiftLeft", False), ("release_all",)]
+            assert second.session.target_session == 2
+            assert opened == [1, 2]
+            with pytest.raises(capture.Unsupported):
+                state.apply([{"type": "move", "x": 0, "y": 0}])
+        finally:
+            await second.session.close()
+
+    asyncio.run(scenario())

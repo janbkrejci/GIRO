@@ -80,7 +80,13 @@ class FakeCapture:
         self.base.close()
 
 
-def open_capture() -> Capture:
+def open_capture(target_session: int | None = None) -> Capture:
+    if target_session is not None:
+        if sys.platform != "win32":
+            raise Unsupported("desktop_session_unavailable")
+        from aifactory.web.screen_service import WindowsCapture
+
+        return WindowsCapture(target_session)
     if os.environ.get("GIRO_SCREEN_BACKEND") == "fake":
         return FakeCapture()
     if sys.platform == "win32":
@@ -113,10 +119,10 @@ def jpeg(raw: bytes, geometry: Geometry, max_width: int, quality: int) -> bytes:
         image.close()
 
 
-def probe() -> Geometry | Unsupported:
+def probe(target_session: int | None = None) -> Geometry | Unsupported:
     capture = None
     try:
-        capture = open_capture()
+        capture = open_capture() if target_session is None else open_capture(target_session)
         capture.read()  # Opening alone does not verify macOS recording permission.
         return capture.geometry
     except Unsupported as exc:
