@@ -2,6 +2,7 @@
 id: HAIFA-S13-T03
 title: "Tajná plocha: vstup na macOS (CGEvent) a Linuxu (XTest)"
 status: done
+archived: true
 workflow: build-test-review
 depends_on: [HAIFA-S13-T02]
 writes: [aifactory/src/aifactory/web/screen_input_macos.py, aifactory/src/aifactory/web/screen_input_x11.py, aifactory/tests/web/test_web_screen_input_platforms.py]

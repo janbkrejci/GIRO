@@ -2,6 +2,7 @@
 id: HAIFA-S13-T04
 title: "Overlay tajné plochy otevřený sekvencí Shift, Control, Shift, Control"
 status: done
+archived: true
 workflow: build-test-review
 depends_on: [HAIFA-S13-T02]
 writes: [aifactory/web/src/lib/secretKeys.ts, aifactory/web/src/lib/secretKeys.test.ts, aifactory/web/src/lib/screen.ts, aifactory/web/src/lib/screen.test.ts, aifactory/web/src/components/screen/, aifactory/web/src/App.vue, aifactory/web/src/App.test.ts, aifactory/src/aifactory/web/static/]

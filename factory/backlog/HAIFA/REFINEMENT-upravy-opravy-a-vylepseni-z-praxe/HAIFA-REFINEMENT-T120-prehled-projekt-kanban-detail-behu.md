@@ -2,6 +2,7 @@
 id: HAIFA-REFINEMENT-T120
 title: Z Přehledu na projektový Kanban a z karty přímo na běh
 status: done
+archived: true
 depends_on: []
 related: [HAIFA-REFINEMENT-T115]
 writes: [aifactory/web/src/, aifactory/tests/e2e/test_multi_repo_browser.py, aifactory/src/aifactory/web/static/]

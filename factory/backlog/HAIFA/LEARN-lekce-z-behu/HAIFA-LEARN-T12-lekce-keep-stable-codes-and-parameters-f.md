@@ -2,6 +2,7 @@
 id: HAIFA-LEARN-T12
 title: "Lekce: Keep stable codes and parameters for every user-visible state, step name and backe…"
 status: done
+archived: true
 workflow: build-review
 depends_on: []
 related: [HAIFA-S01-T54, HAIFA-TODO-T27, HAIFA-TODO-T28, HAIFA-TODO-T29]

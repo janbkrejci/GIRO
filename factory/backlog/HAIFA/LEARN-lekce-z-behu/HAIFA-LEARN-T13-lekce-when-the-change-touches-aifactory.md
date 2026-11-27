@@ -2,6 +2,7 @@
 id: HAIFA-LEARN-T13
 title: "Lekce: When the change touches `aifactory/web/`, put the full `just web-test` in the test…"
 status: done
+archived: true
 workflow: build-review
 depends_on: []
 related: [HAIFA-S01-T50, HAIFA-S01-T53, HAIFA-S01-T54, HAIFA-S12-T04, HAIFA-S12-T03]

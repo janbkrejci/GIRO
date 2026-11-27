@@ -2,6 +2,7 @@
 id: HAIFA-S01-T55
 title: "Backlog: ve filtru nabízet pouze nearchivované projekty"
 status: done
+archived: true
 workflow: build-test-review
 depends_on: [HAIFA-REFINEMENT-T114]
 writes: [aifactory/web/src/lib/backlog.ts, aifactory/web/src/lib/backlog.test.ts, aifactory/web/src/views/BacklogView.vue, aifactory/web/src/views/BacklogView.test.ts, aifactory/tests/e2e/test_f3_browser.py, aifactory/src/aifactory/web/static/]

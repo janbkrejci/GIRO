@@ -2,6 +2,7 @@
 id: HAIFA-S13-T05
 title: Prohlížečový test tajné plochy a zápis rozhodnutí
 status: done
+archived: true
 workflow: build-test-review
 depends_on: [HAIFA-S13-T03, HAIFA-S13-T04]
 writes: [aifactory/tests/e2e/test_screen_browser.py, aifactory/tests/tiers.py, docs/decisions.md]

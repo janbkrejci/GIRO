@@ -2,6 +2,7 @@
 id: HAIFA-S13-T02
 title: "API tajné plochy: vstup myši a klávesnice a backend pro Windows"
 status: done
+archived: true
 workflow: build-test-review
 depends_on: [HAIFA-S13-T01]
 writes: [aifactory/src/aifactory/web/screen_input.py, aifactory/src/aifactory/web/screen_input_windows.py, aifactory/src/aifactory/web/screen.py, aifactory/src/aifactory/web/routes/screen.py, aifactory/src/aifactory/web/routes/__init__.py, aifactory/tests/web/test_web_screen_input.py, aifactory/tests/web/test_web_routes.py]

@@ -2,6 +2,7 @@
 id: HAIFA-REFINEMENT-T119
 title: Přechodné síťové chyby při git fetch nesmí zastavit approve ani auto-continue řetěz
 status: done
+archived: true
 depends_on: []
 ---
 

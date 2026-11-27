@@ -2,6 +2,7 @@
 id: HAIFA-LEARN-T14
 title: "Lekce: Never plan the whole pytest suite (`just test`, `just check`) in one factory test…"
 status: done
+archived: true
 workflow: build-review
 depends_on: []
 related: [HAIFA-REFINEMENT-T09, HAIFA-REFINEMENT-T10, HAIFA-S10-T03, HAIFA-S10-T04, HAIFA-REFINEMENT-T69, HAIFA-REFINEMENT-T75]
